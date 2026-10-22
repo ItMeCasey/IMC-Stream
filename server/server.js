@@ -1592,6 +1592,13 @@ async function route(req, res) {
       if (p === '/api/test') {
         if (body.type === 'duel') { const n = ['RetroRider', 'VinylVince', 'TealTina', 'ChaosChad', 'BitBaron', 'GenerousGamer'], x = n[Math.floor(Math.random() * 6)]; duelPlay({ a: x, b: n[(n.indexOf(x) + 1 + Math.floor(Math.random() * 5)) % 6], winner: Math.random() < .5 ? 'a' : 'b', amount: 500, currency: 'coins' }); return json(res, 200, { ok: true }); }
         if (body.type === 'poll' || body.type === 'prediction') { runDemo(body.type); return json(res, 200, { ok: true }); }
+        if (body.type === 'chat' && body.fill) {   // fill the waiting room: a lot of pretend chatters talk, one every second or so (they also show in the chat dock, they never reach the bot)
+          const who = ['RetroRider', 'VinylVince', 'TealTina', 'ChaosChad', 'BitBaron', 'GenerousGamer', 'PixelPat', 'MaxMuscle', 'NeonNora', 'CozyCarl', 'LunaLoop', 'DiceDan', 'SynthSam', 'MossyMike', 'ArcadeAnna', 'TurboTed', 'QuietQuinn', 'FizzyFran'];
+          const say = ['hey everyone!', 'first time catching you live', 'is it starting soon?', 'this waiting room is so cozy', 'brought snacks for everyone', 'LUL', 'gg', 'what are we playing today', 'that couch looks comfy', 'hello from germany!', 'o7', 'can someone pass the magazines', 'anyone want to chat while we wait', 'love the pixel art', 'my cat says hi'];
+          const n = Math.max(1, Math.min(who.length, Math.floor(Number(body.fill)) || who.length));
+          who.slice(0, n).forEach((name, i) => setTimeout(() => chatIn({ message_id: 'fill-' + Date.now() + '-' + i, chatter_user_id: 'fill' + i, chatter_user_login: name.toLowerCase(), chatter_user_name: name, color: ['#4FBBBC', '#F39120', '#EC4624', '#8e7cc3', '#6aa84f', '#2e86c1'][i % 6], badges: [], message_type: 'text', message: { text: say[(i * 7) % say.length] } }), i * 1100));
+          return json(res, 200, { ok: true, chatters: n });
+        }
         if (body.type === 'chat') {   // fake chat line for trying the dock/overlay: one emote from each provider
           const pick = (p) => Object.keys(emotes).find((k) => emotes[k].p === p && !emotes[k].z) || '';
           const text = ['hello', pick('BTTV'), pick('FFZ'), pick('7TV'), 'chat!'].filter(Boolean).join(' ');
