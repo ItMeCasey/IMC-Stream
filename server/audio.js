@@ -8,7 +8,7 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('base64');
 const EVENTS = 1 | (1 << 2) | (1 << 3) | (1 << 16);   // Scenes + Inputs + InputVolumeMeters (the fast meter stream)
 
 module.exports = function createAudio(ctx) {
-  const WS = ctx.WebSocket || WebSocket, log = ctx.log || (() => {}), IDLE_MS = ctx.idleMs || 20000;
+  const WS = ctx.WebSocket || WebSocket, IDLE_MS = ctx.idleMs || 20000;
   let ws = null, ready = false, seq = 0, pend = new Map(), idleT = null, retryT = null, wanted = false, lastTouch = 0, backoff = 1500, sawHello = false;
   let inputs = new Map(), program = '', error = '', sceneCache = new Map(), specials = [];
   let pushT = null, dirty = false, quietUntil = 0;

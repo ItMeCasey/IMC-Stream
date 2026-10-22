@@ -460,7 +460,6 @@ const SAMPLE_VARS = {
   charity: { name: 'KindKira', amount: '$10.00', charity: 'Save The Pixels' }, tip: { name: 'GenerousGamer', amount: '$10.00', message: 'Keep up the great work' },
   custom: { name: 'Sam', message: 'Hello!', amount: '' },
 };
-const SAMPLE_NUM = { resub: 7, giftsub: 5, bits: 500, raid: 42, redeem: 500, charity: 10, tip: 10, custom: 0 };
 const C_AQUA = '#4FBBBC', C_HEAT = '#F39120', C_RUST = '#EC4624', C_CREAM = '#E2DAC2';
 function defaultRules() {
   const r = (event, name, tag, title, msg, color, sound, extra = {}) => Object.assign({
@@ -841,7 +840,6 @@ function handleEvent(type, e, opts = {}) {
 function handleEventInner(type, e, opts = {}) {
   const live = !opts.test;
   const s = state.session, A = state.allTime;
-  let soon = false;
   switch (type) {
     case 'channel.follow': {
       const name = e.user_name;
@@ -918,7 +916,6 @@ function handleEventInner(type, e, opts = {}) {
         hy.top = topContributor(e.top_contributions) || hy.top; hy.lastLevel = hy.level;
       }
       if (type.endsWith('begin')) { fire('hype_start', { level: e.level || 1 }); if (live) scenes.fire('hypeStart').catch(() => {}); }
-      soon = !type.endsWith('begin');
       break;
     }
     case 'channel.hype_train.end': {
@@ -940,7 +937,6 @@ function handleEventInner(type, e, opts = {}) {
           startedAt: Date.parse(e.started_at) || prev.startedAt || Date.now(), endsAt: e.ends_at ? Date.parse(e.ends_at) : prev.endsAt || 0,
           endedAt: ended ? Date.parse(e.ended_at) || Date.now() : 0 };
       }
-      soon = !type.endsWith('begin') && !type.endsWith('end');
       break;
     }
     case 'channel.prediction.begin': case 'channel.prediction.progress': case 'channel.prediction.lock': case 'channel.prediction.end': {
@@ -953,7 +949,6 @@ function handleEventInner(type, e, opts = {}) {
           startedAt: Date.parse(e.started_at) || prev.startedAt || Date.now(), locksAt: e.locks_at ? Date.parse(e.locks_at) : prev.locksAt || 0,
           endedAt: k === 'end' ? Date.parse(e.ended_at) || Date.now() : 0 };
       }
-      soon = type.endsWith('progress');
       break;
     }
     case 'channel.update':

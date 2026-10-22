@@ -13,7 +13,6 @@ module.exports = function createArena(ctx) {
   const say = (t) => ctx.say(t);
   let cur_ = null;   // the running game: { kind, ... }
   const MONSTERS = ['Slime', 'Goblin', 'Skeleton', 'Bat King', 'Mushroom Lord', 'Stone Golem', 'Dragon Whelp', 'Lava Imp', 'Cave Troll', 'Ghost Pirate'];
-  const hashStr = (s) => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
   const busyMsg = () => 'A ' + { boss: 'boss raid', royale: 'arena', teams: 'team battle' }[cur_.kind] + ' is already running.';
   const finish = () => { if (cur_ && cur_.timer) clearT(cur_.timer); cur_ = null; };
 
@@ -99,7 +98,7 @@ module.exports = function createArena(ctx) {
     },
     join(u, side) {
       if (!cur_ || cur_.kind !== 'teams' || cur_.phase !== 'lobby') return '';
-      const T = cfg().teams, other = side === 'red' ? 'blue' : 'red';
+      const T = cfg().teams;
       if (cur_.red.concat(cur_.blue).some((p) => p.id === u.id)) return u.name + ', you already picked a side.';
       if (cur_[side].length >= T.maxPerTeam) return u.name + ', team ' + side + ' is full.';
       if (ctx.getPts(u.id, u.name) < T.fee) return u.name + ', joining costs ' + fmt(T.fee) + ' ' + cur() + ' and you have ' + fmt(ctx.getPts(u.id)) + '.';

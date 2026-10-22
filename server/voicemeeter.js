@@ -3,7 +3,7 @@
  * Voicemeeter helper for the Setup page: download + install (official VB-Audio files only, signature checked), set up the routing,
  * and change OBS so music and alert sounds stay out of the Twitch VOD (they are left off audio Track 2, the VOD track).
  */
-const fs = require('node:fs'), path = require('node:path'), os = require('node:os');
+const fs = require('node:fs'), path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
 
 module.exports = function createVm(ctx) {
