@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Emote Rewards</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 980px; margin: 0 auto; padding: 18px 24px 50px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 13px; padding: 9px 15px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); }
+  button:hover { filter: brightness(1.12); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.alt { background: var(--aqua); } button.danger { background: var(--rust); color: #fff; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; }
+  .fld input, .fld select { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; }
+  .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin: 8px 0; } .row > .fld { flex: 1; min-width: 150px; }
+  .muted { color: #9aa39f; font-size: 13px; } .err { color: var(--heat); min-height: 18px; margin: 6px 0; } .ok { color: var(--aqua); } code { background: #151b1b; padding: 1px 5px; }
+  ol { padding-left: 20px; display: grid; gap: 6px; font-size: 14px; } ol li::marker { color: var(--heat); }
+  .em { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 15px; } .em b { color: var(--heat); }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; max-width: 90%; } #toast.bad { background: var(--rust); color: #fff; }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>EMOTE REWARDS</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section class="h">
+    <h2>HOW IT WORKS</h2>
+    <p class="muted" style="margin-bottom:8px">A viewer spends channel points on a reward and pastes the link of an emote from <b>7TV</b> (<code>https://7tv.app/emotes/...</code>). The app adds that emote to <b>your real 7TV emote set</b>, so everyone with 7TV sees it, and takes it away again after the number of days you choose. If the link is wrong, the emote is not allowed, or your set is full, the viewer is told why and the points are refunded.</p>
+    <p class="muted">Only 7TV links work. BetterTTV has no way to add emotes to a channel automatically, so BetterTTV links are refused and refunded. Emotes marked as adult, flashing or not allowed on Twitch are always refused.</p>
+  </section>
+
+  <section>
+    <h2>1. CONNECT YOUR 7TV ACCOUNT</h2>
+    <ol>
+      <li>Open <b>7tv.app</b> and log in with Twitch (the same account as this channel).</li>
+      <li>Press <b>F12</b>, open the <b>Application</b> tab (Storage in Firefox), then <b>Local Storage</b> and <code>https://7tv.app</code>.</li>
+      <li>Copy the value of the entry called <code>token</code> (or <code>7tv-token</code>) and paste it below. It is a long text that starts with <code>eyJ</code>.</li>
+    </ol>
+    <div class="row"><label class="fld">7TV token<input id="token" type="password" autocomplete="off" placeholder="paste it here"></label><button id="saveToken">Save token</button><button class="ghost" id="test">Test connection</button><button class="ghost" id="clearToken">Forget token</button></div>
+    <div class="err" id="tokenMsg"></div>
+    <p class="muted">The token is kept on this PC only, in the app's data folder. It is never shown again and never sent anywhere but 7TV. It gives this app the same rights as you on 7TV, so do not share it. If it stops working, log in again and paste a fresh one.</p>
+  </section>
+
+  <section>
+    <h2>2. RULES</h2>
+    <div class="row"><label class="fld" style="max-width:200px">Days an emote stays<input id="days" type="number" min="1" max="365"></label>
+      <label class="fld" style="max-width:240px">Most borrowed emotes at once<input id="max" type="number" min="1" max="200"></label>
+      <label class="fld" style="flex-direction:row;align-items:center;gap:8px;max-width:320px"><input id="edgy" type="checkbox" style="width:18px;height:18px"> Refuse "edgy / disturbing" emotes</label>
+      <button id="saveRules">Save rules</button></div>
+  </section>
+
+  <section class="r">
+    <h2>3. THE REWARD</h2>
+    <p class="muted" style="margin-bottom:6px" id="rewardInfo"></p>
+    <div class="row"><label class="fld">Title<input id="rTitle" maxlength="45"></label><label class="fld" style="max-width:150px">Cost (points)<input id="rCost" type="number" min="1" value="5000"></label><label class="fld" style="max-width:190px">Cooldown (seconds)<input id="rCd" type="number" min="0" value="600"></label><button id="mk">Create the reward on Twitch</button></div>
+    <p class="muted">This makes the reward (with a box for the link) and the hook that adds the emote, in one go. You can change the cost or switch it off on the Reward Hooks page. Needs Affiliate or Partner.</p>
+  </section>
+
+  <section>
+    <h2>BORROWED EMOTES RIGHT NOW</h2>
+    <div id="list"></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id), esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const post = (op, b) => fetch('/api/seventv/' + op, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3600); }
+function draw(v) {
+  $('days').value = v.days; $('max').value = v.max; $('edgy').checked = v.blockEdgy; $('rTitle').value = $('rTitle').value || 'Add a 7TV emote for ' + v.days + ' days';
+  $('tokenMsg').className = 'err ok'; if (!$('tokenMsg').textContent) $('tokenMsg').textContent = v.hasToken ? 'A token is saved. Press Test connection to check it.' : 'No token yet.';
+  $('rewardInfo').textContent = v.rewardId ? 'A reward made here exists on Twitch (id ' + v.rewardId + '). Making another creates a second one.' : 'No reward made yet.';
+  $('list').innerHTML = v.active.length ? v.active.map((a) => '<div class="em"><div><b>' + esc(a.name) + '</b> <span class="muted">added by ' + esc(a.by || '?') + (a.animated ? ' &middot; animated' : '') + '</span></div><span class="muted">' + a.daysLeft + (a.daysLeft === 1 ? ' day' : ' days') + ' left</span><button class="ghost" data-id="' + esc(a.emoteId) + '">Remove now</button></div>').join('') : '<p class="muted">None. Emotes redeemed by viewers show up here with the days they have left.</p>';
+}
+async function load() { draw(await fetch('/api/seventv/view', { method: 'POST', body: '{}', headers: { 'Content-Type': 'application/json' } }).then((r) => r.json())); }
+$('saveToken').onclick = async () => { const t = $('token').value.trim(); if (!t) return toast('Paste the token first', true); const r = await post('settings', { token: t }); if (r.error) return toast(r.error, true); $('token').value = ''; $('tokenMsg').textContent = 'Saved. Testing...'; $('test').click(); draw(r); };
+$('clearToken').onclick = async () => { draw(await post('settings', { clearToken: true })); $('tokenMsg').textContent = 'Token removed.'; };
+$('test').onclick = async () => { $('tokenMsg').className = 'err'; $('tokenMsg').textContent = 'Checking...'; const r = await post('test'); if (r.error) { $('tokenMsg').textContent = r.error; return; } $('tokenMsg').className = 'err ok'; $('tokenMsg').textContent = 'Connected as ' + r.user + '. Emote set "' + r.set + '": ' + r.emotes + ' of ' + r.capacity + ' slots used.'; };
+$('saveRules').onclick = async () => { const r = await post('settings', { days: +$('days').value, max: +$('max').value, blockEdgy: $('edgy').checked }); if (r.error) return toast(r.error, true); toast('Saved'); draw(r); };
+$('mk').onclick = async () => { const r = await post('reward', { title: $('rTitle').value, cost: +$('rCost').value, cooldown: +$('rCd').value }); if (r.error) return toast(r.error, true); toast('Reward created on Twitch'); draw(r); };
+$('list').onclick = async (e) => { const id = e.target.dataset.id; if (!id) return; if (!e.target.dataset.arm) { e.target.dataset.arm = 1; e.target.textContent = 'Sure?'; setTimeout(() => { delete e.target.dataset.arm; e.target.textContent = 'Remove now'; }, 3000); return; } const r = await post('remove', { emoteId: id }); if (r.error) return toast(r.error, true); toast('Removed from your 7TV set'); load(); };
+load(); setInterval(load, 60000);
+</script></body></html>

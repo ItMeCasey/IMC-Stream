@@ -2,7 +2,7 @@
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), assert = require('node:assert');
 const createBot = require('./bot.js'), createHooks = require('./hooks.js');
 
-const ttsSaid = [], cdOps = [], sent = [], obsCalls = [], helixCalls = [], fetchCalls = [], customFires = [];
+const sevenAdds = [], ttsSaid = [], cdOps = [], sent = [], obsCalls = [], helixCalls = [], fetchCalls = [], customFires = [];
 const state = { stream: { live: true, startedAt: new Date().toISOString(), game: 'Tetris', title: 'T', viewers: 5 }, totals: { followers: 10, subs: 1 }, recent: { followers: [], subscribers: [] },
   rewardHooks: [], alertRules: [{ event: 'custom', key: 'confetti' }, { event: 'custom', key: 'confetti' }, { event: 'follow' }], obsCfg: { host: '127.0.0.1', port: 4455, password: '' } };
 let persisted = 0;
@@ -23,6 +23,7 @@ const hooks = createHooks({
   fireCustom: (key, vars, n) => { customFires.push([key, vars, n]); return key === 'confetti'; },
   tts: { say: async (text, o) => { ttsSaid.push([text, o.voice, o.by]); return { text }; } },
   countdown: new Proxy({}, { get: (_, op) => (b) => { cdOps.push([op, b]); } }),
+  seventv: { add: async ({ url, by }) => { sevenAdds.push([url, by]); if (/bad/.test(url)) throw new Error('that emote does not exist on 7TV'); return { name: 'KEKW', days: 30 }; } },
   fetch: async (url, o) => { fetchCalls.push([url, o]); return { ok: !/bad/.test(url), status: /bad/.test(url) ? 500 : 200 }; },
 });
 
@@ -92,6 +93,15 @@ const redemption = (over = {}) => Object.assign({ id: 'red1', user_id: 'u9', use
   assert.deepStrictEqual(res.map((r) => r.ok), [false, false, false, false, true, true], JSON.stringify(res));
   assert.match(res[0].msg, /No scene items/); assert.match(res[1].msg, /HTTP 500/); assert.match(res[2].msg, /http\(s\)/); assert.match(res[3].msg, /No enabled Custom alert/);
   assert.strictEqual(helixCalls[0][2].status, 'CANCELED'); assert.strictEqual(sent.pop().text, 'still here, Sam');
+
+  // ---- the 7TV emote reward: a good link is added and the redemption fulfilled; a bad one is refunded and the viewer is told why
+  const h7 = await hooks.api('save', { name: '7TV emote', match: { rewardId: 'r7' }, actions: [{ type: 'emote7tv' }] }); assert.strictEqual(h7.actions[0].say, true);
+  helixCalls.length = 0; sent.length = 0;
+  await hooks.onRedemption(redemption({ id: 'red7', user_input: 'https://7tv.app/emotes/01M4TQBBJRVAC5ETDM0CV4FBN7', reward: { id: 'r7', title: 'Add an emote', cost: 5000 } })); await bot._flush();
+  assert.deepStrictEqual(sevenAdds.pop(), ['https://7tv.app/emotes/01M4TQBBJRVAC5ETDM0CV4FBN7', 'Sam']); assert.strictEqual(helixCalls[0][2].status, 'FULFILLED'); assert.match(helixCalls[0][1], /id=red7.*reward_id=r7/); assert.match(sent.pop().text, /@Sam added the emote KEKW to the channel for 30 days/);
+  await hooks.onRedemption(redemption({ id: 'red8', user_input: 'https://bad.example', reward: { id: 'r7', title: 'Add an emote', cost: 5000 } })); await bot._flush();
+  assert.strictEqual(helixCalls[1][2].status, 'CANCELED'); assert.match(sent.pop().text, /that emote could not be added: that emote does not exist on 7TV \(your points are refunded\)/); assert.strictEqual(hooks.view().runs[0].results[0].ok, false);
+  await hooks.api('delete', { id: h7.id });
 
   // ---- status action explains Twitch's app-ownership rule
   await hooks.api('save', { id: h2.id, name: 'Resilient', match: { title: 'Sing' }, actions: [{ type: 'status', status: 'FULFILLED' }] });

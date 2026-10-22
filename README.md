@@ -130,6 +130,12 @@ Replaces Streamlabs/StreamElements: connects to Twitch directly, pushes alerts t
 - **Labels / variables:** `now_playing`, `now_playing_title`, `now_playing_artist`, `now_playing_album`, `now_playing_status`, `now_playing_progress`, `now_playing_link` (also usable as `{now_playing}` etc. in commands).
 - Not covered: Apple Music on a Mac (no Windows media session there) and Apple's own web API. Apple Music for Windows is expected to work through the Windows route but I could only test the Windows route with a browser player and a simulated Apple Music session.
 
+**7TV emote rewards** at http://localhost:8420/emotes (left rail: Emote Rewards)
+- A viewer redeems a channel point reward and pastes the link of a **7TV** emote (`https://7tv.app/emotes/...`). The app adds it to **your real 7TV emote set** (so everyone with 7TV sees it) and removes it again after 30 days (you choose the days). If the link is wrong, the emote is not allowed or the set is full, the viewer is told why in chat and the points are refunded.
+- Set-up on the page: paste your 7TV login token (it stays on your PC, in `data/emotes7tv.json`), press **Test connection**, set the days and the most borrowed emotes at once, then **Create the reward on Twitch** (it makes the reward with a box for the link plus the hook that does the work). The page lists the borrowed emotes with their days left and can remove one early.
+- Only 7TV links work: BetterTTV has no way to add emotes to a channel automatically, so BetterTTV links are refused and refunded. Emotes marked adult, flashing, private, unlisted or not allowed on Twitch are always refused (edgy ones too, unless you switch that off), a name that is already taken gets a number, and a full set is reported. Borrowed emotes whose time is up are removed every half hour (and at start-up). The 7TV request that does the adding uses 7TV's own GraphQL API, which can change.
+- The same thing is a Reward Hooks action ("Add the 7TV emote the viewer pasted") if you want it on a reward you already have. Check: `node seventv-test.js`.
+
 **Channel point reward hooks** at http://localhost:8420/hooks
 - Pick a reward (from your Twitch list), or "reward name contains ...", or any reward, then build a list of **actions** that run in order, each with an optional delay:
   - **Show an overlay alert:** fires one of your own Custom alerts (create it under Alerts on the dashboard and use its trigger key).

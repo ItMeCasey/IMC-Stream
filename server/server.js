@@ -1512,6 +1512,7 @@ async function route(req, res) {
   if (p === '/api/hooks') return json(res, 200, hooks.view());
   if (p === '/api/hooks/rewards') { try { return json(res, 200, { rewards: await hooks.rewards(false) }); } catch (e) { return json(res, 200, { rewards: [], error: e.message }); } }
   if (p === '/hooks' || p === '/hooks/') return serveFile(res, path.join(__dirname, 'public', 'hooks.html'));
+  if (p === '/emotes' || p === '/emotes/') return serveFile(res, path.join(__dirname, 'public', 'emotes.html'));
   if (p === '/api/countdown') return json(res, 200, countdown.view());
   if (p === '/api/subathon') return json(res, 200, Object.assign(subathon.view(), { rules: subathon.rules() }));
   if (p === '/subathon' || p === '/subathon/') return serveFile(res, path.join(__dirname, 'public', 'subathon.html'));
@@ -1757,6 +1758,20 @@ async function route(req, res) {
       if (p.startsWith('/api/modules/')) return json(res, 200, modules.api(p.slice(13), body));
       if (p.startsWith('/api/scenes/')) return json(res, 200, await scenes.api(p.slice(12), body));
       if (p.startsWith('/api/hooks/')) return json(res, 200, await hooks.api(p.slice(11), body));
+      if (p.startsWith('/api/seventv/')) {
+        const op = p.slice(13);
+        if (op === 'view') return json(res, 200, seventv.view());
+        if (op === 'settings') return json(res, 200, seventv.configure(body));
+        if (op === 'test') return json(res, 200, await seventv.test());
+        if (op === 'remove') return json(res, 200, await seventv.removeNow(String(body.emoteId || '')));
+        if (op === 'reward') {   // make the channel point reward on Twitch and the hook that adds the emote, in one go
+          const title = String(body.title || 'Add a 7TV emote for ' + seventv.days() + ' days').slice(0, 45);
+          const rw = await hooks.api('reward/create', { title, cost: body.cost || 5000, cooldown: body.cooldown || 0, input: true, prompt: 'Paste the link of a 7TV emote (7tv.app/emotes/...). It is added to the channel for ' + seventv.days() + ' days.' });
+          await hooks.api('save', { name: '7TV emote: ' + title, enabled: true, match: { rewardId: rw.id }, actions: [{ type: 'emote7tv' }] });
+          return json(res, 200, seventv.configure({ rewardId: rw.id }));
+        }
+        throw new Error('unknown 7TV action');
+      }
       if (p.startsWith('/api/ads/')) { const out = await adsAction(p.slice(9), body); if (body.say && p.endsWith('/run')) bot.say(String(body.say).slice(0, 450)); return json(res, 200, out); }
       if (p.startsWith('/api/channel/')) return json(res, 200, await channelAction(p.slice(13), body));
       if (p.startsWith('/api/polls/')) return json(res, 200, await pollAction(p.slice(11), body));
@@ -1848,8 +1863,9 @@ async function obsStats() {   // cached for a second so several open widgets sha
   obsStatsCache = { t: now, v }; return v;
 }
 const vmix = require('./voicemeeter.js')({ DATA, obs: obsClient, log });
+const seventv = require('./seventv')({ file: path.join(DATA, 'emotes7tv.json'), log, twitchId: () => (tokens ? tokens.user_id : '') });   // viewers add 7TV emotes to the channel with channel points
 const hooks = createHooks({
-  state, persist, log, bot, obs: obsClient,
+  state, persist, log, bot, obs: obsClient, seventv,
   me: () => (tokens ? { id: tokens.user_id, login: tokens.login } : null),
   helix: (m, p, b) => helix(m, p, b), fireCustom: (key, vars, num) => fire('custom', vars, num, key),
   tts: { say: (t, o) => tts.say(t, o) },
@@ -1926,6 +1942,7 @@ function main() {
     renderLabels();
     media.start();
     backup.auto(); const bk = setInterval(() => backup.auto(), 6 * 3600e3); if (bk.unref) bk.unref();
+    const e7 = setInterval(() => seventv.expireDue().catch((e) => log('7tv expiry:', e.message)), 30 * 60e3); if (e7.unref) e7.unref(); setTimeout(() => seventv.expireDue().catch(() => {}), 60e3).unref();   // borrowed emotes whose time is up are taken away again
     if (tts.kokoroInstalled() && !state.ttsCfg.voice && !state.ttsCfg.chosen) { state.ttsCfg.voice = 'af_heart'; persist(true); log('Kokoro found: using the realistic voice af_heart by default (change it on the Speech page).'); }
     startStripe(); paypal.start();
     if (!tokens) loadEmotes();
