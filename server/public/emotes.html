@@ -66,6 +66,7 @@
       <label class="fld" style="max-width:240px">Most borrowed emotes at once<input id="max" type="number" min="1" max="200"></label>
       <label class="fld" style="flex-direction:row;align-items:center;gap:8px;max-width:320px"><input id="edgy" type="checkbox" style="width:18px;height:18px"> Refuse "edgy / disturbing" emotes</label>
       <button id="saveRules">Save rules</button></div>
+    <div class="row"><label class="fld" style="flex-direction:row;align-items:center;gap:8px;max-width:none"><input id="paints" type="checkbox" style="width:18px;height:18px"> Show 7TV name paints (colours, gradients and glow) on chatters' names in the stream chat overlay and the mod dock</label></div>
   </section>
 
   <section class="r">
@@ -86,7 +87,7 @@ const $ = (id) => document.getElementById(id), esc = (x) => String(x == null ? '
 const post = (op, b) => fetch('/api/seventv/' + op, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
 function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3600); }
 function draw(v) {
-  $('days').value = v.days; $('max').value = v.max; $('edgy').checked = v.blockEdgy; $('rTitle').value = $('rTitle').value || 'Add a 7TV emote for ' + v.days + ' days';
+  $('days').value = v.days; $('max').value = v.max; $('edgy').checked = v.blockEdgy; $('paints').checked = v.paints !== false; $('rTitle').value = $('rTitle').value || 'Add a 7TV emote for ' + v.days + ' days';
   $('tokenMsg').className = 'err ok'; if (!$('tokenMsg').textContent) $('tokenMsg').textContent = v.hasToken ? 'A token is saved. Press Test connection to check it.' : 'No token yet.';
   $('rewardInfo').textContent = v.rewardId ? 'A reward made here exists on Twitch (id ' + v.rewardId + '). Making another creates a second one.' : 'No reward made yet.';
   $('list').innerHTML = v.active.length ? v.active.map((a) => '<div class="em"><div><b>' + esc(a.name) + '</b> <span class="muted">added by ' + esc(a.by || '?') + (a.animated ? ' &middot; animated' : '') + '</span></div><span class="muted">' + a.daysLeft + (a.daysLeft === 1 ? ' day' : ' days') + ' left</span><button class="ghost" data-id="' + esc(a.emoteId) + '">Remove now</button></div>').join('') : '<p class="muted">None. Emotes redeemed by viewers show up here with the days they have left.</p>';
@@ -95,7 +96,7 @@ async function load() { draw(await fetch('/api/seventv/view', { method: 'POST', 
 $('saveToken').onclick = async () => { const t = $('token').value.trim(); if (!t) return toast('Paste the token first', true); const r = await post('settings', { token: t }); if (r.error) return toast(r.error, true); $('token').value = ''; $('tokenMsg').textContent = 'Saved. Testing...'; $('test').click(); draw(r); };
 $('clearToken').onclick = async () => { draw(await post('settings', { clearToken: true })); $('tokenMsg').textContent = 'Token removed.'; };
 $('test').onclick = async () => { $('tokenMsg').className = 'err'; $('tokenMsg').textContent = 'Checking...'; const r = await post('test'); if (r.error) { $('tokenMsg').textContent = r.error; return; } $('tokenMsg').className = 'err ok'; $('tokenMsg').textContent = 'Connected as ' + r.user + '. Emote set "' + r.set + '": ' + r.emotes + ' of ' + r.capacity + ' slots used.'; };
-$('saveRules').onclick = async () => { const r = await post('settings', { days: +$('days').value, max: +$('max').value, blockEdgy: $('edgy').checked }); if (r.error) return toast(r.error, true); toast('Saved'); draw(r); };
+$('saveRules').onclick = async () => { const r = await post('settings', { days: +$('days').value, max: +$('max').value, blockEdgy: $('edgy').checked, paints: $('paints').checked }); if (r.error) return toast(r.error, true); toast('Saved'); draw(r); };
 $('mk').onclick = async () => { const r = await post('reward', { title: $('rTitle').value, cost: +$('rCost').value, cooldown: +$('rCd').value }); if (r.error) return toast(r.error, true); toast('Reward created on Twitch'); draw(r); };
 $('list').onclick = async (e) => { const id = e.target.dataset.id; if (!id) return; if (!e.target.dataset.arm) { e.target.dataset.arm = 1; e.target.textContent = 'Sure?'; setTimeout(() => { delete e.target.dataset.arm; e.target.textContent = 'Remove now'; }, 3000); return; } const r = await post('remove', { emoteId: id }); if (r.error) return toast(r.error, true); toast('Removed from your 7TV set'); load(); };
 const cdn = (id) => 'https://cdn.7tv.app/emote/' + encodeURIComponent(id) + '/2x.webp';

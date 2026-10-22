@@ -12,7 +12,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const GQL = 'https://7tv.io/v3/gql', REST = 'https://7tv.io/v3';
+const GQL = 'https://7tv.io/v3/gql', GQL4 = 'https://7tv.io/v4/gql', REST = 'https://7tv.io/v3';
 const FLAG_PRIVATE = 1, FLAG_SEXUAL = 1 << 16, FLAG_EPILEPSY = 1 << 17, FLAG_EDGY = 1 << 18, FLAG_TWITCH_DISALLOWED = 1 << 24;   // 7TV's emote flag bits (zero width is 256 and is fine)
 const DAY = 86400000;
 
@@ -25,7 +25,7 @@ const isBttv = (text) => /betterttv\.com\/emotes\//i.test(String(text || ''));
 
 module.exports = function createSevenTV(ctx) {
   const now = ctx.now || Date.now, log = ctx.log || (() => {}), doFetch = ctx.fetch || ((...a) => fetch(...a)), FILE = ctx.file;
-  let S = { token: '', days: 30, max: 20, blockEdgy: true, rewardId: '', active: [] };
+  let S = { token: '', days: 30, max: 20, blockEdgy: true, rewardId: '', active: [], paints: true };
   try { S = Object.assign(S, JSON.parse(fs.readFileSync(FILE, 'utf8'))); } catch (e) { /* first run */ }
   const save = () => { try { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(S, null, 2)); } catch (e) { log('7tv save failed:', e.message); } };
   const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : d; };
@@ -153,11 +153,49 @@ module.exports = function createSevenTV(ctx) {
     if (b.clearToken) S.token = '';
     if (b.days !== undefined) S.days = num(b.days, 30, 1, 365); if (b.max !== undefined) S.max = num(b.max, 20, 1, 200); if (b.blockEdgy !== undefined) S.blockEdgy = !!b.blockEdgy;
     if (b.rewardId !== undefined) S.rewardId = String(b.rewardId).slice(0, 80);
+    if (b.paints !== undefined) { S.paints = !!b.paints; PAINTS.clear(); }
     save(); return view();
   }
-  const view = () => ({ hasToken: !!S.token, days: S.days, max: S.max, blockEdgy: S.blockEdgy, rewardId: S.rewardId,
+  const view = () => ({ paints: S.paints !== false, hasToken: !!S.token, days: S.days, max: S.max, blockEdgy: S.blockEdgy, rewardId: S.rewardId,
     active: S.active.map((a) => ({ emoteId: a.emoteId, name: a.name, by: a.by, animated: !!a.animated, addedAt: a.addedAt, expiresAt: a.expiresAt, daysLeft: Math.max(0, Math.ceil((a.expiresAt - now()) / DAY)) })).sort((x, y) => x.expiresAt - y.expiresAt) });
 
-  return { add, addById, search, mySet, removeFromSet, expireDue, removeNow, test, configure, view, parseEmoteId, isBttv, lookup, days: () => S.days };
+  // ---------------------------------------------------------------------------------------------------------- name paints
+  // A 7TV "paint" is the colour, gradient, picture and glow a 7TV user has on their name. The chat overlay and the mod dock ask for the paint of every chatter
+  // (cached for half an hour) and draw it the way 7TV's own extension does: the layers are CSS backgrounds clipped to the text, the shadows are drop shadows.
+  const PAINTS = new Map(), PAINT_TTL = 30 * 60000, NO_PAINT_TTL = 10 * 60000;
+  const rgba = (hex) => { const m = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(String(hex || '')); if (!m) return null; const n = parseInt(m[1], 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + (m[2] ? Math.round(parseInt(m[2], 16) / 2.55) / 100 : 1) + ')'; };
+  const fx = (v, d) => (Number.isFinite(Number(v)) ? Math.round(Number(v) * 1000) / 1000 : d);
+  function stopsCss(stops) { const out = (stops || []).map((p) => { const c = rgba(p.color && p.color.hex); return c ? c + ' ' + Math.round(fx(p.at, 0) * 10000) / 100 + '%' : ''; }).filter(Boolean); return out.length >= 2 ? out.join(', ') : out.length === 1 ? out[0] + ', ' + out[0] : ''; }
+  const cdnUrl = (u) => (/^https:\/\/cdn\.7tv\.app\/[A-Za-z0-9_\/.\-]+$/.test(String(u || '')) ? String(u) : '');
+  /** 7TV paint data -> one CSS string (only values we validated ourselves ever end up in it), or '' for a paint we cannot draw */
+  function paintCss(p) {
+    const layers = ((p && p.data && p.data.layers) || []).map((l) => {
+      const t = l.ty || {}; const op = Number(l.opacity); void op;
+      if (t.__typename === 'PaintLayerTypeSingleColor') { const c = rgba(t.color && t.color.hex); return c ? 'linear-gradient(' + c + ', ' + c + ')' : ''; }
+      if (t.__typename === 'PaintLayerTypeLinearGradient') { const st = stopsCss(t.stops); return st ? (t.repeating ? 'repeating-' : '') + 'linear-gradient(' + fx(t.angle, 0) + 'deg, ' + st + ')' : ''; }
+      if (t.__typename === 'PaintLayerTypeRadialGradient') { const st = stopsCss(t.stops); return st ? (t.repeating ? 'repeating-' : '') + 'radial-gradient(' + (String(t.shape).toUpperCase() === 'CIRCLE' ? 'circle' : 'ellipse') + ', ' + st + ')' : ''; }
+      if (t.__typename === 'PaintLayerTypeImage') { const im = (t.images || []).filter((i) => i.mime === 'image/webp' && cdnUrl(i.url)); const pick = im.find((i) => i.scale === 2 && i.frameCount > 1) || im.find((i) => i.scale === 2) || im[0]; return pick ? 'url("' + cdnUrl(pick.url) + '")' : ''; }
+      return '';
+    }).filter(Boolean);
+    if (!layers.length) return '';
+    const shadows = ((p.data && p.data.shadows) || []).map((s) => { const c = rgba(s.color && s.color.hex); return c ? 'drop-shadow(' + fx(s.offsetX, 0) + 'px ' + fx(s.offsetY, 0) + 'px ' + Math.max(0, fx(s.blur, 0)) + 'px ' + c + ')' : ''; }).filter(Boolean);
+    return 'background-image:' + layers.join(', ') + ';background-size:100% 100%;background-repeat:no-repeat;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent' + (shadows.length ? ';filter:' + shadows.join(' ') : '');
+  }
+  const PAINT_QUERY = 'query($id: String!) { users { userByConnection(platform: TWITCH, platformId: $id) { style { activePaint { id name data { layers { opacity ty { __typename ... on PaintLayerTypeSingleColor { color { hex } } ... on PaintLayerTypeLinearGradient { angle repeating stops { at color { hex } } } ... on PaintLayerTypeRadialGradient { repeating shape stops { at color { hex } } } ... on PaintLayerTypeImage { images { url mime scale frameCount } } } } shadows { color { hex } offsetX offsetY blur } } } } } } }';
+  /** the paint of a Twitch user: { name, style } or null (no 7TV account, no paint, or paints switched off) */
+  function paintFor(twitchId) {
+    const id = String(twitchId || ''); if (!S.paints || !/^\d{1,12}$/.test(id)) return Promise.resolve(null);
+    const hit = PAINTS.get(id); if (hit && now() - hit.t < hit.ttl) return hit.p;
+    const p = (async () => {
+      try {
+        const r = await doFetch(GQL4, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: PAINT_QUERY, variables: { id } }) }); const j = r.ok ? await r.json() : null;
+        const paint = j && j.data && j.data.users && j.data.users.userByConnection && j.data.users.userByConnection.style && j.data.users.userByConnection.style.activePaint;
+        const css = paint ? paintCss(paint) : ''; if (!css) { hit0.ttl = NO_PAINT_TTL; return null; } return { name: String(paint.name || '').slice(0, 60), style: css };
+      } catch (e) { hit0.ttl = 60000; return null; }
+    })();
+    const hit0 = { t: now(), ttl: PAINT_TTL, p }; PAINTS.set(id, hit0); if (PAINTS.size > 2000) PAINTS.delete(PAINTS.keys().next().value); return p;
+  }
+
+  return { paintFor, paintCss, add, addById, search, mySet, removeFromSet, expireDue, removeNow, test, configure, view, parseEmoteId, isBttv, lookup, days: () => S.days };
 };
 module.exports.parseEmoteId = parseEmoteId;

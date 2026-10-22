@@ -45,6 +45,14 @@
     return out.map((t) => (t.layers ? '<span class="stack">' + t.html + t.layers + '</span>' : t.html)).join('');
   };
 
+  // 7TV name paints (the colours, gradients, pictures and glow on a 7TV user's name): asked from the local server once per chatter, then drawn on the name
+  const paints = new Map();
+  R.applyPaint = function (node, uid) {
+    if (!node || !uid || R.paintsOff) return;
+    if (!paints.has(uid)) paints.set(uid, fetch(R.base + '/api/seventv/paint?uid=' + encodeURIComponent(uid)).then((r) => r.json()).catch(() => ({})));
+    paints.get(uid).then((p) => { if (p && p.style && node.isConnected) { node.style.cssText += ';' + p.style; node.title = '7TV paint: ' + (p.name || ''); } });
+  };
+
   R.badgeHTML = function (msg) {
     return (msg.badges || []).map((b) => {
       const u = R.badges[b.s + '/' + b.i];
