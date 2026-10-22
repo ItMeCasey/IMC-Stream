@@ -61,7 +61,7 @@ const defaults = () => ({
   extras: { welcome: { on: false, msg: 'Welcome to the stream, $(user)! Glad you are here.', announce: '', onlyLive: true }, raidShout: { on: false }, regulars: { on: false, minutes: 300, messages: 200 } },
   games: { gambleWin: 0.45, maxBet: 0, triviaReward: 100, triviaSeconds: 30, duelSeconds: 60, duelAnim: true, off: [], botDuel: { on: true, below: 1000, house: 50, maxWin: 1000 },
     bits: { boss: 100, royale: 100, race: 100, dance: 1000 },
-    wheel: { title: 'Spin the wheel', options: ['Yes', 'No', 'Ask again'] },
+    wheel: { title: 'Spin the wheel', options: ['Yes', 'No', 'Ask again'], pct: [34, 33, 33] },
     dance: { seconds: 120, strobe: true },   // a cheer of at least this many bits with the word boss / arena / race in it starts that game (0 = off)
     race: { count: 5, seconds: 90, title: 'Who wins the race?', names: [] },
     arena: { boss: { baseHp: 200, hpPerChatter: 40, seconds: 120, hitCd: 3, pool: 40, lastHit: 100, consolation: 10 }, royale: { fee: 50, lobby: 60, max: 8 }, teams: { fee: 50, lobby: 60, maxPerTeam: 20 } } },
@@ -505,7 +505,7 @@ module.exports = function createBot(ctx) {
   function wheelCmd(args, reply) {
     const text = args.join(' ').trim(), W = db.games.wheel;
     if (text.toLowerCase() === 'stop') { const r = wheel.cancel(); return reply(r.error || 'Wheel stopped.'); }
-    const r = text ? wheel.spin({ title: '', options: text }) : wheel.spin({ title: W.title, options: W.options });
+    const r = text ? wheel.spin({ title: '', options: text }) : wheel.spin({ title: W.title, options: W.options, pct: W.pct });
     if (r.error) reply(r.error);
   }
   const arenaCmd = (fn) => ({ run: ({ args, u, reply }) => { const r = fn(args, u); if (r) reply(r); } });
@@ -1093,9 +1093,9 @@ module.exports = function createBot(ctx) {
       case 'games/bits': { const B = db.games.bits, x = b || {}; for (const k of ['boss', 'royale', 'race', 'dance']) if (x[k] !== undefined) B[k] = Math.floor(num(x[k], 100, 0, 1e6)); save(); return B; }
       case 'games/dance': { const x = b || {}, D = db.games.dance; if (x.seconds !== undefined) D.seconds = Math.floor(num(x.seconds, 120, 20, 600)); if (x.strobe !== undefined) D.strobe = !!x.strobe; save(); return D; }
       case 'games/dancetest': { if (b && b.stop) { danceStop(); return { text: 'Stopped' }; } return { text: danceStart({ name: 'TestViewer' }, true) || 'Party started (silent test)' }; }
-      case 'wheel/save': { const W = db.games.wheel, x = b || {}; if (x.title !== undefined) W.title = oneLine(x.title, 40); if (x.options !== undefined) W.options = wheel.clean(x.options); save(); return W; }
+      case 'wheel/save': { const W = db.games.wheel, x = b || {}; if (x.title !== undefined) W.title = oneLine(x.title, 40); if (x.options !== undefined) { const e = wheel.entries(x.options, x.pct); W.options = e.map((o) => o.text); W.pct = wheel.shares(e).map((f) => Math.round(f * 1000) / 10); } save(); return W; }
       case 'wheel/spin': {   // from the Chat Games page (the streamer): the saved list, or the one sent along; silent = no chat message
-        const W = db.games.wheel, x = b || {}; const r = wheel.spin({ title: x.title !== undefined ? x.title : W.title, options: x.options !== undefined ? x.options : W.options, silent: !!x.silent });
+        const W = db.games.wheel, x = b || {}; const r = wheel.spin({ title: x.title !== undefined ? x.title : W.title, options: x.options !== undefined ? x.options : W.options, pct: x.options !== undefined ? x.pct : W.pct, silent: !!x.silent });
         if (r.error) throw new Error(r.error); return r;
       }
       case 'wheel/stop': { const r = wheel.cancel(); if (r.error) throw new Error(r.error); return r; }
