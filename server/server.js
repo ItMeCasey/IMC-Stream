@@ -1505,13 +1505,19 @@ async function route(req, res) {
   if (p === '/api/media') return json(res, 200, media.view());
   if (p === '/media/art') { const a = media.art(); if (!a) { res.writeHead(404); return res.end(); } res.writeHead(200, { 'Content-Type': a.type, 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*' }); return res.end(a.buf); }
   if (p === '/spotify/callback') {
-    const q = Object.fromEntries(u.searchParams), page = (ok, msg) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end('<!doctype html><meta charset=utf-8><title>Spotify</title><body style="background:#222A2A;color:#E2DAC2;font-family:Segoe UI,sans-serif;padding:40px"><h2 style="color:' + (ok ? '#4FBBBC' : '#EC4624') + '">' + msg + '</h2><p><a style="color:#F39120" href="/music">Back to the music page</a></p>'); };
+    const q = Object.fromEntries(u.searchParams),
+      page = (ok, msg) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end('<!doctype html><meta charset=utf-8><title>Spotify</title><body style="background:#222A2A;color:#E2DAC2;font-family:Segoe UI,sans-serif;padding:40px"><h2 style="color:' + (ok ? '#4FBBBC' : '#EC4624') + '">' + msg + '</h2><p><a style="color:#F39120" href="/music">Back to the music page</a></p>'); };
     try { await media.spotifyCallback(q); return page(true, 'Spotify connected. You can close this tab.'); } catch (e) { return page(false, String(e.message).replace(/[<>&]/g, '')); }
   }
   if (p === '/music' || p === '/music/') return serveFile(res, path.join(__dirname, 'public', 'music.html'));
   if (p === '/api/access') return json(res, 200, access.view());
   if (p === '/api/backup/list') return json(res, 200, backup.list());
-  if (p === '/api/backup/download') { const f = backup.create({ out: path.join(os.tmpdir(), 'icm-backup-' + Date.now() + '.zip'), includeLogins: u.searchParams.get('includeLogins') === '1' }).file; res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="ItMeCasey-backup-' + new Date().toISOString().slice(0, 10) + '.zip"' }); const rs = fs.createReadStream(f); rs.on('close', () => { try { fs.unlinkSync(f); } catch (e) { /* gone */ } }); return rs.pipe(res); }
+  if (p === '/api/backup/download') {
+    const f = backup.create({ out: path.join(os.tmpdir(), 'icm-backup-' + Date.now() + '.zip'), includeLogins: u.searchParams.get('includeLogins') === '1' }).file;
+    res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="ItMeCasey-backup-' + new Date().toISOString().slice(0, 10) + '.zip"' });
+    const rs = fs.createReadStream(f); rs.on('close', () => { try { fs.unlinkSync(f); } catch (e) { /* gone */ } });
+    return rs.pipe(res); }
   if (p === '/api/health') return json(res, 200, health());
   if (p === '/api/config') { const c = loadConfig(); return json(res, 200, { clientId: c.clientId, port: c.port, version: APP_VERSION, dataDir: DATA, rootDir: ROOT }); }
   if (p === '/api/obs/collection') { res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Disposition': 'attachment; filename="ItMeCasey.json"', 'Access-Control-Allow-Origin': '*' }); return res.end(JSON.stringify(buildCollection({ root: ROOT, dataDir: DATA, port: CFG.port }), null, 4)); }
@@ -1692,13 +1698,22 @@ async function route(req, res) {
       }
       if (p === '/api/panels/save') {   // the whole list at once; Twitch has no API for channel panels, so these live here and are exported by hand / synced to chat commands
         const col = (c) => (/^#[0-9a-fA-F]{6}$/.test(String(c)) ? String(c) : '#4FBBBC'), img = (v) => (/^\/panel-img\/[\w-]+\.(png|jpg|webp)(\?v=\d+)?$/.test(String(v || '')) ? String(v) : '');
-        state.panels = (Array.isArray(body.panels) ? body.panels : []).slice(0, 30).map((x) => ({ id: oneLine(x.id, 20) || 'pn-' + Math.random().toString(36).slice(2, 7), title: oneLine(x.title, 60), body: String(x.body || '').slice(0, 600), link: oneLine(x.link, 300), icon: oneLine(x.icon, 8), color: col(x.color), command: String(x.command || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30), image: img(x.image), synced: !!x.synced, cmdId: oneLine(x.cmdId, 40) }));
+        state.panels = (Array.isArray(body.panels) ? body.panels : []).slice(0, 30).map((x) => ({ id: oneLine(x.id, 20) || 'pn-' + Math.random().toString(36).slice(2, 7),
+          title: oneLine(x.title, 60), body: String(x.body || '').slice(0, 600),
+          link: oneLine(x.link, 300), icon: oneLine(x.icon, 8), color: col(x.color),
+          command: String(x.command || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30),
+          image: img(x.image), synced: !!x.synced, cmdId: oneLine(x.cmdId, 40) }));
         persist(); return json(res, 200, { ok: true, panels: state.panels });
       }
       if (p === '/api/paypal/save') return json(res, 200, paypal.save(body));
       if (p === '/api/paypal/log') return json(res, 200, paypal.logTip(body));
       if (p === '/api/paypal/creds') { if (!access.isLoopback(req.socket.remoteAddress)) throw new Error('Only the PC itself can change PayPal keys'); return json(res, 200, paypal.setCreds(body)); }
-      if (p === '/api/duel/test') { const n = ['RetroRider', 'VinylVince', 'TealTina', 'ChaosChad', 'BitBaron', 'GenerousGamer']; const a = n[Math.floor(Math.random() * 6)]; let b = n[Math.floor(Math.random() * 6)]; if (b === a) b = 'Challenger'; duelPlay({ a: oneLine(body.a, 20) || a, b: oneLine(body.b, 20) || b, winner: Math.random() < .5 ? 'a' : 'b', amount: 500, currency: 'coins' }); return json(res, 200, { ok: true }); }
+      if (p === '/api/duel/test') { const n = ['RetroRider', 'VinylVince', 'TealTina', 'ChaosChad', 'BitBaron', 'GenerousGamer'];
+        const a = n[Math.floor(Math.random() * 6)];
+        let b = n[Math.floor(Math.random() * 6)];
+        if (b === a) b = 'Challenger';
+        duelPlay({ a: oneLine(body.a, 20) || a, b: oneLine(body.b, 20) || b, winner: Math.random() < .5 ? 'a' : 'b', amount: 500, currency: 'coins' });
+        return json(res, 200, { ok: true }); }
       if (p === '/api/explosion/test') { explode(String(body.reason || 'goal'), { title: 'Test' }, true); return json(res, 200, { ok: true }); }
       if (p === '/api/audio/mute') { if (body.toggle) await audio.toggleMute(String(body.name || '')); else await audio.setMute(String(body.name || ''), !!body.on); return json(res, 200, { ok: true }); }
       if (p === '/api/audio/volume') { await audio.setVolumeDb(String(body.name || ''), body.db); return json(res, 200, { ok: true }); }

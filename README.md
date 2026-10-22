@@ -56,15 +56,15 @@ Version numbers are `YYYY.M.Increment` (for example `2026.10.3`: the third relea
 powershell -ExecutionPolicy Bypass -File app\build-installer.ps1   # -> app\release\ItMeCasey Stream Setup <version>.exe
 cd app && npm test                                                  # watchdog test
 ```
-Tests for the server live in `server/*-test.js` (run each with `node`).
+Tests for the server live in `server/*-test.js` (run each with `node`). `npm install` then `npm run lint` in the repository root runs ESLint; both run on every push in GitHub Actions.
 
-## New in this version
+## More features
 - **Control Board** (`/board`): big buttons for your OBS scenes, run/snooze ads, clip, pause/mute/skip alerts, music, timer, plus **your own buttons** (anything a reward hook can do) and **automatic scene switching** (going live/offline, raid, ad break, hype train, `!brb` / `!back`; temporary scenes return to where you were).
 - **Setup & health** (`/setup`): status light, Twitch Client ID, OBS scene install/download, OBS WebSocket, **backup / restore** (manual download, daily automatic copy, safety copy before every restore), **control from your phone** (LAN access with password, off by default), restart, realistic-voice installer.
-- **New overlays:** `hypetrain.html` (760x170), `events.html` (recent alerts list, 520x440, `?max=6`), `viewers.html` (viewers / uptime / followers / subs, 520x90, `?show=viewers,uptime,followers,subs`). They are already placed in the Gameplay scene of the collection; all support `?demo=1`.
+- **More overlays:** `hypetrain.html` (760x170), `events.html` (recent alerts list, 520x440, `?max=6`), `viewers.html` (viewers / uptime / followers / subs, 520x90, `?show=viewers,uptime,followers,subs`). They are already placed in the Gameplay scene of the collection; all support `?demo=1`.
 - **Video alerts:** pick an `.mp4`/`.webm` (up to 80 MB, upload from the alert editor) for any alert; it plays full-frame behind the alert card.
 - **Chat extras** (bot > Event messages): welcome first-time chatters, auto-shoutout on raids, "regulars" (treated as subscribers after N minutes / messages). `!brb` / `!back` switch scenes.
-- **AutoMod review** in the Chat dock: held messages show up with Allow / Deny buttons (needs the new `moderator:manage:automod` permission: press **Connect Twitch** again once).
+- **AutoMod review** in the Chat dock: held messages show up with Allow / Deny buttons (needs the `moderator:manage:automod` permission, which Connect Twitch asks for).
 
 ## Install without the app (2 minutes)
 1. OBS > **Scene Collection > Import** > pick `ItMeCasey.json` (this folder), then switch to **ItMeCasey**. It does not touch your existing collections.

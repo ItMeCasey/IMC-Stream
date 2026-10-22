@@ -13,6 +13,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Lint
+        run: |
+          npm install --no-audit --no-fund
+          npx eslint --max-warnings 0
       - name: Server tests
         shell: bash
         working-directory: server

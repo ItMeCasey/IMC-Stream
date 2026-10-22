@@ -153,7 +153,7 @@ module.exports = function createVm(ctx) {
   }
   /** { ok, kind, local, b1, b2 } in dB, or { ok: false, error } when Voicemeeter is not installed or not running */
   async function volumes() { if (!installed('banana') && !installed('potato') && !ctx.spawn) return { ok: false, error: 'Voicemeeter is not installed' }; try { return await ask({ op: 'get' }); } catch (e) { return { ok: false, error: e.message }; } }
-  async function setVolume(which, db) { if (!['local', 'b1', 'b2', 'mic', 'game', 'music'].includes(which)) throw new Error('Unknown volume'); const r = await ask({ op: 'set', which, db: Number(db) }); if (!r.ok) throw new Error(r.error || 'Could not set the volume'); return r; }
+  async function setVolume(which, db) { if (!['local', 'b1', 'b2'].includes(which)) throw new Error('Unknown volume'); const r = await ask({ op: 'set', which, db: Number(db) }); if (!r.ok) throw new Error(r.error || 'Could not set the volume'); return r; }
 
   return { volumes, setVolume, stop: bridgeStop, status, download, install, devices, configure, obsInputs, obsApply, resolveUrl };
 };

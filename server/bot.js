@@ -10,7 +10,10 @@ const path = require('node:path');
 const LEVELS = ['everyone', 'subscriber', 'vip', 'moderator', 'broadcaster'];
 const ANN_COLORS = ['primary', 'blue', 'green', 'orange', 'purple'];   // Twitch highlighted chat announcements
 const annColor = (v) => (ANN_COLORS.includes(v) ? v : '');
-const BUILTIN = ['commands', 'addcom', 'editcom', 'delcom', 'uptime', 'game', 'title', 'followage', 'accountage', 'so', 'permit', 'quote', 'daily', 'shop', 'redeem', 'buy', 'send', 'pay', 'setvar', 'listadd', 'announce', 'song', 'skip', 'pause', 'play', 'previous', 'volume', 'sr', 'songrequest', 'countdown', 'timeleft', 'tts', 'ttsskip', 'alerts', 'clip', 'tip', 'paypal', 'subathon', 'subrules', 'brb', 'back', 'watchtime', 'addpoints', 'removepoints', 'setpoints', 'bonus', 'approve', 'deny', 'addquote', 'delquote', 'nextad', 'ad', 'snooze', 'setgame', 'settitle', 'gamesearch',
+const BUILTIN = ['commands', 'addcom', 'editcom', 'delcom', 'uptime', 'game', 'title', 'followage', 'accountage', 'so', 'permit', 'quote', 'daily',
+  'shop', 'redeem', 'buy', 'send', 'pay', 'setvar', 'listadd', 'announce', 'song', 'skip', 'pause', 'play', 'previous', 'volume', 'sr', 'songrequest',
+  'countdown', 'timeleft', 'tts', 'ttsskip', 'alerts', 'clip', 'tip', 'paypal', 'subathon', 'subrules', 'brb', 'back', 'watchtime', 'addpoints',
+  'removepoints', 'setpoints', 'bonus', 'approve', 'deny', 'addquote', 'delquote', 'nextad', 'ad', 'snooze', 'setgame', 'settitle', 'gamesearch',
   'counter', 'points', 'gamble', 'slots', 'duel', 'accept', 'give', 'top', 'leaderboard', 'trivia', 'raffle', 'enter', 'draw', '8ball', 'roll', 'flip'];
 
 const TRIVIA = [
@@ -1013,7 +1016,11 @@ module.exports = function createBot(ctx) {
         if (b.bonuses) for (const k of Object.keys(db.bonuses)) if (b.bonuses[k]) { const x = b.bonuses[k], t = db.bonuses[k]; t.on = !!x.on; t.amount = num(x.amount, t.amount, 0, 1e7); if ('perViewer' in t) t.perViewer = num(x.perViewer, t.perViewer, 0, 1e6); }
         if (b.clip) db.clip = { on: !!b.clip.on, level: ['everyone', 'subscriber', 'vip', 'moderator'].includes(b.clip.level) ? b.clip.level : 'everyone' };
         if (b.daily) db.daily = { on: !!b.daily.on, amount: num(b.daily.amount, 100, 0, 1e7), streakBonus: num(b.daily.streakBonus, 25, 0, 1e6), maxStreak: num(b.daily.maxStreak, 10, 0, 365) };
-        if (b.games) db.games = { dance: db.games.dance, bits: db.games.bits, race: db.games.race, arena: db.games.arena, botDuel: db.games.botDuel, off: db.games.off || [], duelAnim: b.games.duelAnim !== false, gambleWin: num(b.games.gambleWin, 0.45, 0.05, 0.95), maxBet: num(b.games.maxBet, 0, 0, 1e9), triviaReward: num(b.games.triviaReward, 100, 0, 1e6), triviaSeconds: num(b.games.triviaSeconds, 30, 5, 300), duelSeconds: num(b.games.duelSeconds, 60, 10, 600) };
+        if (b.games) db.games = { dance: db.games.dance, bits: db.games.bits, race: db.games.race, arena: db.games.arena, botDuel: db.games.botDuel,
+          off: db.games.off || [], duelAnim: b.games.duelAnim !== false,
+          gambleWin: num(b.games.gambleWin, 0.45, 0.05, 0.95), maxBet: num(b.games.maxBet, 0, 0, 1e9),
+          triviaReward: num(b.games.triviaReward, 100, 0, 1e6), triviaSeconds: num(b.games.triviaSeconds, 30, 5, 300),
+          duelSeconds: num(b.games.duelSeconds, 60, 10, 600) };
         save(); return view().settings;
       }
       case 'extras': {
@@ -1031,7 +1038,10 @@ module.exports = function createBot(ctx) {
         let c = b.id && db.commands.find((x) => x.id === b.id);
         if (db.commands.some((x) => x.name === name && x !== c)) throw new Error('!' + name + ' already exists');
         if (!c) { c = { id: name + '-' + Math.random().toString(36).slice(2, 5), uses: 0 }; db.commands.push(c); }
-        Object.assign(c, { name, aliases: String(b.aliases || '').toLowerCase().split(/[\s,]+/).map((x) => x.replace(/^!/, '').replace(/[^a-z0-9_]/g, '')).filter((x) => x && !reserved(x)), response: String(b.response).slice(0, 1500), mode: ['all', 'random', 'rotate'].includes(b.mode) ? b.mode : 'all', usage: oneLine(b.usage, 200), needArgs: num(b.needArgs, 0, 0, 9), liveOnly: !!b.liveOnly, announce: annColor(b.announce), desc: oneLine(b.desc, 140),
+        Object.assign(c, { name, aliases: String(b.aliases || '').toLowerCase().split(/[\s,]+/).map((x) => x.replace(/^!/, '').replace(/[^a-z0-9_]/g, '')).filter((x) => x && !reserved(x)),
+          response: String(b.response).slice(0, 1500), mode: ['all', 'random', 'rotate'].includes(b.mode) ? b.mode : 'all',
+          usage: oneLine(b.usage, 200), needArgs: num(b.needArgs, 0, 0, 9), liveOnly: !!b.liveOnly,
+          announce: annColor(b.announce), desc: oneLine(b.desc, 140),
           level: LEVELS.includes(b.level) ? b.level : 'everyone', cd: num(b.cd, 5, 0, 3600), userCd: num(b.userCd, 10, 0, 3600), enabled: b.enabled !== false, hidden: !!b.hidden });
         save(); return c;
       }
@@ -1057,7 +1067,12 @@ module.exports = function createBot(ctx) {
       case 'race/start': return race.start({ names: String(b.names || '').split(/[\n,]/).map((x) => x.trim()).filter(Boolean), count: b.count, seconds: b.seconds });
       case 'race/run': return race.run(b.winner);
       case 'race/cancel': return race.cancel();
-      case 'race/settings': { const R = db.games.race, x = b || {}; if (x.count !== undefined) R.count = Math.floor(num(x.count, 5, 2, 10)); if (x.seconds !== undefined) R.seconds = Math.floor(num(x.seconds, 90, 30, 1800)); if (x.title !== undefined) R.title = oneLine(x.title, 45) || 'Who wins the race?'; if (x.names !== undefined) R.names = String(x.names).split(/[\n,]/).map((n) => oneLine(n, 25)).filter(Boolean).slice(0, 40); save(); return R; }
+      case 'race/settings': { const R = db.games.race, x = b || {};
+        if (x.count !== undefined) R.count = Math.floor(num(x.count, 5, 2, 10));
+        if (x.seconds !== undefined) R.seconds = Math.floor(num(x.seconds, 90, 30, 1800));
+        if (x.title !== undefined) R.title = oneLine(x.title, 45) || 'Who wins the race?';
+        if (x.names !== undefined) R.names = String(x.names).split(/[\n,]/).map((n) => oneLine(n, 25)).filter(Boolean).slice(0, 40);
+        save(); return R; }
       case 'race/demo': {   // overlay preview without touching Twitch
         const hs = ['Thunder Biscuit', 'Neon Gallop', 'Sir Hoofs-a-Lot', 'Disco Stu', 'Mane Event'], times = hs.map((_, i) => 11 + i * 0.6), w = Math.floor(rng() * 5); times[w] = 11;
         ctx.broadcast('arena', { type: 'race:open', horses: hs, seconds: 4 });

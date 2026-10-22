@@ -1,0 +1,12 @@
+{
+  "name": "itmecasey-stream-dev",
+  "private": true,
+  "description": "Development tooling for the repository (the app itself is in app/)",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "lint": "eslint"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.0"
+  }
+}
