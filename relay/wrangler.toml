@@ -1,0 +1,25 @@
+name = "itmecasey-tip-relay"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/ipn", "/ws", "/config"]
+
+[[durable_objects.bindings]]
+name = "ROOM"
+class_name = "Room"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Room"]
+
+[vars]
+# Shown on the tip page. Change them in the Cloudflare dashboard (Settings > Variables) any time.
+STREAMER_NAME = "your streamer name"
+CURRENCY = "USD"
+# "true" sends and checks tips through PayPal's sandbox (testing only).
+SANDBOX = "false"
+
+# Secrets, set at deploy time (see .dev.vars.example): PAYPAL_EMAIL, RELAY_TOKEN

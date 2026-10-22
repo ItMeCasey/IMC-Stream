@@ -28,6 +28,9 @@ jobs:
             echo "::endgroup::"
           done
           exit $fail
+      - name: Tip relay test
+        working-directory: relay
+        run: node relay-test.js
       - name: Watchdog test
         working-directory: app
         run: node supervisor-test.js

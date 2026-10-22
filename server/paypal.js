@@ -5,9 +5,12 @@
  *  - Log a tip yourself (one button) to fire the tip alert.
  *  - Optional auto-detect: PayPal's Transaction Search API with your own app's Client ID + Secret (kept in <data>/paypal.json).
  *    PayPal reports new payments there with a delay (minutes, sometimes hours), so this is for "catch every tip", not instant alerts.
+ *  - Optional instant alerts: a tip relay the streamer deploys to their own Cloudflare account (relay/). PayPal calls the relay the moment a
+ *    tip is paid, and this app keeps an outgoing connection to it, so nothing on this PC has to be reachable from the internet.
  */
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 
 module.exports = function createPaypal(ctx) {
   const state = ctx.state, log = ctx.log || (() => {}), FILE = path.join(ctx.DATA, 'paypal.json'), doFetch = ctx.fetch || fetch;
@@ -15,12 +18,16 @@ module.exports = function createPaypal(ctx) {
   const P = () => state.paypal;
   let creds = null; try { creds = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { /* none yet */ }
   let token = null, status = { ok: null, error: '', lastPoll: 0, tips: 0 }, timer = null;
+  const RFILE = path.join(ctx.DATA, 'paypal-relay.json'), WS = ctx.WebSocket || globalThis.WebSocket;
+  let relay = { url: '', token: '' }; try { relay = Object.assign(relay, JSON.parse(fs.readFileSync(RFILE, 'utf8'))); } catch (e) { /* none yet */ }
+  let rws = null, rtimer = null, rping = null, rgen = 0, rfail = 0, rstatus = { connected: false, error: '', tips: 0 };
   const str = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 
   const meClean = (v) => String(v || '').trim().replace(/^https?:\/\/(www\.)?paypal\.me\//i, '').replace(/^paypal\.me\//i, '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);
   const link = (amount) => (P().me ? 'https://paypal.me/' + P().me + (amount ? '/' + amount + P().currency : '') : '');
   const view = () => ({ me: P().me, currency: P().currency, suggest: P().suggest, link: link(), links: P().suggest.map((a) => ({ amount: a, url: link(a) })), note: P().note,
-    api: { configured: !!(creds && creds.clientId && creds.secret), clientIdHint: creds && creds.clientId ? creds.clientId.slice(0, 6) + '…' : '', status }, recent: P().recent.slice(0, 20) });
+    api: { configured: !!(creds && creds.clientId && creds.secret), clientIdHint: creds && creds.clientId ? creds.clientId.slice(0, 6) + '…' : '', status },
+    relay: { url: relay.url, hasKey: !!relay.token, status: rstatus, tipPage: relay.url ? relay.url + '/' : '' }, recent: P().recent.slice(0, 20) });
 
   function save(b) {
     const p = P();
@@ -31,7 +38,7 @@ module.exports = function createPaypal(ctx) {
     ctx.persist(); return view();
   }
   function setCreds(b) {
-    if (b.clear) { creds = null; try { fs.unlinkSync(FILE); } catch (e) { /* none */ } token = null; stop(); return view(); }
+    if (b.clear) { creds = null; try { fs.unlinkSync(FILE); } catch (e) { /* none */ } token = null; pollStop(); return view(); }
     const clientId = str(b.clientId, 200), secret = str(b.secret, 300);
     if (!clientId || !secret) throw new Error('Enter both the Client ID and the Secret');
     creds = { clientId, secret }; token = null; fs.writeFileSync(FILE, JSON.stringify(creds)); P().since = 0; P().seen = []; start(); return view();
@@ -72,7 +79,43 @@ module.exports = function createPaypal(ctx) {
     } catch (e) { status.ok = false; status.error = e.message; if (!poll.warned) { log('PayPal check failed:', e.message); poll.warned = true; } }
     status.lastPoll = Date.now();
   }
-  function start() { stop(); if (!creds) return; poll(); timer = setInterval(poll, ctx.pollMs || 120000); if (timer.unref) timer.unref(); }
-  function stop() { clearInterval(timer); timer = null; }
-  return { view, save, setCreds, logTip, poll, start, stop, link };
+  function pollStop() { clearInterval(timer); timer = null; }
+  function start() { pollStop(); if (!rws && !rtimer) relayConnect(); if (!creds) return; poll(); timer = setInterval(poll, ctx.pollMs || 120000); if (timer.unref) timer.unref(); }
+  function stop() { pollStop(); relayStop(); }
+
+  // ---- instant alerts through the streamer's own relay (see relay/) ----
+  const relayUrlClean = (v) => {
+    let u; try { u = new URL(String(v || '').trim()); } catch (e) { throw new Error('That is not a web address. Paste the address Cloudflare shows after deploying (https://…workers.dev)'); }
+    const local = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname);
+    if (u.protocol !== 'https:' && !(local && u.protocol === 'http:')) throw new Error('The relay address must start with https://');
+    return u.origin;
+  };
+  const saveRelay = () => fs.writeFileSync(RFILE, JSON.stringify(relay));
+  function relayKey() { if (!relay.token) { relay.token = crypto.randomBytes(24).toString('hex'); saveRelay(); } return relay.token; }
+  function setRelay(b) {
+    if (b.clear) { relay = { url: '', token: relay.token }; saveRelay(); rstatus = { connected: false, error: '', tips: rstatus.tips }; relayStop(); return view(); }
+    relay.url = relayUrlClean(b.url); relayKey(); saveRelay(); rfail = 0; relayConnect(); return view();
+  }
+  function relayStop() { rgen++; clearTimeout(rtimer); clearInterval(rping); rtimer = rping = null; const w = rws; rws = null; rstatus.connected = false; if (w) { w.onclose = w.onerror = w.onmessage = null; try { w.close(); } catch (e) { /* already closed */ } } }
+  function relayConnect() {
+    relayStop(); if (!relay.url || !relay.token || !WS) return;
+    const gen = rgen; let ws;
+    const retry = () => { if (gen !== rgen) return; rstatus.connected = false; clearInterval(rping); rtimer = setTimeout(relayConnect, Math.min(60000, 3000 * 2 ** Math.min(rfail++, 5))); if (rtimer.unref) rtimer.unref(); };
+    try { ws = new WS(relay.url.replace(/^http/, 'ws') + '/ws?token=' + encodeURIComponent(relay.token)); } catch (e) { rstatus.error = e.message; return retry(); }
+    rws = ws;
+    ws.onopen = () => { if (gen !== rgen) return; rfail = 0; rstatus.connected = true; rstatus.error = ''; rping = setInterval(() => { try { ws.send('ping'); } catch (e) { /* reconnects on close */ } }, 30000); if (rping.unref) rping.unref(); };
+    ws.onmessage = (ev) => { if (gen !== rgen) return; let m; try { m = JSON.parse(ev.data); } catch (e) { return; } if (m && m.type === 'tip') relayTip(m, ws); };
+    ws.onerror = () => { if (gen === rgen) rstatus.error = 'Could not connect to the relay. Check the address and that the key matches the one you gave Cloudflare.'; };
+    ws.onclose = () => { if (gen === rgen) { rws = null; retry(); } };
+  }
+  function relayTip(m, ws) {
+    const id = 'relay:' + m.txnId, amount = Number(m.amount); if (!m.txnId || !(amount > 0)) return;
+    if (!P().seen.includes(id)) {   // a tip is shown once, even if the relay sends it again
+      P().seen.push(id); P().seen = P().seen.slice(-400);
+      const rec = { name: str(m.name, 40) || 'Anonymous', amount, currency: str(m.currency, 3).toUpperCase() || P().currency, msg: str(m.msg, 200), at: Date.now(), relay: true };
+      ctx.recordTip(rec); P().recent.unshift(rec); P().recent.length = Math.min(P().recent.length, 50); rstatus.tips++; ctx.persist(true);
+    }
+    try { ws.send(JSON.stringify({ ack: m.txnId })); } catch (e) { /* relay resends on reconnect */ }
+  }
+  return { view, save, setCreds, setRelay, relayKey, logTip, poll, start, stop, link };
 };

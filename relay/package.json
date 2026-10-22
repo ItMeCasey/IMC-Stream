@@ -1,0 +1,26 @@
+{
+  "name": "itmecasey-tip-relay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Instant PayPal tip alerts: receives PayPal's IPN and forwards it to the streamer's app",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node relay-test.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "PAYPAL_EMAIL": {
+        "description": "The email of the PayPal account that receives your tips (a Business account)."
+      },
+      "RELAY_TOKEN": {
+        "description": "The key the app shows on its Tips page (step 1). It lets only your PC read your tips."
+      }
+    }
+  }
+}

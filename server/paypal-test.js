@@ -14,7 +14,8 @@ const tx = (id, amt, name, note, extra) => ({ transaction_info: Object.assign({ 
 (async () => {
   await new Promise((r) => fake.listen(PORT, '127.0.0.1', r));
   const state = { paypal: { me: '', currency: 'USD', suggest: [5, 10, 20], note: '', since: 0, seen: [], recent: [] } }, tips = []; let saved = 0;
-  const pp = createPaypal({ DATA, state, persist: () => { saved++; }, log: () => {}, recordTip: (t) => tips.push(t), baseUrl: 'http://127.0.0.1:' + PORT, pollMs: 300 });
+  class FakeWS { constructor(url) { this.url = url; this.sent = []; FakeWS.last = this; setTimeout(() => this.onopen && this.onopen(), 0); } send(d) { this.sent.push(d); } close() { this.closed = true; } }
+  const pp = createPaypal({ DATA, state, persist: () => { saved++; }, log: () => {}, recordTip: (t) => tips.push(t), baseUrl: 'http://127.0.0.1:' + PORT, pollMs: 300, WebSocket: FakeWS });
 
   // PayPal.Me link
   assert.strictEqual(pp.link(), ''); pp.save({ me: 'https://www.paypal.me/ItMe Casey!' }); assert.strictEqual(state.paypal.me, 'ItMeCasey', 'url and junk characters are cleaned');
@@ -39,6 +40,20 @@ const tx = (id, amt, name, note, extra) => ({ transaction_info: Object.assign({ 
   // missing Transaction Search feature is explained
   denied = true; await sleep(500); assert.match(pp.view().api.status.error, /Transaction Search/);
   pp.setCreds({ clear: true }); assert.strictEqual(pp.view().api.configured, false); assert.ok(!fs.existsSync(path.join(DATA, 'paypal.json'))); const n = tokenCalls; await sleep(600); assert.strictEqual(tokenCalls, n, 'stops checking when the keys are removed');
+  // instant tips through the streamer's own relay
+  assert.throws(() => pp.setRelay({ url: 'not a url' }), /web address/); assert.throws(() => pp.setRelay({ url: 'http://relay.example.com' }), /https/);
+  const key = pp.relayKey(); assert.match(key, /^[0-9a-f]{48}$/); assert.strictEqual(pp.relayKey(), key, 'the key stays the same');
+  assert.ok(!JSON.stringify(state).includes(key) && fs.existsSync(path.join(DATA, 'paypal-relay.json')), 'the key is on disk, never in the settings');
+  assert.strictEqual(pp.setRelay({ url: 'https://relay.example.workers.dev/some/path' }).relay.url, 'https://relay.example.workers.dev', 'only the address is kept');
+  await sleep(50); const ws = FakeWS.last; assert.strictEqual(ws.url, 'wss://relay.example.workers.dev/ws?token=' + key); assert.strictEqual(pp.view().relay.status.connected, true);
+  const before = tips.length, relayTip = { type: 'tip', txnId: 'R1', name: 'Fast Fan', msg: 'instant!', amount: 9, currency: 'usd' };
+  ws.onmessage({ data: JSON.stringify(relayTip) });
+  assert.strictEqual(tips.length, before + 1); assert.deepStrictEqual([tips[before].name, tips[before].amount, tips[before].currency, tips[before].msg], ['Fast Fan', 9, 'USD', 'instant!']);
+  assert.deepStrictEqual(JSON.parse(ws.sent[ws.sent.length - 1]), { ack: 'R1' }, 'the relay is told the tip arrived');
+  ws.onmessage({ data: JSON.stringify(relayTip) }); ws.onmessage({ data: 'junk' }); ws.onmessage({ data: JSON.stringify({ type: 'tip', txnId: 'R2', amount: -3 }) });
+  assert.strictEqual(tips.length, before + 1, 'a resent, broken or negative tip never alerts again'); assert.strictEqual(ws.sent.filter((s) => s.includes('R1')).length, 2, 'but a resent tip is still acknowledged');
+  ws.onclose(); await sleep(50); assert.strictEqual(pp.view().relay.status.connected, false, 'a dropped connection is noticed (and retried)');
+  pp.setRelay({ clear: true }); assert.strictEqual(pp.view().relay.url, ''); const last = FakeWS.last; await sleep(50); assert.strictEqual(FakeWS.last, last, 'no reconnecting after disconnect');
   pp.stop(); fake.close();
   console.log('paypal test passed');
   process.exit(0);

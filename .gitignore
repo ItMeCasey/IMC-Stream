@@ -13,6 +13,9 @@ data/
 tokens.json
 spotify.json
 paypal.json
+paypal-relay.json
+relay/.dev.vars
+relay/.wrangler/
 bot-account.json
 *.bak
 *.log
