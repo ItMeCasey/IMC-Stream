@@ -9,7 +9,8 @@ const fake = async (url, opt) => {
   opt = opt || {}; const ok = (j) => ({ ok: true, status: 200, json: async () => j }), nf = { ok: false, status: 404, json: async () => ({}) };
   if (url.includes('/v3/emotes/')) { const e = emotes[url.split('/').pop()]; return e ? ok(e) : nf; }
   if (url.includes('/v3/users/twitch/')) return url.endsWith('/999') ? ok({ emote_set_id: 'SET1', emote_set: set }) : nf;
-  const body = JSON.parse(opt.body); calls.push({ q: body.query, v: body.variables, auth: opt.headers && opt.headers.Authorization });
+  const body = JSON.parse(opt.body); if (/emotes\(query/.test(body.query)) { const items = Object.values(emotes); /* the fake returns everything it knows */ return ok({ data: { emotes: { count: items.length, items } } }); }
+  calls.push({ q: body.query, v: body.variables, auth: opt.headers && opt.headers.Authorization });
   if (/actor/.test(body.query)) return ok({ data: { actor: goodToken ? { id: 'U1', username: 'casey' } : null } });
   if (!opt.headers.Authorization) return ok({ errors: [{ message: '70401 not logged in' }] });
   if (/ADD/.test(body.query)) { set.emotes.push({ id: body.variables.id, name: body.variables.name }); return ok({ data: { emoteSet: { emotes: [{ id: body.variables.id, name: body.variables.name }] } } }); }
@@ -44,5 +45,10 @@ const S = createSevenTV({ file, fetch: fake, now: () => t, twitchId: () => '999'
   await again.removeNow(ID); assert.equal(again.view().active.length, 0); await assert.rejects(again.removeNow(ID), /not on the list/);
   // the token check
   assert.deepEqual(await S.test(), { user: 'casey', set: 'My set', emotes: set.emotes.length, capacity: 10 }); goodToken = false; await assert.rejects(S.test(), /did not accept/);
+  // search, the set, adding for good and removing by hand
+  const found = await S.search('e'); assert(found.items.length >= 4); assert.equal(found.items.find((x) => x.name === 'KEKW').refused, ''); assert.match(found.items.find((x) => x.name === 'Spicy').refused, /not allowed/); assert.match(found.items.find((x) => x.name === 'Hidden').refused, /not listed/); assert.deepEqual(await S.search('  '), { count: 0, items: [] });
+  goodToken = true; const before = S.view().active.length; const perm = await S.addById('01F0000000000000000000HHHH', { by: 'you', days: 0 }); assert.equal(perm.name, 'Third'); assert.equal(perm.expiresAt, 0); assert.equal(S.view().active.length, before, 'an emote added for good is not on the borrowed list');
+  await S.removeNow(ID); await S.addById(ID, { by: 'you', days: 5 }); const ms = await S.mySet(); assert.equal(ms.emotes.find((x) => x.id === ID).borrowed, true); assert.equal(ms.emotes.find((x) => x.id === ID).daysLeft, 5); assert.equal(ms.emotes.find((x) => x.id === '01F0000000000000000000HHHH').borrowed, false); assert.equal(ms.capacity, 10);
+  await S.removeFromSet('01F0000000000000000000HHHH'); assert(!set.emotes.some((x) => x.id === '01F0000000000000000000HHHH')); await S.removeFromSet(ID); assert.equal(S.view().active.some((a) => a.emoteId === ID), false); await assert.rejects(S.removeFromSet('NOPE'), /not in your set/); assert.throws(() => S.addById('x', {}), /not an emote id/);
   console.log('seventv test passed');
 })().catch((e) => { console.error('FAILED:', e); process.exit(1); });

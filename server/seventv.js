@@ -47,12 +47,7 @@ module.exports = function createSevenTV(ctx) {
   /** the emote behind a link, checked: it has to exist, be live and public and not be one of the kinds we never allow */
   async function lookup(id) {
     let e; try { e = await rest('/emotes/' + id); } catch (x) { throw new Error(x.status === 404 ? 'that emote does not exist on 7TV' : 'could not look the emote up (' + x.message + ')'); }
-    if (e.lifecycle !== 3) throw new Error('that emote is not live on 7TV yet');
-    if (!e.listed) throw new Error('that emote is not listed on 7TV');
-    const f = Number(e.flags) || 0;
-    if (f & FLAG_PRIVATE) throw new Error('that emote is private');
-    if (f & (FLAG_SEXUAL | FLAG_EPILEPSY | FLAG_TWITCH_DISALLOWED)) throw new Error('that emote is not allowed on Twitch');
-    if (S.blockEdgy && (f & FLAG_EDGY)) throw new Error('that emote is marked as edgy or disturbing');
+    const why = refusal(e); if (why) throw new Error('that emote is ' + why);
     return { id: e.id, name: String(e.name || 'emote'), animated: !!e.animated, owner: e.owner && (e.owner.display_name || e.owner.username) || '' };
   }
 
@@ -69,22 +64,62 @@ module.exports = function createSevenTV(ctx) {
     while (taken.has(out.toLowerCase())) out = n + (++k); return out;
   };
 
-  /** add the emote behind a link to the channel's set for S.days days. Throws an Error with a viewer-friendly reason. */
-  async function add({ url, by }) {
+  /** why an emote may not be added (a viewer's link or a search result), or '' when it is fine; `flags` is 7TV's bit field */
+  function refusal(e) {
+    if (e.lifecycle !== undefined && e.lifecycle !== 3) return 'not live on 7TV yet';
+    if (e.listed === false) return 'not listed on 7TV';
+    const f = Number(e.flags) || 0;
+    if (f & FLAG_PRIVATE) return 'private';
+    if (f & (FLAG_SEXUAL | FLAG_EPILEPSY | FLAG_TWITCH_DISALLOWED)) return 'not allowed on Twitch';
+    if (S.blockEdgy && (f & FLAG_EDGY)) return 'marked as edgy or disturbing';
+    return '';
+  }
+
+  /** put an emote in the channel's set. days > 0: borrowed, it is taken away again after that many days; days = 0: it stays until removed by hand. */
+  async function addEmote(id, by, days) {
     if (!S.token) throw new Error('the 7TV login is not set up yet');
-    if (isBttv(url)) throw new Error('only 7TV emote links work (BetterTTV has no way to add emotes automatically)');
-    const id = parseEmoteId(url); if (!id) throw new Error('paste a 7TV emote link, like https://7tv.app/emotes/...');
-    await expireDue().catch(() => {});
-    if (S.active.length >= S.max) throw new Error('there are already ' + S.max + ' borrowed emotes: try again when one expires');
+    if (days > 0) await expireDue().catch(() => {});
+    if (days > 0 && S.active.length >= S.max) throw new Error('there are already ' + S.max + ' borrowed emotes: try again when one expires');
     if (S.active.some((a) => a.emoteId === id)) throw new Error('that emote is already added');
     const emote = await lookup(id), set = await channelSet();
     if (set.emotes.some((x) => x.id === id)) throw new Error('that emote is already in the channel');
     if (set.capacity && set.emotes.length >= set.capacity) throw new Error('the 7TV emote set is full');
     const name = freeName(emote.name, new Set(set.emotes.map((x) => String(x.name).toLowerCase())));
     await gql('mutation($set: ObjectID!, $id: ObjectID!, $name: String) { emoteSet(id: $set) { emotes(id: $id, action: ADD, name: $name) { id name } } }', { set: set.id, id, name }, true);
-    const rec = { emoteId: id, name, setId: set.id, by: String(by || ''), addedAt: now(), expiresAt: now() + S.days * DAY, animated: emote.animated };
-    S.active.push(rec); save(); log('7tv: added ' + name + ' for ' + by);
-    return { name, id, days: S.days, expiresAt: rec.expiresAt, animated: emote.animated };
+    let expiresAt = 0;
+    if (days > 0) { const rec = { emoteId: id, name, setId: set.id, by: String(by || ''), addedAt: now(), expiresAt: now() + days * DAY, animated: emote.animated }; expiresAt = rec.expiresAt; S.active.push(rec); save(); }
+    log('7tv: added ' + name + ' for ' + by);
+    return { name, id, days, expiresAt, animated: emote.animated };
+  }
+  /** a viewer's link (a reward redemption): added for S.days days. Throws an Error with a viewer-friendly reason. */
+  async function add({ url, by }) {
+    if (!S.token) throw new Error('the 7TV login is not set up yet');
+    if (isBttv(url)) throw new Error('only 7TV emote links work (BetterTTV has no way to add emotes automatically)');
+    const id = parseEmoteId(url); if (!id) throw new Error('paste a 7TV emote link, like https://7tv.app/emotes/...');
+    return addEmote(id, by, S.days);
+  }
+  /** the streamer's own choice from the search page: for good (days = 0) or for a number of days */
+  const addById = (id, { by, days }) => { if (!/^[0-9A-Za-z]{24,26}$/.test(String(id))) throw new Error('not an emote id'); return addEmote(String(id), by || 'you', Math.max(0, Math.min(365, Math.floor(Number(days) || 0)))); };
+
+  /** search 7TV; every result says whether it can be added (and why not) */
+  async function search(q, page) {
+    q = String(q || '').trim().slice(0, 60); if (!q) return { count: 0, items: [] };
+    const d = await gql('query($q: String!, $page: Int, $limit: Int) { emotes(query: $q, page: $page, limit: $limit, filter: { exact_match: false }) { count items { id name animated flags listed lifecycle owner { username display_name } } } }', { q, page: num(page, 1, 1, 500), limit: 24 });
+    const e = (d && d.emotes) || { count: 0, items: [] };
+    return { count: e.count || 0, items: (e.items || []).map((x) => ({ id: x.id, name: x.name, animated: !!x.animated, owner: x.owner ? (x.owner.display_name || x.owner.username) : '', refused: refusal(x) })) };
+  }
+
+  /** the emotes in the channel's set right now, with the borrowed ones marked */
+  async function mySet() {
+    const set = await channelSet(), borrowed = new Map(S.active.map((a) => [a.emoteId, a]));
+    return { name: set.name, capacity: set.capacity, count: set.emotes.length, emotes: set.emotes.map((x) => { const b = borrowed.get(x.id); return { id: x.id, name: x.name, borrowed: !!b, daysLeft: b ? Math.max(0, Math.ceil((b.expiresAt - now()) / DAY)) : 0, by: b ? b.by : '' }; }) };
+  }
+  /** take any emote out of the channel's set (also ones that were not borrowed) */
+  async function removeFromSet(emoteId) {
+    if (!S.token) throw new Error('the 7TV login is not set up yet'); const set = await channelSet();
+    if (!set.emotes.some((x) => x.id === emoteId)) throw new Error('that emote is not in your set');
+    await gql('mutation($set: ObjectID!, $id: ObjectID!) { emoteSet(id: $set) { emotes(id: $id, action: REMOVE) { id } } }', { set: set.id, id: emoteId }, true);
+    S.active = S.active.filter((a) => a.emoteId !== emoteId); save(); return { ok: true };
   }
 
   async function removeRecord(rec) {
@@ -123,6 +158,6 @@ module.exports = function createSevenTV(ctx) {
   const view = () => ({ hasToken: !!S.token, days: S.days, max: S.max, blockEdgy: S.blockEdgy, rewardId: S.rewardId,
     active: S.active.map((a) => ({ emoteId: a.emoteId, name: a.name, by: a.by, animated: !!a.animated, addedAt: a.addedAt, expiresAt: a.expiresAt, daysLeft: Math.max(0, Math.ceil((a.expiresAt - now()) / DAY)) })).sort((x, y) => x.expiresAt - y.expiresAt) });
 
-  return { add, expireDue, removeNow, test, configure, view, parseEmoteId, isBttv, lookup, days: () => S.days };
+  return { add, addById, search, mySet, removeFromSet, expireDue, removeNow, test, configure, view, parseEmoteId, isBttv, lookup, days: () => S.days };
 };
 module.exports.parseEmoteId = parseEmoteId;

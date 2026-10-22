@@ -1764,6 +1764,10 @@ async function route(req, res) {
         if (op === 'settings') return json(res, 200, seventv.configure(body));
         if (op === 'test') return json(res, 200, await seventv.test());
         if (op === 'remove') return json(res, 200, await seventv.removeNow(String(body.emoteId || '')));
+        if (op === 'set') return json(res, 200, await seventv.mySet());
+        if (op === 'search') return json(res, 200, await seventv.search(body.q, body.page));
+        if (op === 'addnow') return json(res, 200, await seventv.addById(String(body.emoteId || ''), { by: 'you', days: body.days }));
+        if (op === 'removeset') return json(res, 200, await seventv.removeFromSet(String(body.emoteId || '')));
         if (op === 'reward') {   // make the channel point reward on Twitch and the hook that adds the emote, in one go
           const title = String(body.title || 'Add a 7TV emote for ' + seventv.days() + ' days').slice(0, 45);
           const rw = await hooks.api('reward/create', { title, cost: body.cost || 5000, cooldown: body.cooldown || 0, input: true, prompt: 'Paste the link of a 7TV emote (7tv.app/emotes/...). It is added to the channel for ' + seventv.days() + ' days.' });

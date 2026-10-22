@@ -19,11 +19,29 @@
   .muted { color: #9aa39f; font-size: 13px; } .err { color: var(--heat); min-height: 18px; margin: 6px 0; } .ok { color: var(--aqua); } code { background: #151b1b; padding: 1px 5px; }
   ol { padding-left: 20px; display: grid; gap: 6px; font-size: 14px; } ol li::marker { color: var(--heat); }
   .em { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 15px; } .em b { color: var(--heat); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; margin-top: 6px; }
+  .cell { background: var(--iron); border: 2px solid #3a4545; padding: 8px 6px 6px; text-align: center; font-size: 13px; position: relative; display: grid; gap: 4px; justify-items: center; }
+  .cell img { width: 64px; height: 64px; object-fit: contain; image-rendering: auto; } .cell b { color: var(--cream); word-break: break-all; font-weight: 600; } .cell .sub { color: #9aa39f; font-size: 11px; min-height: 14px; }
+  .cell.borrowed { border-color: var(--heat); } .cell.refused { opacity: .5; } .cell button { font-size: 11px; padding: 5px 8px; width: 100%; }
+  .tag { position: absolute; top: 2px; right: 2px; background: var(--heat); color: var(--iron); font-size: 10px; padding: 1px 4px; font-weight: 700; }
   #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; max-width: 90%; } #toast.bad { background: var(--rust); color: #fff; }
 </style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
 <body>
 <header><img src="/assets/logo.png" alt=""><h1>EMOTE REWARDS</h1><a href="/">&larr; Dashboard</a></header>
 <main>
+  <section>
+    <h2>YOUR 7TV EMOTES (<span id="setCount">...</span>)</h2>
+    <p class="muted" id="setInfo">Loading your emote set...</p>
+    <div class="grid" id="mine"></div>
+  </section>
+
+  <section>
+    <h2>SEARCH 7TV AND ADD</h2>
+    <div class="row"><label class="fld">Search emotes<input id="q" placeholder="type a name, e.g. catJAM, then press Enter"></label><label class="fld" style="max-width:230px">Add for<select id="addDays"><option value="0">good (until I remove it)</option><option value="7">7 days</option><option value="30">30 days</option></select></label><button id="go">Search</button></div>
+    <div class="grid" id="found"></div>
+    <div class="row" id="pager" style="display:none"><button class="ghost" id="prev">&larr; Previous</button><span class="muted" id="pageInfo"></span><button class="ghost" id="next">Next &rarr;</button></div>
+  </section>
+
   <section class="h">
     <h2>HOW IT WORKS</h2>
     <p class="muted" style="margin-bottom:8px">A viewer spends channel points on a reward and pastes the link of an emote from <b>7TV</b> (<code>https://7tv.app/emotes/...</code>). The app adds that emote to <b>your real 7TV emote set</b>, so everyone with 7TV sees it, and takes it away again after the number of days you choose. If the link is wrong, the emote is not allowed, or your set is full, the viewer is told why and the points are refunded.</p>
@@ -80,5 +98,21 @@ $('test').onclick = async () => { $('tokenMsg').className = 'err'; $('tokenMsg')
 $('saveRules').onclick = async () => { const r = await post('settings', { days: +$('days').value, max: +$('max').value, blockEdgy: $('edgy').checked }); if (r.error) return toast(r.error, true); toast('Saved'); draw(r); };
 $('mk').onclick = async () => { const r = await post('reward', { title: $('rTitle').value, cost: +$('rCost').value, cooldown: +$('rCd').value }); if (r.error) return toast(r.error, true); toast('Reward created on Twitch'); draw(r); };
 $('list').onclick = async (e) => { const id = e.target.dataset.id; if (!id) return; if (!e.target.dataset.arm) { e.target.dataset.arm = 1; e.target.textContent = 'Sure?'; setTimeout(() => { delete e.target.dataset.arm; e.target.textContent = 'Remove now'; }, 3000); return; } const r = await post('remove', { emoteId: id }); if (r.error) return toast(r.error, true); toast('Removed from your 7TV set'); load(); };
-load(); setInterval(load, 60000);
+const cdn = (id) => 'https://cdn.7tv.app/emote/' + encodeURIComponent(id) + '/2x.webp';
+async function loadSet() {
+  const r = await post('set'); if (r.error) { $('setCount').textContent = '?'; $('setInfo').textContent = r.error; $('mine').innerHTML = ''; return; }
+  $('setCount').textContent = r.count + ' of ' + r.capacity; $('setInfo').textContent = 'Emote set "' + r.name + '". Emotes with an orange border were borrowed by viewers and leave by themselves.';
+  $('mine').innerHTML = r.emotes.map((e) => '<div class="cell' + (e.borrowed ? ' borrowed' : '') + '">' + (e.borrowed ? '<span class="tag">' + e.daysLeft + 'd</span>' : '') + '<img loading="lazy" src="' + cdn(e.id) + '" alt=""><b>' + esc(e.name) + '</b><span class="sub">' + (e.borrowed ? 'by ' + esc(e.by) : '') + '</span><button class="ghost" data-rm="' + esc(e.id) + '">Remove</button></div>').join('');
+}
+$('mine').onclick = async (e) => { const id = e.target.dataset.rm; if (!id) return; if (!e.target.dataset.arm) { e.target.dataset.arm = 1; e.target.textContent = 'Sure?'; setTimeout(() => { delete e.target.dataset.arm; e.target.textContent = 'Remove'; }, 3000); return; } const r = await post('removeset', { emoteId: id }); if (r.error) return toast(r.error, true); toast('Removed from your 7TV set'); loadSet(); load(); };
+let page = 1, query = '';
+async function search(p) {
+  query = $('q').value.trim(); if (!query) return; page = p || 1; $('found').innerHTML = '<p class="muted">Searching...</p>'; const r = await post('search', { q: query, page });
+  if (r.error) { $('found').innerHTML = ''; return toast(r.error, true); }
+  $('found').innerHTML = r.items.length ? r.items.map((e) => '<div class="cell' + (e.refused ? ' refused' : '') + '"><img loading="lazy" src="' + cdn(e.id) + '" alt=""><b>' + esc(e.name) + '</b><span class="sub">' + (e.refused ? esc(e.refused) : esc(e.owner) + (e.animated ? ' &middot; animated' : '')) + '</span>' + (e.refused ? '' : '<button data-add="' + esc(e.id) + '">Add</button>') + '</div>').join('') : '<p class="muted">Nothing found.</p>';
+  const pages = Math.max(1, Math.ceil(r.count / 24)); $('pager').style.display = r.count > 24 ? 'flex' : 'none'; $('pageInfo').textContent = 'Page ' + page + ' of ' + pages + ' (' + r.count + ' emotes)'; $('prev').disabled = page <= 1; $('next').disabled = page >= pages;
+}
+$('go').onclick = () => search(1); $('q').onkeydown = (e) => { if (e.key === 'Enter') search(1); }; $('prev').onclick = () => search(page - 1); $('next').onclick = () => search(page + 1);
+$('found').onclick = async (e) => { const id = e.target.dataset.add; if (!id) return; e.target.disabled = true; const r = await post('addnow', { emoteId: id, days: +$('addDays').value }); e.target.disabled = false; if (r.error) return toast(r.error, true); toast('Added ' + r.name + (r.days ? ' for ' + r.days + ' days' : '')); e.target.textContent = 'Added'; e.target.disabled = true; loadSet(); load(); };
+load(); loadSet(); setInterval(load, 60000);
 </script></body></html>
