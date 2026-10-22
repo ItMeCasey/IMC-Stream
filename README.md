@@ -82,6 +82,8 @@ Tests for the server live in `server/*-test.js` (run each with `node`). `npm ins
 5. For live alerts and stat files, set up the local server (next section).
 
 ## Scenes
+**Waiting room** (Starting Soon scene): a pixel-art doctor's waiting room across the bottom third of the picture (`overlays/waitingroom.html`, 1920 x 360, the source **Waiting Room**). It has a reception window, couches, chairs, a coffee table with magazines, plants, a water cooler, a clock, a TV, pictures and an exit door. Everybody who talks in chat walks in through the door and takes a seat (or stands when the seats are full), shown as a pixel person who looks the same as in the games, with a speech bubble of what they said and their name while they talk. People leave after 10 minutes of silence, and the one who has been quiet longest leaves when the room is full. Bots in `hideBots` and commands that start with `!` are ignored. Options on the source's address: `?max=14` (how many people fit), `?idle=600` (seconds of silence before leaving), `?demo=1` (pretend chatters, `&speed=5` to walk faster). It sits above the background and below the countdown. A fresh import of `ItMeCasey.json` already has it; to add it to the OBS collection you already use, run `POST /api/obs/overlay {"which":"waitingroom"}`.
+
 Starting Soon (live countdown) · Gameplay (game + corner cam + bottom bar) · Just Chatting (big cam + themed live chat) · Full Cam · Be Right Back · Ending.
 Transition: **ItMeCasey Stinger** (slanted palette wipe + logo, cut point 900 ms) is the default. Fade and Cut remain available.
 

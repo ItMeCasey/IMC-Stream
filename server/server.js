@@ -1677,24 +1677,26 @@ async function route(req, res) {
       }
       if (p === '/api/vm/volume') return json(res, 200, await vmix.setVolume(body.which, body.db));
       if (p === '/api/obs/overlay') {   // add one of the overlays to the CURRENT OBS collection (every scene) without replacing anything
-        const files = { dance: ['Dance Party', 'dance.html?scale=1', 1920, 1080], words: ['Word Rush', 'words.html?scale=1', 1920, 1080] }, f = files[String(body.which)]; if (!f) throw new Error('Unknown overlay');
+        const files = { dance: ['Dance Party', 'dance.html?scale=1', 1920, 1080], words: ['Word Rush', 'words.html?scale=1', 1920, 1080], waitingroom: ['Waiting Room', 'waitingroom.html?scale=1', 1920, 360, { scenes: ['Starting Soon'], rect: [0, 2 / 3, 1, 1 / 3], index: 1 }] }, f = files[String(body.which)]; if (!f) throw new Error('Unknown overlay');
         const url = 'http://localhost:' + CFG.port + '/overlays/' + f[1];
         const steps = await obsClient.raw(async (call) => {
-          const scenes = ((await call('GetSceneList')).scenes || []).map((x) => x.sceneName), have = ((await call('GetInputList')).inputs || []).some((i) => i.inputName === f[0]), out = [];
+          const every = ((await call('GetSceneList')).scenes || []).map((x) => x.sceneName), opt = f[4] || {}, scenes = opt.scenes ? every.filter((n) => opt.scenes.includes(n)) : every, have = ((await call('GetInputList')).inputs || []).some((i) => i.inputName === f[0]), out = [];
+          if (!scenes.length) throw new Error('This OBS collection has no ' + (opt.scenes || []).join(' / ') + ' scene to put it in');
           if (!have) { await call('CreateInput', { sceneName: scenes[scenes.length - 1], inputName: f[0], inputKind: 'browser_source', inputSettings: { url, width: f[2], height: f[3], fps: 30, reroute_audio: false, shutdown: false, restart_when_active: false }, sceneItemEnabled: true }); out.push('created "' + f[0] + '"'); }
           for (const sc of scenes) {
             let items = ((await call('GetSceneItemList', { sceneName: sc })).sceneItems || []).filter((i) => i.sourceName === f[0]);
             if (!items.length) { await call('CreateSceneItem', { sceneName: sc, sourceName: f[0], sceneItemEnabled: true }); out.push('added to ' + sc); }
             for (const extra of items.slice(1)) { try { await call('RemoveSceneItem', { sceneName: sc, sceneItemId: extra.sceneItemId }); out.push('removed a duplicate from ' + sc); } catch (e) { /* leave it */ } }   // one copy per scene
           }
-          // these overlays cover the whole picture: make the source as big as the OBS canvas and stretch it over the canvas in every scene
-          const vs = await call('GetVideoSettings'), cw = vs.baseWidth || f[2], ch = vs.baseHeight || f[3];
+          // these overlays cover the picture (or the part of it in opt.rect): make the source as big as that part of the OBS canvas and stretch it over it in its scenes
+          const vs = await call('GetVideoSettings'), rc = opt.rect || [0, 0, 1, 1], cw = Math.round((vs.baseWidth || f[2]) * rc[2]), ch = Math.round((vs.baseHeight || f[3]) * rc[3]), px = Math.round((vs.baseWidth || f[2]) * rc[0]), py = Math.round((vs.baseHeight || f[3]) * rc[1]);
           try { await call('SetInputSettings', { inputName: f[0], inputSettings: { url, width: cw, height: ch }, overlay: true }); } catch (e) { /* keep the size it has */ }
           for (const sc of scenes) {
             try {
               const id = (await call('GetSceneItemId', { sceneName: sc, sourceName: f[0] })).sceneItemId;
-              await call('SetSceneItemTransform', { sceneName: sc, sceneItemId: id, sceneItemTransform: { positionX: 0, positionY: 0, alignment: 5, boundsType: 'OBS_BOUNDS_STRETCH', boundsAlignment: 0, boundsWidth: cw, boundsHeight: ch } });
-              out.push('full screen in ' + sc);
+              await call('SetSceneItemTransform', { sceneName: sc, sceneItemId: id, sceneItemTransform: { positionX: px, positionY: py, alignment: 5, boundsType: 'OBS_BOUNDS_STRETCH', boundsAlignment: 0, boundsWidth: cw, boundsHeight: ch } });
+              if (opt.index !== undefined) await call('SetSceneItemIndex', { sceneName: sc, sceneItemId: id, sceneItemIndex: opt.index });   // e.g. just above the background, below the countdown
+              out.push((opt.rect ? 'placed in ' : 'full screen in ') + sc);
             } catch (e) { /* not in that scene */ }
           }
           return out;

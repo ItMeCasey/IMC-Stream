@@ -54,14 +54,14 @@ function build({ root, dataDir, port = 8420 }) {
   const display = source('Display Capture', 'monitor_capture', { monitor: 0, capture_cursor: true });
   const cam = source('Webcam', 'dshow_input', {});
   const explosion = overlay('Emote Explosion', 'explosion.html?scale=1', 1920, 1080), danceParty = overlay('Dance Party', 'dance.html?scale=1', 1920, 1080), alerts = overlay('Alerts', 'alerts.html', 1920, 1080, true), chat = overlay('Chat', 'chat.html?scale=1', G.chat_box[2], G.chat_box[3]);
-  const gameArena = overlay('Game Arena', 'arena.html?scale=1', 520, 300), letterRush = overlay('Word Rush', 'words.html?scale=1', 1920, 1080), subathonTimer = overlay('Subathon Timer', 'subathon.html', sz(640), sz(190)), countdown = overlay('Countdown', 'countdown.html', sz(640), sz(230)), nowplaying = overlay('Now Playing', 'nowplaying.html?scale=0.64', Math.round(700 * 0.64), Math.round(220 * 0.64));   // 20% smaller than the other overlays
+  const waitingRoom = overlay('Waiting Room', 'waitingroom.html?scale=1', 1920, 360), gameArena = overlay('Game Arena', 'arena.html?scale=1', 520, 300), letterRush = overlay('Word Rush', 'words.html?scale=1', 1920, 1080), subathonTimer = overlay('Subathon Timer', 'subathon.html', sz(640), sz(190)), countdown = overlay('Countdown', 'countdown.html', sz(640), sz(230)), nowplaying = overlay('Now Playing', 'nowplaying.html?scale=0.64', Math.round(700 * 0.64), Math.round(220 * 0.64));   // 20% smaller than the other overlays
   const poll = overlay('Poll Overlay', 'poll.html', sz(620), sz(560)), prediction = overlay('Prediction Overlay', 'prediction.html', sz(620), sz(620));
   const hype = overlay('Hype Train', 'hypetrain.html', sz(760), sz(170)), events = overlay('Recent Events', 'events.html', sz(520), sz(440)), ticker = overlay('Event Ticker', 'events.html?mode=ticker', 1920, sz(62)), viewers = overlay('Stream Stats', 'viewers.html', sz(520), sz(90));
   const capF = text('Label - Latest Follower (caption)', 26, '#4FBBBC', 'LATEST FOLLOWER'), valF = text('Label - Latest Follower', 60, '#E2DAC2', null, 'latest_follower');
   const capS = text('Label - Latest Subscriber (caption)', 26, '#4FBBBC', 'LATEST SUBSCRIBER'), valS = text('Label - Latest Subscriber', 60, '#F39120', null, 'latest_subscriber');
 
   const sc = [];
-  sc.push(new Scene('Starting Soon').add(bgStart).add(countdown, 704, 803).add(alerts).add(danceParty).add(explosion));
+  sc.push(new Scene('Starting Soon').add(bgStart).add(waitingRoom, 0, 720, [0, 720, 1920, 360]).add(countdown, 704, 803).add(alerts).add(danceParty).add(explosion));
   sc.push(new Scene('Gameplay').add(bgIron).add(display, 0, 0, G.game, false).add(game, 0, 0, G.game).add(cam, 0, 0, G.cam_game).add(ovGame).add(viewers, 1484, 12).add(hype, 656, 12).add(poll, 1424, 80).add(prediction, 1424, 80).add(events, 0, 40).add(ticker, 0, 940, null, false).add(subathonTimer, 20, 130, null, false).add(nowplaying, 0, 869).add(gameArena, 700, 540).add(letterRush).add(alerts).add(danceParty).add(explosion));
   sc.push(new Scene('Just Chatting').add(bgIron).add(cam, 0, 0, G.cam_chat).add(ovChat).add(chat, G.chat_box[0], G.chat_box[1]).add(hype, 40, 784).add(poll, 662, 70).add(prediction, 662, 70).add(subathonTimer, 20, 130, null, false).add(gameArena, 700, 540).add(letterRush).add(alerts).add(danceParty).add(explosion));
   sc.push(new Scene('Full Cam').add(bgIron).add(cam, 0, 0, G.cam_full).add(ovFull).add(viewers, 1484, 12).add(hype, 656, 12).add(poll, 1424, 80).add(prediction, 1424, 80).add(nowplaying, 0, 869).add(subathonTimer, 20, 130, null, false).add(gameArena, 700, 540).add(letterRush).add(alerts).add(danceParty).add(explosion));
@@ -72,7 +72,7 @@ function build({ root, dataDir, port = 8420 }) {
   const mic = source('Mic/Aux', 'wasapi_input_capture', { device_id: 'default' }, null, [
     ['Noise Suppression', 'noise_suppress_filter', { method: 'rnnoise' }, 'noise_suppress_filter_v2'], ['Noise Gate', 'noise_gate_filter', { open_threshold: -32.0, close_threshold: -38.0 }, null],
     ['Compressor', 'compressor_filter', { ratio: 4.0, threshold: -18.0, attack_time: 6, release_time: 60, output_gain: 4.0 }, null], ['Limiter', 'limiter_filter', { threshold: -3.0, release_time: 60 }, null]], { audio: true });
-  const shared = [danceParty, gameArena, letterRush, subathonTimer, explosion, hype, events, ticker, viewers, nowplaying, poll, prediction, bgIron, bgStart, bgBrb, bgEnd, capF, valF, capS, valS, ovGame, ovChat, ovFull, game, display, cam, alerts, chat, countdown];
+  const shared = [danceParty, gameArena, letterRush, waitingRoom, subathonTimer, explosion, hype, events, ticker, viewers, nowplaying, poll, prediction, bgIron, bgStart, bgBrb, bgEnd, capF, valF, capS, valS, ovGame, ovChat, ovFull, game, display, cam, alerts, chat, countdown];
   const sources = sc.map((x) => x.build()).concat(shared, [desktop, mic]);
   return {
     name: 'ItMeCasey', DesktopAudioDevice1: desktop, AuxAudioDevice1: mic, sources, groups: [], scene_order: sc.map((x) => ({ name: x.name })),
