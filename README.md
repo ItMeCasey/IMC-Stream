@@ -237,6 +237,7 @@ Other sources can still send tips with `POST http://localhost:8420/api/event` an
 
 ## Twitch kit (`twitch/`)
 Profile picture 800x800, banner 1200x480, offline screen 1920x1080, 8 panel headers (640x140): About, Schedule, Rules, Commands, Socials, Support, Gear, FAQ.
+Pixel-art **cheer badges** for the 13 bits tiers (1, 100, 1,000, 5,000, 10,000, 25,000, 50,000, 75,000, 100,000, 200,000, 300,000, 400,000, 500,000) in `twitch/bit_badges/` at the three sizes Twitch asks for (18, 36 and 72 px). Twitch has no upload API for them: add them by hand under Viewer Rewards > Bits > Cheer Badges on your Twitch dashboard. `python _build/make_bit_badges.py` regenerates them.
 
 ## Rebuild / customize
 `_build/build_graphics.py` regenerates every image, sound and the stinger; `node server/collection.js ItMeCasey.json` rewrites `ItMeCasey.json` (the app builds it on demand from Setup; `_build/build_collection.py` is the older Python version). If you move this folder, re-run `python build_collection.py` so the file paths update. Change the tagline/scene text at the top of `main()` in `build_graphics.py`.
