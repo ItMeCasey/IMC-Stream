@@ -1,0 +1,79 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Chat</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  body { display: flex; flex-direction: column; justify-content: flex-end; padding: 6px 4px; }
+  #chat { display: flex; flex-direction: column; justify-content: flex-end; gap: 10px; }
+  .m { position: relative; background: rgba(26,32,32,.92); padding: 10px 16px 12px 20px; font-size: 25px; line-height: 1.5;
+    border-left: 8px solid var(--c, var(--aqua)); word-wrap: break-word; animation: pop .35s cubic-bezier(.2,.9,.2,1); }
+  .m.fade { animation: gone .6s forwards; }
+  @keyframes pop  { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
+  @keyframes gone { to { opacity: 0; transform: translateX(30px); } }
+  .u { font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--c, var(--aqua)); margin-right: 10px; font-size: 22px; }
+  .t { color: var(--cream); }
+  .emote { height: 1.45em; }
+  .badge { height: 1em; }
+</style></head>
+<body>
+<div id="chat"></div>
+<script src="config.js"></script>
+<script src="chat-render.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tmi.js/1.8.5/tmi.min.js"></script>
+<script>
+(async function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search), R = window.ChatRender;
+  const BASE = icmBase('chat', +(Q.get('port') || C.serverPort || 8420));
+  const MAX = C.chatMaxMessages || 14, FADE = C.chatFadeSeconds || 0, HIDE = (C.hideBots || []).map((s) => s.toLowerCase());
+  const SHOW_BADGES = C.chatBadges !== false;
+  const chat = document.getElementById('chat');
+  const PAL = ['#4FBBBC', '#F39120', '#EC4624', '#E2DAC2'];
+  const esc = R.esc;
+  await R.load(BASE);
+  setInterval(() => R.load(BASE), 30 * 60 * 1000);
+
+  function add(m) {
+    if (HIDE.includes((m.login || m.name || '').toLowerCase()) || (m.text || '').startsWith('!')) return;
+    const el = document.createElement('div');
+    el.className = 'm'; el.dataset.id = m.id || ''; el.dataset.uid = m.uid || '';
+    const name = m.name || m.login || '';
+    let col = m.color; if (!col || col.toLowerCase() === '#000000') col = PAL[name.length % PAL.length];
+    el.style.setProperty('--c', col);
+    el.innerHTML = (SHOW_BADGES ? R.badgeHTML(m) : '') + '<span class="u">' + esc(name) + '</span><span class="t">' + R.body(m) + '</span>';
+    chat.appendChild(el);
+    while (chat.children.length > MAX) chat.removeChild(chat.firstChild);
+    if (FADE > 0) setTimeout(() => { el.classList.add('fade'); setTimeout(() => el.remove(), 650); }, FADE * 1000);
+  }
+  window.addChatMessage = (user, text) => add({ name: user, text, frags: [{ type: 'text', text }] });
+  if (Q.get('demo')) {
+    [['RetroRider', 'this overlay looks sick'], ['BitBaron', 'that orange and teal combo tho'], ['GenerousGamer', 'let us gooooo']]
+      .forEach(([u, t], i) => setTimeout(() => window.addChatMessage(u, t), i * 600));
+  }
+
+  // 1) preferred: the local server feed (full emotes + badges, removes deleted/timed-out messages)
+  let viaServer = false;
+  try {
+    const es = new EventSource(BASE + '/events');
+    es.addEventListener('status', (e) => { try { if (JSON.parse(e.data).eventsub === 'connected') viaServer = true; } catch (x) {} });
+    es.addEventListener('chat', (e) => { viaServer = true; add(JSON.parse(e.data)); });
+    es.addEventListener('chatmod', (e) => {
+      const ev = JSON.parse(e.data);
+      [...chat.children].forEach((el) => { if (ev.type === 'clear' || (ev.type === 'delete' && el.dataset.id === ev.id) || (ev.type === 'clearUser' && el.dataset.uid === ev.uid)) el.remove(); });
+    });
+  } catch (e) { /* fall through to tmi */ }
+
+  // 2) fallback: anonymous Twitch chat if the server isn't connected to Twitch after a few seconds
+  setTimeout(() => {
+    if (viaServer || !window.tmi || Q.get('demo')) return;
+    const channel = (Q.get('channel') || C.channel || 'itmecasey').toLowerCase();
+    const client = new tmi.Client({ channels: [channel] });
+    client.connect().catch(console.error);
+    client.on('message', (ch, tags, msg) => {
+      if (viaServer) return;
+      const m = R.fromTmi(tags, msg);
+      Object.assign(m, { id: tags.id, uid: tags['user-id'], login: tags.username, name: tags['display-name'] || tags.username, color: tags.color });
+      add(m);
+    });
+  }, 6000);
+})();
+</script>
+</body></html>

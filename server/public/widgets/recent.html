@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="w.css"><script src="/ui-theme.js"></script></head><body>
+<div class="row" style="margin-bottom:8px"><button id="p" class="o">Pause</button><button id="m" class="r">Mute</button><button id="s" class="c">Skip</button><button id="c" class="g">Clear</button>
+<select id="t" title="Send a test alert" style="margin-left:auto;font:inherit;font-size:12px;padding:7px 8px;background:var(--iron);color:var(--cream);border:2px solid #46504f"><option value="">Test alert...</option></select></div>
+<div id="l" class="muted">No alerts yet.</div>
+<script src="w.js"></script><script>
+const row = (a) => '<div class="ev"><i>' + esc(a.tag || a.kind) + '</i>' + esc(a.name) + (a.msg ? ' <span class="muted">' + esc(a.msg) + '</span>' : '') + '</div>';
+let L = []; const draw = () => { if (L.length) $('l').innerHTML = L.map(row).join(''); };
+let K = { paused: false, muted: false };
+const ctl = (a) => post('/api/alerts/ctl', { action: a }).then((r) => { if (!r.error) { K = r; dr(); } return r; });
+function dr() { $('p').textContent = K.paused ? 'Resume' : 'Pause'; $('m').textContent = K.muted ? 'Unmute' : 'Mute'; }
+$('p').onclick = (e) => act(e.target, () => ctl(K.paused ? 'resume' : 'pause')); $('m').onclick = (e) => act(e.target, () => ctl(K.muted ? 'unmute' : 'mute')); $('s').onclick = (e) => act(e.target, () => ctl('skip')); $('c').onclick = (e) => act(e.target, () => ctl('clear'));
+live({ alertctl: (d) => { K = d; dr(); } });
+for (const [t, l] of [['follow', 'Follow'], ['sub', 'Sub'], ['resub', 'Resub'], ['giftsub', 'Gift subs'], ['bits', 'Bits'], ['raid', 'Raid'], ['tip', 'Tip'], ['redeem', 'Redeem'], ['hype', 'Hype train'], ['duel', 'Duel']]) $('t').add(new Option(l, t));
+$('t').onchange = (e) => { const v = e.target.value; e.target.value = ''; if (v) act(e.target, () => post('/api/test', { type: v })); };
+get('/api/alerts/history').then((h) => { L = h.slice(0, 30); draw(); });
+live({ message: (a) => { if (a && a.kind && !a.replay) { L.unshift(a); L = L.slice(0, 30); draw(); } } });
+</script></body></html>

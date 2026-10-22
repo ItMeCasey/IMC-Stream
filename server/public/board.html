@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Board</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --olive:#8a9a3b; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 18px 20px 60px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 16px 18px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); }
+  h2 { font-size: 13px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .b { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 14px; min-height: 74px; padding: 10px; border: 0; cursor: pointer; background: var(--aqua); color: var(--iron); word-break: break-word; position: relative; }
+  .b:hover { filter: brightness(1.12); } .b:active { transform: translateY(2px); } .b.orange { background: var(--heat); } .b.rust { background: var(--rust); color: var(--cream); } .b.olive { background: var(--olive); } .b.cream { background: var(--cream); } .b.on { outline: 4px solid var(--cream); }
+  .b.ok { animation: ok .6s; } .b.bad { animation: bad .6s; } @keyframes ok { 30% { box-shadow: 0 0 0 6px #fff8; } } @keyframes bad { 30% { background: #000; color: var(--rust); } }
+  .b small { display: block; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11px; opacity: .8; margin-top: 2px; }
+  .b .x { position: absolute; top: 2px; right: 6px; font-size: 14px; opacity: .0; } .editing .b .x { opacity: .7; }
+  button.s { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 8px 14px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); } button.s.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.s.alt { background: var(--aqua); }
+  .muted { color: #9aa39f; font-size: 13px; } .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; } .fld input, .fld select { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 7px 9px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; }
+  .tr { display: grid; grid-template-columns: 190px 1fr auto; gap: 10px; align-items: center; margin: 6px 0; } .tr .hint { color: #9aa39f; font-size: 12px; } .tr select { font: inherit; padding: 7px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; max-width: 90vw; } #toast.bad { background: var(--rust); color: var(--cream); }
+  .modal { position: fixed; inset: 0; background: #000a; display: none; place-items: center; z-index: 5; } .modal.on { display: grid; } .modal > div { background: var(--iron-d); padding: 20px; width: min(520px, 94vw); border-top: 1px solid var(--line); display: grid; gap: 10px; }
+  .log { font-size: 12px; color: #9aa39f; max-height: 110px; overflow: auto; } .log .bad { color: var(--heat); }
+  @media (max-width: 640px) { .tr { grid-template-columns: 1fr; } }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head><body>
+<header><img src="/assets/logo.png" alt=""><h1>BOARD</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section data-open>
+    <h2>SCENES <span class="muted" id="curScene" style="letter-spacing:1px"></span></h2>
+    <div class="grid" id="scenes"></div>
+    <div class="muted" id="sceneErr" style="margin-top:8px"></div>
+  </section>
+
+  <section class="h" data-open>
+    <h2>QUICK CONTROLS</h2>
+    <div class="grid" id="quick"></div>
+  </section>
+
+  <section class="r" id="customSec" data-open>
+    <h2>MY BUTTONS</h2>
+    <div class="grid" id="custom"></div>
+    <div class="row"><button class="s" id="addBtn">+ New button</button><button class="s ghost" id="editBtn">Edit / reorder</button><span class="muted">A button can do anything a channel-point reward hook can: chat, OBS, alert, sound, webhook&hellip;</span></div>
+  </section>
+
+  <section class="h">
+    <h2>AUTO SCENE SWITCHING</h2>
+    <div class="row"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="autoOn" style="width:18px;height:18px"> Switch OBS scenes automatically</label><span class="muted">needs OBS WebSocket (Tools &gt; WebSocket Server Settings), set up on the Reward Hooks or Setup page</span></div>
+    <div id="triggers"></div>
+    <div class="row"><label class="fld">Raid scene stays for (seconds)<input type="number" id="raidSec" min="5" max="600" value="30" style="width:120px"></label><button class="s" id="saveAuto">Save</button><button class="s ghost" id="backBtn">Go back to previous scene now</button></div>
+    <div class="log" id="autoLog"></div>
+  </section>
+</main>
+
+<div class="modal" id="modal"><div>
+  <h2 style="color:var(--heat)" id="mTitle">BUTTON</h2>
+  <label class="fld">Label<input id="mLabel" maxlength="24"></label>
+  <div class="row"><label class="fld">Colour<select id="mColor"><option value="teal">Teal</option><option value="orange">Orange</option><option value="rust">Rust</option><option value="olive">Olive</option><option value="cream">Cream</option></select></label>
+    <label class="fld">Does<select id="mType"></select></label></div>
+  <div id="mFields"></div>
+  <label class="muted"><input type="checkbox" id="mConfirm"> Ask me to press twice (for risky buttons)</label>
+  <div class="row"><button class="s" id="mSave">Save</button><button class="s ghost" id="mCancel">Cancel</button><button class="s ghost" id="mDel" style="margin-left:auto;display:none">Delete</button></div>
+</div></div>
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3500); }
+let V = null, sceneNames = [], editing = false, armed = null;
+
+async function run(btn, fn) {
+  try { const r = await fn(); if (r && r.error) throw new Error(r.error); btn.classList.add('ok'); if (r && r.msg) toast(r.msg); } catch (e) { btn.classList.add('bad'); toast(e.message, true); }
+  setTimeout(() => btn.classList.remove('ok', 'bad'), 700);
+}
+const actionBtn = (el, actions) => (el.onclick = () => run(el, () => post('/api/scenes/run', { actions })));
+
+const QUICK = [
+  ['Start stream', 'olive', [{ type: 'obs-stream', op: 'start' }]], ['Stop stream', 'rust', [{ type: 'obs-stream', op: 'stop' }], 'Stop the stream?'], ['Start recording', 'olive', [{ type: 'obs-record', op: 'start' }]], ['Stop recording', 'rust', [{ type: 'obs-record', op: 'stop' }]],
+  ['Run ad 30s', 'orange', [{ type: 'ad', op: 'run', length: 30 }]], ['Run ad 60s', 'orange', [{ type: 'ad', op: 'run', length: 60 }]], ['Run ad 90s', 'orange', [{ type: 'ad', op: 'run', length: 90 }]], ['Snooze next ad', 'cream', [{ type: 'ad', op: 'snooze' }]],
+  ['Make a clip', 'teal', [{ type: 'clip', say: true }]],
+  ['Pause alerts', 'rust', [{ type: 'alerts', op: 'pause' }]], ['Resume alerts', 'teal', [{ type: 'alerts', op: 'resume' }]], ['Skip alert', 'cream', [{ type: 'alerts', op: 'skip' }]], ['Mute alerts', 'rust', [{ type: 'alerts', op: 'mute' }]], ['Unmute alerts', 'teal', [{ type: 'alerts', op: 'unmute' }]],
+  ['Play / pause music', 'olive', [{ type: 'media', op: 'toggle' }]], ['Next song', 'olive', [{ type: 'media', op: 'next' }]], ['Previous song', 'olive', [{ type: 'media', op: 'previous' }]],
+  ['Timer +1 min', 'cream', [{ type: 'countdown', op: 'add', seconds: 60 }]], ['Show timer', 'cream', [{ type: 'countdown', op: 'show' }]], ['Hide timer', 'cream', [{ type: 'countdown', op: 'hide' }]],
+];
+function drawQuick() {
+  $('quick').innerHTML = ''; for (const [label, color, acts, ask] of QUICK) { const b = document.createElement('button'); b.className = 'b ' + color; b.textContent = label; if (ask) b.onclick = () => { if (confirm(ask)) run(b, () => post('/api/scenes/run', { actions: acts })); }; else actionBtn(b, acts); $('quick').appendChild(b); }
+}
+async function loadScenes() {
+  try {
+    sceneNames = await post('/api/hooks/obs/scenes'); if (sceneNames.error) throw new Error(sceneNames.error);
+    $('sceneErr').textContent = ''; $('scenes').innerHTML = '';
+    for (const n of sceneNames) { const b = document.createElement('button'); b.className = 'b'; b.textContent = n; actionBtn(b, [{ type: 'obs-scene', scene: n }]); $('scenes').appendChild(b); }
+  } catch (e) { sceneNames = []; $('scenes').innerHTML = ''; $('sceneErr').textContent = 'Could not reach OBS: ' + e.message; }
+  drawTriggers();
+}
+
+// ---------------------------------------------------------------- custom buttons
+const FIELDS = {
+  'obs-scene': ['Switch OBS scene', [['scene', 'Scene', 'scene']]],
+  'obs-source': ['Show an OBS source for a while', [['scene', 'Scene (blank = current)', 'scene'], ['source', 'Source name', 'text'], ['seconds', 'Visible for (s, 0 = stay)', 'number']]],
+  chat: ['Say in chat', [['text', 'Message (variables like {name} work)', 'text']]],
+  command: ['Run a chat command', [['text', 'Command, e.g. !so Someone', 'text']]],
+  alert: ['Show a custom overlay alert', [['key', 'Custom alert key', 'text']]],
+  tts: ['Say with text-to-speech', [['text', 'What to say', 'text']]],
+  webhook: ['Call a webhook', [['url', 'Address (https://…)', 'text']]],
+  counter: ['Change a counter', [['name', 'Counter name', 'text'], ['delta', 'Add (negative to subtract)', 'number']]],
+  points: ['Give everyone... (name needed)', []],
+};
+delete FIELDS.points;
+function typeOptions() { $('mType').innerHTML = Object.entries(FIELDS).map(([k, v]) => '<option value="' + k + '">' + esc(v[0]) + '</option>').join(''); }
+function drawFields(a) {
+  a = a || {}; const f = FIELDS[$('mType').value][1];
+  $('mFields').innerHTML = f.map(([k, label, kind]) => '<label class="fld">' + esc(label) + (kind === 'scene'
+    ? '<select data-k="' + k + '"><option value="">(current scene)</option>' + sceneNames.map((n) => '<option' + (a[k] === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select>'
+    : '<input data-k="' + k + '" type="' + (kind === 'number' ? 'number' : 'text') + '" value="' + esc(a[k] == null ? '' : a[k]) + '">') + '</label>').join('');
+}
+let editId = '';
+function openModal(btn) {
+  editId = btn ? btn.id : ''; typeOptions();
+  const a = btn && btn.actions[0] ? btn.actions[0] : { type: 'obs-scene' };
+  $('mTitle').textContent = btn ? 'EDIT BUTTON' : 'NEW BUTTON'; $('mLabel').value = btn ? btn.label : ''; $('mColor').value = btn ? btn.color : 'teal'; $('mConfirm').checked = !!(btn && btn.confirm);
+  $('mType').value = FIELDS[a.type] ? a.type : 'obs-scene'; drawFields(a); $('mDel').style.display = btn ? '' : 'none'; $('modal').classList.add('on');
+  if (btn && btn.actions.length > 1) toast('This button has several actions: saving here keeps only the first.', true);
+}
+$('mType').onchange = () => drawFields({});
+$('mCancel').onclick = () => $('modal').classList.remove('on');
+$('mSave').onclick = async () => {
+  const action = { type: $('mType').value }; $('mFields').querySelectorAll('[data-k]').forEach((i) => (action[i.dataset.k] = i.value));
+  const r = await post('/api/scenes/button/save', { id: editId || undefined, label: $('mLabel').value, color: $('mColor').value, confirm: $('mConfirm').checked, actions: [action] });
+  if (r.error) return toast(r.error, true); $('modal').classList.remove('on'); load();
+};
+$('mDel').onclick = async () => { await post('/api/scenes/button/delete', { id: editId }); $('modal').classList.remove('on'); load(); };
+$('addBtn').onclick = () => openModal(null);
+$('editBtn').onclick = () => { editing = !editing; $('customSec').classList.toggle('editing', editing); $('editBtn').textContent = editing ? 'Done editing' : 'Edit / reorder'; drawCustom(); };
+function drawCustom() {
+  const g = $('custom'); g.innerHTML = '';
+  if (!V.board.length) g.innerHTML = '<div class="muted">No buttons yet. Add one for anything you do often.</div>';
+  V.board.forEach((bt, i) => {
+    const b = document.createElement('button'); b.className = 'b ' + bt.color; b.innerHTML = esc(bt.label) + (editing ? '<small>click to edit</small>' : '');
+    if (editing) {
+      b.onclick = () => openModal(bt);
+      const mv = document.createElement('div'); mv.className = 'row'; mv.style.cssText = 'margin:0;justify-content:center;grid-column:span 1';
+      const wrap = document.createElement('div'); wrap.appendChild(b);
+      for (const [t, d] of [['◀', -1], ['▶', 1]]) { const m = document.createElement('button'); m.className = 's ghost'; m.textContent = t; m.onclick = async () => { await post('/api/scenes/button/move', { id: bt.id, dir: d }); load(); }; mv.appendChild(m); }
+      wrap.appendChild(mv); g.appendChild(wrap);
+    } else {
+      b.onclick = () => {
+        if (bt.confirm && armed !== bt.id) { armed = bt.id; b.textContent = 'Press again to confirm'; setTimeout(() => { if (armed === bt.id) { armed = null; b.textContent = bt.label; } }, 3000); return; }
+        armed = null; run(b, () => post('/api/scenes/press', { id: bt.id })); b.textContent = bt.label;
+      };
+      g.appendChild(b);
+    }
+  });
+}
+
+// ---------------------------------------------------------------- auto scenes
+function drawTriggers() {
+  if (!V) return; const t = V.triggers, m = V.map, opts = (sel) => '<option value="">(do nothing)</option>' + sceneNames.map((n) => '<option' + (sel === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + (sel && !sceneNames.includes(sel) ? '<option selected>' + esc(sel) + '</option>' : '');
+  const keys = Object.keys(t); const html = [];
+  for (const k of keys) {
+    html.push('<div class="tr"><div>' + esc(t[k].label) + '</div><div><select data-t="' + k + '">' + opts(m[k]) + '</select> <span class="hint">' + esc(t[k].hint) + '</span></div><button class="s ghost" data-test="' + k + '">Test</button></div>');
+    if (k === 'raid') html.push('<div class="tr"><div style="color:#9aa39f">&nbsp;&nbsp;after the raid</div><div><select data-t="raidEnd">' + opts(m.raidEnd) + '</select> <span class="hint">blank = back to the previous scene</span></div><span></span></div>');
+  }
+  $('triggers').innerHTML = html.join('');
+  $('triggers').querySelectorAll('[data-test]').forEach((b) => (b.onclick = () => run(b, () => post('/api/scenes/test', { trigger: b.dataset.test }).then((r) => (r.error ? r : { msg: r.log ? r.log.text : r.ok ? 'done' : 'nothing set for that trigger' })))));
+}
+$('saveAuto').onclick = async () => {
+  const map = {}; $('triggers').querySelectorAll('[data-t]').forEach((s) => (map[s.dataset.t] = s.value));
+  const r = await post('/api/scenes/save', { enabled: $('autoOn').checked, raidSeconds: $('raidSec').value, map }); if (r.error) return toast(r.error, true); toast('Saved'); V = Object.assign(V, r); drawLog();
+};
+$('backBtn').onclick = (e) => run(e.target, () => post('/api/scenes/back').then((r) => ({ msg: r.ok ? 'Went back' : 'Nothing to go back to' })));
+function drawLog() { $('autoLog').innerHTML = (V.log || []).map((l) => '<div class="' + (l.ok ? '' : 'bad') + '">' + new Date(l.ts).toLocaleTimeString() + ' ' + esc(l.text) + '</div>').join(''); }
+
+async function load() {
+  V = await fetch('/api/scenes').then((r) => r.json()); $('autoOn').checked = V.enabled; $('raidSec').value = V.raidSeconds; drawCustom(); drawTriggers(); drawLog();
+}
+(async () => { drawQuick(); await load(); await loadScenes(); setInterval(() => load().catch(() => {}), 15000); })();
+</script></body></html>

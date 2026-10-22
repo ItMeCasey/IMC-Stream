@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Stream Stats</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* OBS Browser Source:  http://localhost:8420/overlays/viewers.html   (suggested size 520 x 90).  ?show=viewers,uptime,followers,subs  ?demo=1 to preview. */
+  .wrap { position: absolute; inset: 0; display: flex; align-items: stretch; padding: 10px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.5)); }
+  .stat { flex: 1; background: var(--iron); margin-left: -14px; padding: 6px 22px 6px 30px; clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%); display: flex; flex-direction: column; justify-content: center; position: relative; min-width: 0; }
+  .stat:first-child { margin-left: 0; padding-left: 20px; }
+  .stat::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: var(--c, var(--aqua)); }
+  .v { font-size: 38px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: 1px; white-space: nowrap; } .l { font-size: 12px; letter-spacing: 4px; color: var(--c, var(--aqua)); font-weight: 700; text-transform: uppercase; margin-top: 3px; }
+  .viewers { --c: var(--rust); } .uptime { --c: var(--aqua); } .followers { --c: var(--heat); } .subs { --c: var(--cream); }
+</style></head>
+<body>
+<div class="wrap" id="wrap"></div>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search), BASE = icmBase('viewers', +(Q.get('port') || C.serverPort || 8420));
+  const show = (Q.get('show') || 'viewers,uptime,followers').split(',').map((s) => s.trim()).filter((s) => ['viewers', 'uptime', 'followers', 'subs'].includes(s));
+  const LABEL = { viewers: 'VIEWERS', uptime: 'UPTIME', followers: 'FOLLOWERS', subs: 'SUBS' }, nf = new Intl.NumberFormat('en-US'), w = document.getElementById('wrap');
+  w.innerHTML = show.map((k) => '<div class="stat ' + k + '"><div class="v" id="v-' + k + '">-</div><div class="l">' + LABEL[k] + '</div></div>').join('');
+  let S = null;
+  const dur = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h + ':' + String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+  const num = (n) => (n == null ? '-' : nf.format(n));
+  function draw() {
+    if (!S) return; const v = { viewers: S.live ? num(S.viewers) : '-', uptime: S.live && S.startedAt ? dur(Date.now() - Date.parse(S.startedAt)) : '-', followers: num(S.followers), subs: num(S.subs) };
+    for (const k of show) document.getElementById('v-' + k).textContent = v[k];
+  }
+  setInterval(draw, 1000);
+  if (Q.get('demo')) { S = { live: true, viewers: 128, startedAt: new Date(Date.now() - 5025000).toISOString(), followers: 1234, subs: 56 }; draw(); return; }
+  fetch(BASE + '/api/stats').then((r) => r.json()).then((s) => { S = s; draw(); }).catch(() => {});
+  const es = new EventSource(BASE + '/events'); es.addEventListener('stats', (e) => { S = JSON.parse(e.data); draw(); });
+})();
+</script></body></html>

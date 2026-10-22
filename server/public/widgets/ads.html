@@ -1,0 +1,7 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="w.css"><script src="/ui-theme.js"></script></head><body><div class="lbl" id="l">Next ad break in</div><div class="big" id="t">-</div>
+<div class="row" style="margin-top:8px"><button class="o" data-l="30">Ad 30s</button><button class="o" data-l="60">60s</button><button class="o" data-l="90">90s</button><button class="c" id="sn">Snooze</button></div><div class="muted" id="m" style="margin-top:6px"></div>
+<script src="w.js"></script><script>
+let A = null;
+function draw() { if (!A) return; const now = Date.now() + (A.now - Date.now() > 5000 ? 0 : 0); if (A.running && A.endsAt > now) { $('l').textContent = 'Ad break running'; $('t').textContent = mmss((A.endsAt - now) / 1000); } else if (A.nextAt && A.nextAt > now) { $('l').textContent = 'Next ad break in'; $('t').textContent = mmss((A.nextAt - now) / 1000); } else { $('l').textContent = 'Next ad'; $('t').textContent = A.live ? 'not scheduled' : 'offline'; } $('m').textContent = A.snoozes != null ? 'Snoozes left: ' + A.snoozes : ''; }
+const load = () => get('/api/ads').then((a) => { A = a; draw(); }); load(); setInterval(load, 15000); setInterval(draw, 1000);
+document.querySelectorAll('

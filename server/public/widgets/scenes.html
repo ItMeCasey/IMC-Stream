@@ -1,0 +1,5 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="w.css"><script src="/ui-theme.js"></script></head><body><div class="grid" id="g"></div><div class="muted" id="m"></div>
+<script src="w.js"></script><script>
+async function load() { try { const l = await post('/api/hooks/obs/scenes'); if (l.error) throw new Error(l.error); $('m').textContent = ''; $('g').innerHTML = ''; for (const n of l) { const e = document.createElement('button'); e.textContent = n; e.onclick = () => act(e, () => post('/api/scenes/run', { actions: [{ type: 'obs-scene', scene: n }] })); $('g').appendChild(e); } } catch (e) { $('m').textContent = 'OBS: ' + e.message; } }
+load(); setInterval(load, 30000);
+</script></body></html>

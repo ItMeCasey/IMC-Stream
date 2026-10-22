@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Stream</title>
+<script src="/ui-theme.js"></script>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; --rail:200px; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; display: grid; grid-template-rows: 32px 1fr; grid-template-columns: var(--rail) 1fr; grid-template-areas: "top top" "rail main"; }
+  body.slim { --rail: 52px; }
+  #top { grid-area: top; background: var(--iron-d); display: flex; align-items: center; gap: 10px; padding: 0 0 0 10px; position: relative; -webkit-app-region: drag; user-select: none; padding-right: calc(100vw - env(titlebar-area-width, 100vw) + 8px); }
+  #top::after { content:""; position:absolute; left:0; right:0; bottom:0; height:2px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  #top img { width: 18px; height: 18px; } #top b { font-size: 12px; letter-spacing: 5px; } #top .cur { font-size: 12px; color: #9aa39f; letter-spacing: 1px; }
+  .tb { -webkit-app-region: no-drag; font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; margin-left: 6px; background: transparent; color: var(--cream); outline: 1px solid #46504f; border: 0; cursor: pointer; } .tb:hover { filter: brightness(1.2); } html[data-theme="light"] .tb { color: var(--cream) !important; outline-color: #bfb58f; }
+  html[data-density="slim"] #rail a { padding: 4px 12px; font-size: 13px; gap: 10px; } html[data-density="slim"] #rail .grp { padding: 7px 14px 1px; } html[data-density="slim"] .page { padding: 10px 12px 28px; } html[data-density="slim"] .w .bar { padding: 2px 8px; font-size: 10px; } html[data-density="slim"] #grid { margin-top: 6px; }
+  #rec { display: none; align-items: center; gap: 7px; margin-left: 14px; padding: 2px 10px 2px 8px; background: rgba(236,70,36,.16); outline: 1px solid var(--rust); font-size: 12px; letter-spacing: 2px; font-weight: 700; color: var(--rust); } #rec.on { display: inline-flex; }
+  #rec i { width: 10px; height: 10px; border-radius: 50%; background: var(--rust); animation: recblink 1s steps(1) infinite; } #rec em { font-style: normal; font-variant-numeric: tabular-nums; letter-spacing: 1px; color: var(--cream); }
+  @keyframes recblink { 50% { opacity: .15; } }
+  #dot { width: 9px; height: 9px; border-radius: 50%; background: #666; margin-left: auto; -webkit-app-region: no-drag; cursor: pointer; } #dot.green { background: #6fcf6f; } #dot.amber { background: var(--heat); } #dot.red { background: var(--rust); }
+  #rail { grid-area: rail; background: var(--iron-d); overflow-y: auto; overflow-x: hidden; padding: 6px 0; border-right: 1px solid var(--line); display: flex; flex-direction: column; }
+  #rail a { display: flex; align-items: center; gap: 12px; padding: 8px 14px; color: var(--cream); text-decoration: none; font-size: 14px; white-space: nowrap; border-left: 4px solid transparent; cursor: pointer; }
+  #rail a:hover { background: rgba(255,255,255,.05); } #rail a.on { background: rgba(79,187,188,.14); border-left-color: var(--aqua); }
+  #rail a i { font-style: normal; width: 22px; text-align: center; font-size: 17px; color: var(--aqua); flex: none; } #rail a.on i { color: var(--heat); }
+  #rail .grp { font-size: 10px; letter-spacing: 3px; color: #707b78; padding: 12px 14px 3px; text-transform: uppercase; white-space: nowrap; }
+  #rail .sp { flex: 1; } body.slim #rail a span, body.slim #rail .grp { display: none; } body.slim #rail a { padding: 9px 0 9px 12px; }
+  #main { grid-area: main; position: relative; overflow: hidden; }
+  #frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--iron); display: none; }
+  .page { position: absolute; inset: 0; overflow-y: auto; padding: 16px 20px 40px; display: none; } .page.on { display: block; }
+  h1 { font-size: 16px; letter-spacing: 5px; margin-bottom: 4px; } .muted { color: #9aa39f; font-size: 13px; line-height: 1.45; }
+  button, .btn { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 7px 12px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); text-decoration: none; display: inline-block; } button:hover { filter: brightness(1.12); } .ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } .alt { background: var(--aqua); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+  select, input { font: inherit; font-size: 14px; padding: 6px 8px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; }
+  /* home widgets */
+  #grid { position: relative; margin-top: 12px; min-height: 200px; }
+  .w { position: absolute; background: var(--iron-d); border-top: 3px solid var(--aqua); display: flex; flex-direction: column; min-height: 0; transition: box-shadow .15s; }
+  .w .bar { display: flex; align-items: center; gap: 6px; padding: 4px 8px; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--aqua); flex: none; } .w .bar b { flex: 1; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .w .bar button { padding: 2px 7px; font-size: 11px; }
+  .w iframe { flex: 1; border: 0; width: 100%; min-height: 0; background: var(--iron); } .w .nf { padding: 16px; flex: 1; }
+  .edit .w { outline: 2px dashed #46504f; } .edit .w .bar { cursor: grab; background: #24302f; } .edit .w iframe { pointer-events: none; }
+  .w.drag { z-index: 20; box-shadow: 0 10px 30px rgba(0,0,0,.6); outline-color: var(--heat); opacity: .92; } .w.drag .bar { cursor: grabbing; transition: none; } .w.live { transition: none; }
+  .w .rz { display: none; position: absolute; right: 0; bottom: 0; width: 22px; height: 22px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 50%, var(--heat) 50%); z-index: 3; } .edit .w .rz { display: block; }
+  #ghost { position: absolute; border: 2px dashed var(--heat); background: rgba(243,145,32,.12); pointer-events: none; display: none; z-index: 1; }
+  /* modules page */
+  .card { background: var(--iron-d); padding: 12px 16px; border-top: 1px solid var(--line); margin: 10px 0; } .card h2 { font-size: 12px; letter-spacing: 4px; color: var(--aqua); margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } td { padding: 5px 6px; border-bottom: 1px solid var(--line); } td.i { width: 30px; color: var(--aqua); }
+  pre { background: #11171a; padding: 10px; font-size: 12px; overflow: auto; color: #cfd6c8; }
+  #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 16px; font-weight: 700; display: none; z-index: 9; } #toast.bad { background: var(--rust); color: var(--cream); }
+</style></head><body>
+<div id="top"><img src="/assets/logo.png" alt=""><b>ITMECASEY</b><span class="cur" id="cur"></span><span id="rec" title="You are live on Twitch"><i></i><b>LIVE</b><em id="recT">0:00:00</em></span><span id="dot" title="Status: click for Setup"></span><button id="tTheme" class="tb" title="Light / dark theme"></button><button id="tDens" class="tb" title="Slim / normal size"></button></div>
+<nav id="rail"></nav>
+<div id="main">
+  <iframe id="frame" title="module"></iframe>
+  <div class="page" id="home">
+    <div class="row" style="margin-top:0"><h1 id="hTitle">HOME</h1><span class="muted" style="flex:1">Your screen: small parts you pick. Full pages are in the menu on the left.</span><button id="addW" class="alt">+ Add widget</button><button id="editW" class="ghost">Arrange</button></div>
+    <div class="row" id="pgTools" style="display:none"><input id="pgName" maxlength="24" style="width:180px"><button id="pgRen" class="ghost">Rename</button><button id="pgDup" class="ghost">Duplicate page</button><button id="pgDel" style="background:var(--drust);color:var(--cream)">Delete page</button></div>
+    <div id="grid"></div>
+  </div>
+  <div class="page" id="mods">
+    <h1>MODULES</h1><p class="muted">Everything in the app is a module. Hide pages you don't use, add links to your own pages, or install a module someone made (a .zip). A module can add a page, small Home widgets, or both.</p>
+    <div class="card"><h2>ALL MODULES</h2><table id="modTable"></table></div>
+    <div class="card"><h2>ADD A LINK</h2><div class="row"><input id="lName" placeholder="Name" style="width:180px"><input id="lUrl" placeholder="https://… or /some-page" style="flex:1;min-width:220px"><button id="lAdd">Add</button></div><p class="muted">Some websites refuse to be shown inside the app: those open in your browser instead.</p></div>
+    <div class="card"><h2>INSTALL A MODULE (.zip)</h2><div class="row"><input type="file" id="zip" accept=".zip"><button id="zipGo" class="alt">Install</button></div>
+      <p class="muted">A module is a folder with a <code>module.json</code> and your own web page. Zip it and install it here. Installed modules live in your data folder and are included in backups.</p>
+<pre>module.json
+{ "name": "My Module", "icon": "★", "description": "What it does",
+  "entry": "index.html",     // optional full page (a menu item); false = widgets only
+  "widgets": [ { "name": "My Widget", "entry": "widget.html", "size": "s" } ]   // optional small Home parts (s, m, l, xl)
+}
+
+index.html   (any HTML/JS/CSS you like; it runs at /modules/&lt;id&gt;/)
+  fetch('/api/scenes/press', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id:'b-xxxxx'})})
+  new EventSource('/events')   // live alerts, chat, stats, hype train, music …
+  GET /api/stats  /api/health  /api/hype  /api/chat/recent  /api/alerts/history</pre></div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3500); }
+/* One shared /events connection for the whole app: browsers allow only ~6 per site, and every widget opening its own used them all up. Pages and widgets in frames use window.__icmBus. */
+window.__icmBus = (() => {
+  const subs = {}, hooked = {}; let es = null;
+  const alive = (w) => { try { return w === window || (w.frameElement && w.frameElement.isConnected); } catch (e) { return false; } };
+  const fire = (t, e) => { subs[t] = (subs[t] || []).filter((s) => alive(s.win)); subs[t].forEach((s) => { try { s.fn(e); } catch (x) { /* widget error */ } }); };
+  return { on(win, t, fn) { (subs[t] = subs[t] || []).push({ win, fn }); if (!es) es = new EventSource('/events'); if (!hooked[t]) { hooked[t] = 1; if (t === 'message') es.onmessage = (e) => fire('message', e); else es.addEventListener(t, (e) => fire(t, e)); } } };
+})();
+let M = { modules: [], widgets: [], hidden: [], home: { pages: [] } }, editing = false, pageId = "";
+try { if (localStorage.getItem('icm.slim') === '1') document.body.classList.add('slim'); } catch (e) { /* storage blocked */ }
+const byId = (id) => M.modules.find((m) => m.id === id), wById = (id) => M.widgets.find((w) => w.id === id);
+const embedUrl = (m) => (m.url.startsWith('/') ? m.url + (m.url.includes('?') ? '&' : '?') + 'embed=1' : m.url);
+const external = (m) => /^https?:\/\//i.test(m.url);
+
+function drawRail() {
+  const cur = location.hash || '#/home', groups = {}; M.modules.filter((m) => m.hasPage && !M.hidden.includes(m.id) && m.id !== 'setup').forEach((m) => (groups[m.group] = groups[m.group] || []).push(m));
+  const item = (href, icon, label, on) => '<a href="' + href + '" class="' + (on ? 'on' : '') + '" title="' + esc(label) + '"><i>' + icon + '</i><span>' + esc(label) + '</span></a>';
+  const onHome = cur === '#/home' ? M.home.pages[0] && M.home.pages[0].id : cur.startsWith('#/home/') ? cur.slice(7) : '';
+  let h = M.home.pages.map((p, i) => item('#/home/' + p.id, i ? '▫' : '⌂', p.name, p.id === onHome)).join('') + '<a id="newPg" title="Add another home page"><i>+</i><span>New page</span></a>';
+  for (const g of Object.keys(groups)) h += '<div class="grp">' + esc(g) + '</div>' + groups[g].map((m) => item('#/m/' + m.id, esc(m.icon), m.name, cur === '#/m/' + m.id)).join('');
+  h += '<div class="sp"></div>' + item('#/modules', '✚', 'Modules', cur === '#/modules') + item('#/m/setup', '⚒', 'Setup & Health', cur === '#/m/setup')
+    + '<a id="slim" title="Collapse menu"><i>⇔</i><span>Collapse</span></a>';
+  $('rail').innerHTML = h; $('newPg').onclick = async () => { const id = 'p' + Date.now().toString(36); M.home.pages.push({ id, name: 'Page ' + (M.home.pages.length + 1), widgets: [] }); await saveHome(); editing = true; location.hash = '#/home/' + id; };
+  $('slim').onclick = () => { document.body.classList.toggle('slim'); try { localStorage.setItem('icm.slim', document.body.classList.contains('slim') ? '1' : '0'); } catch (e) { /* ignore */ } };
+}
+function show() {
+  const h = location.hash || '#/home'; document.querySelectorAll('.page').forEach((p) => p.classList.remove('on')); $('frame').style.display = 'none';
+  if (!(h === '#/home' || h.startsWith('#/home/'))) $('grid').innerHTML = '';   // widgets stop while you are on another page
+  if (h === '#/home' || h.startsWith('#/home/')) {
+    const want = h.slice(7); pageId = M.home.pages.some((p) => p.id === want) ? want : M.home.pages[0].id;
+    $('home').classList.add('on'); $('cur').textContent = pg().name; drawHome();
+  }
+  else if (h === '#/modules') { $('mods').classList.add('on'); $('cur').textContent = 'Modules'; drawMods(); }
+  else {
+    const m = byId(decodeURIComponent(h.slice(4))); if (!m) { location.hash = '#/home'; return; } $('cur').textContent = m.name;
+    if (external(m)) { window.open(m.url, '_blank'); location.hash = '#/home'; return; }
+    const src = embedUrl(m); if ($('frame').getAttribute('src') !== src) $('frame').src = src; $('frame').style.display = 'block';
+  }
+  drawRail();
+}
+window.addEventListener('hashchange', show);
+
+// ---------------------------------------------------------------- home
+const pg = () => M.home.pages.find((p) => p.id === pageId) || M.home.pages[0];
+$('pgRen').onclick = async () => { pg().name = $('pgName').value.trim() || pg().name; await saveHome(); $('cur').textContent = pg().name; drawRail(); drawHome(); };
+$('pgDup').onclick = async () => { const c = pg(), id = 'p' + Date.now().toString(36); M.home.pages.push({ id, name: c.name + ' copy', widgets: c.widgets.map((w) => Object.assign({}, w, { id: 'w' + Math.random().toString(36).slice(2, 7) })) }); await saveHome(); location.hash = '#/home/' + id; };
+$('pgDel').onclick = async () => { if (M.home.pages.length < 2) return toast('Keep at least one page', true); if (!confirm('Delete the page "' + pg().name + '"?')) return; M.home.pages = M.home.pages.filter((p) => p.id !== pageId); await saveHome(); location.hash = '#/home'; };
+function saveHome() { return post('/api/modules/save', { home: M.home }).then((r) => { if (!r.error) { const keep = M.home; M = r; M.home = keep; } else toast(r.error, true); }).catch(() => toast('Could not save the layout', true)); }   // keep the live objects: the widgets on screen point at them
+const COLS = 12, ROW = 42, GAP = 6, DEF = { s: [3, 5], m: [3, 10], l: [6, 10], xl: [6, 15] };
+const cellW = () => $('grid').clientWidth / COLS;
+const dims = (w) => { const d = DEF[w.size] || DEF.m; w.w = w.w || d[0]; w.h = w.h || d[1]; w.x = Math.min(w.x || 0, COLS - w.w); w.y = w.y || 0; };
+const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+/** keep `fixed` where it is and push anything it overlaps further down */
+function settle(list, fixed) {
+  const placed = fixed ? [fixed] : [];
+  for (const w of list.filter((x) => x !== fixed).sort((a, b) => a.y - b.y || a.x - b.x)) { while (placed.some((p) => hit(w, p))) w.y++; placed.push(w); }
+}
+function firstFree(list, w, h) {
+  for (let y = 0; y < 400; y++) for (let x = 0; x <= COLS - w; x++) if (!list.some((p) => hit({ x, y, w, h }, p))) return { x, y };
+  return { x: 0, y: 0 };
+}
+/** widgets saved before the grid (or new defaults) have no position yet: lay them out left to right */
+function layoutMissing(list) {
+  const done = [], fresh = list.every((q) => !q.x && !q.y);
+  for (const w of list) {
+    const d = DEF[w.size] || DEF.m; w.w = w.w || d[0]; w.h = w.h || d[1];
+    if (fresh) Object.assign(w, firstFree(done, w.w, w.h)); else dims(w);
+    done.push(w);
+  }
+}
+function place(el, w) {
+  const cw = cellW(); el.style.left = w.x * cw + GAP / 2 + 'px'; el.style.top = w.y * ROW + GAP / 2 + 'px'; el.style.width = w.w * cw - GAP + 'px'; el.style.height = w.h * ROW - GAP + 'px';
+}
+function fit() { const L = pg().widgets; const bottom = L.reduce((m, w) => Math.max(m, w.y + w.h), 0); $('grid').style.height = (bottom + (editing ? 6 : 1)) * ROW + 'px'; }
+function drawHome() {
+  $('editW').textContent = editing ? 'Done' : 'Arrange'; $('pgTools').style.display = editing ? '' : 'none'; $('pgName').value = pg().name; $('hTitle').textContent = pg().name.toUpperCase();
+  const g = $('grid'); g.className = editing ? 'edit' : ''; g.innerHTML = '<div id="ghost"></div>';
+  const L = pg().widgets; layoutMissing(L);
+  if (!L.length) g.insertAdjacentHTML('beforeend', '<div class="muted" style="padding:10px">Nothing here yet. Press <b>+ Add widget</b>, then <b>Arrange</b> to drag and resize.</div>');
+  L.forEach((w, i) => {
+    const m = wById(w.mod), el = document.createElement('div'); el.className = 'w'; el.dataset.i = i;
+    el.innerHTML = '<div class="bar"><b>' + esc(m ? m.name : 'Missing widget') + '</b>' + (editing ? '<button data-x="1" title="Remove">\u2715</button>' : '') + '</div>'
+      + (m ? (external(m) ? '<div class="nf muted">This is a website: <a class="btn alt" href="' + esc(m.url) + '" target="_blank">Open in browser</a></div>' : '<iframe loading="lazy"></iframe>') : '<div class="nf muted">This module was removed.</div>') + '<div class="rz" title="Drag to resize"></div>';
+    if (m && !external(m)) el.querySelector('iframe').src = embedUrl(m);
+    place(el, w); g.appendChild(el);
+    el.querySelector('.bar').onpointerdown = (e) => { if (editing && !e.target.dataset.x) startDrag(e, el, w, 'move'); };
+    el.querySelector('.rz').onpointerdown = (e) => startDrag(e, el, w, 'size');
+    const x = el.querySelector('[data-x]'); if (x) x.onclick = () => { L.splice(i, 1); drawHome(); saveHome(); };   // redraw first, save in the background
+  });
+  fit();
+}
+function startDrag(e, el, w, mode) {
+  e.preventDefault(); const g = $('grid'), cw = cellW(), L = pg().widgets; w = L[+el.dataset.i] || w; const ghost = $('ghost'), sx = e.clientX, sy = e.clientY, o = { x: w.x, y: w.y, w: w.w, h: w.h };
+  el.classList.add('drag'); el.setPointerCapture(e.pointerId); ghost.style.display = 'block';
+  const els = [...g.querySelectorAll('.w')], orig = L.map((q) => ({ x: q.x, y: q.y })); let moved = false;   // others always start from where they were, so they come back when you move away
+  const move = (ev) => {
+    const dx = ev.clientX - sx, dy = ev.clientY - sy;
+    if (!moved && Math.abs(dx) + Math.abs(dy) < 6) return; moved = true;
+    L.forEach((q, k) => { if (q !== w) { q.x = orig[k].x; q.y = orig[k].y; } });
+    if (mode === 'move') { w.x = Math.max(0, Math.min(COLS - w.w, Math.round(o.x + dx / cw))); w.y = Math.max(0, Math.round(o.y + dy / ROW)); }
+    else { w.w = Math.max(2, Math.min(COLS - w.x, Math.round(o.w + dx / cw))); w.h = Math.max(2, Math.min(60, Math.round(o.h + dy / ROW))); }
+    // others move out of the way live; the dragged widget follows the pointer smoothly, the dotted box shows where it will land
+    settle(L, w); els.forEach((x, k) => { if (x !== el) place(x, L[k]); });
+    ghost.style.left = w.x * cw + GAP / 2 + 'px'; ghost.style.top = w.y * ROW + GAP / 2 + 'px'; ghost.style.width = w.w * cw - GAP + 'px'; ghost.style.height = w.h * ROW - GAP + 'px';
+    if (mode === 'move') { el.style.left = o.x * cw + dx + GAP / 2 + 'px'; el.style.top = Math.max(0, o.y * ROW + dy) + GAP / 2 + 'px'; } else place(el, w);
+    fit();
+  };
+  const up = async () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); el.classList.remove('drag'); ghost.style.display = 'none'; place(el, w); fit(); if (moved) await saveHome(); };
+  el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+}
+window.addEventListener('resize', () => { if ($('home').classList.contains('on')) { document.querySelectorAll('#grid .w').forEach((el) => place(el, pg().widgets[+el.dataset.i])); fit(); } });
+$('editW').onclick = () => { editing = !editing; drawHome(); };
+$('addW').onclick = () => {
+  const opts = M.widgets.map((m) => '<option value="' + esc(m.id) + '" data-s="' + (m.size || 'm') + '">' + esc(m.name) + ' - ' + esc(m.description || '') + '</option>').join('');
+  const box = document.createElement('div'); box.className = 'row'; box.innerHTML = '<select id="wSel">' + opts + '</select><button id="wOk">Add</button><button class="ghost" id="wNo">Cancel</button>';
+  $('grid').before(box); box.querySelector('#wNo').onclick = () => box.remove();
+  box.querySelector('#wOk').onclick = async () => {
+    const sel = box.querySelector('#wSel'), size = sel.selectedOptions[0].dataset.s, wd = M.widgets.find((x) => x.id === sel.value) || {}, d = wd.w ? [wd.w, wd.h] : (DEF[size] || DEF.m), L = pg().widgets, p = firstFree(L, d[0], d[1]);
+    L.push({ id: 'w' + Date.now().toString(36), mod: sel.value, size, x: p.x, y: p.y, w: d[0], h: d[1] }); editing = true; await saveHome(); box.remove(); drawHome();
+  };
+};
+
+// ---------------------------------------------------------------- modules page
+function drawMods() {
+  $('modTable').innerHTML = M.modules.map((m) => '<tr><td class="i">' + esc(m.icon) + '</td><td>' + esc(m.name) + '<div class="muted">' + esc(m.description || '') + '</div></td><td class="muted">' + esc(m.group) + (m.custom ? ' &middot; ' + (m.custom === 'link' ? 'link' : 'installed') : '') + '</td><td style="text-align:right;white-space:nowrap">'
+    + (m.id === 'setup' ? '' : '<button class="ghost" data-h="' + esc(m.id) + '">' + (M.hidden.includes(m.id) ? 'Show in menu' : 'Hide') + '</button> ') + (m.builtin ? '' : '<button data-d="' + esc(m.id) + '" style="background:var(--drust);color:var(--cream)">Remove</button>') + '</td></tr>').join('');
+}
+$('modTable').onclick = async (e) => {
+  const h = e.target.dataset.h, d = e.target.dataset.d;
+  if (h) { const s = new Set(M.hidden); s.has(h) ? s.delete(h) : s.add(h); const r = await post('/api/modules/save', { hidden: [...s] }); if (!r.error) M = r; drawMods(); drawRail(); }
+  if (d && confirm('Remove this module?')) { const r = await post('/api/modules/delete', { id: d }); if (r.error) return toast(r.error, true); M = r; drawMods(); drawRail(); }
+};
+$('lAdd').onclick = async () => { const r = await post('/api/modules/link/save', { name: $('lName').value, url: $('lUrl').value }); if (r.error) return toast(r.error, true); M = r; $('lName').value = $('lUrl').value = ''; drawMods(); drawRail(); toast('Added'); };
+$('zipGo').onclick = async () => {
+  const f = $('zip').files[0]; if (!f) return toast('Choose a .zip first', true);
+  const r = await fetch('/api/modules/install', { method: 'POST', body: f }).then((x) => x.json()); if (r.error) return toast(r.error, true);
+  await load(); drawMods(); toast('Installed'); $('zip').value = '';
+};
+
+async function load() { M = await fetch('/api/modules').then((r) => r.json()); drawRail(); }
+let LIVE = null;
+function paintLive() {
+  const on = !!(LIVE && LIVE.live); $('rec').classList.toggle('on', on); if (!on) return;
+  const s = Math.max(0, Math.floor((Date.now() - (Date.parse(LIVE.startedAt) || Date.now())) / 1000)); $('recT').textContent = Math.floor(s / 3600) + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  document.title = '● LIVE ' + $('recT').textContent + ' - ItMeCasey Stream';
+}
+window.__icmBus.on(window, 'stats', (e) => { try { LIVE = JSON.parse(e.data); paintLive(); } catch (x) { /* ignore */ } });
+fetch('/api/stats').then((r) => r.json()).then((j) => { LIVE = j; paintLive(); }).catch(() => {}); setInterval(() => { paintLive(); if (!(LIVE && LIVE.live)) document.title = 'ItMeCasey Stream'; }, 1000);
+async function pulse() { try { const h = await fetch('/api/health').then((r) => r.json()); $('dot').className = h.light; $('dot').title = 'Status: ' + h.light + ' (click for Setup)'; } catch (e) { $('dot').className = 'red'; } }
+$('dot').onclick = () => { location.hash = '#/m/setup'; };
+function drawUi() { $('tTheme').textContent = icmUi.theme() === 'light' ? 'Dark' : 'Light'; $('tDens').textContent = icmUi.density() === 'slim' ? 'Normal' : 'Slim'; }
+$('tTheme').onclick = () => { icmUi.set('theme', icmUi.theme() === 'light' ? 'dark' : 'light'); drawUi(); };
+$('tDens').onclick = () => { icmUi.set('density', icmUi.density() === 'slim' ? 'normal' : 'slim'); drawUi(); };
+drawUi();
+(async () => { await load(); show(); pulse(); setInterval(pulse, 6000); })();
+</script></body></html>

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Music</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 980px; margin: 0 auto; padding: 18px 24px 50px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 8px 14px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); }
+  button:hover { filter: brightness(1.12); } button:disabled { opacity: .35; cursor: not-allowed; } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.alt { background: var(--aqua); } button.on { background: var(--aqua); color: var(--iron); outline: 0; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; }
+  .fld input, .fld select { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; }
+  .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin: 8px 0; } .row > .fld { flex: 1; min-width: 160px; }
+  .muted { color: #9aa39f; font-size: 13px; } .err { color: var(--heat); margin: 6px 0; min-height: 18px; } code { background: #151b1b; padding: 1px 5px; word-break: break-all; }
+  .player { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+  .art { width: 190px; height: 190px; background: #151b1b center/cover; flex: none; } .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .meta { flex: 1; min-width: 260px; } .title { font-size: 28px; font-weight: 700; letter-spacing: 1px; line-height: 1.15; } .artist { font-size: 18px; margin-top: 2px; } .album { color: var(--aqua); letter-spacing: 3px; text-transform: uppercase; font-size: 13px; margin-top: 4px; }
+  .bar { height: 14px; background: var(--iron); margin-top: 14px; cursor: pointer; position: relative; } .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--aqua) 0 30%, var(--heat) 30% 55%, var(--rust) 55% 75%, var(--drust) 75% 90%, var(--cream) 90%); background-size: 600px 100%; pointer-events: none; }
+  .times { display: flex; justify-content: space-between; font-size: 13px; color: #9aa39f; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .ctl { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; } .ctl button { font-size: 18px; padding: 8px 16px; } .ctl input[type=range] { width: 150px; accent-color: var(--heat); }
+  .res { display: grid; grid-template-columns: 52px 1fr auto auto; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); } .res img { width: 52px; height: 52px; object-fit: cover; background: #151b1b; } .res b { display: block; } .res span { font-size: 13px; color: #9aa39f; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; } #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; max-width: 90%; } #toast.bad { background: var(--rust); color: var(--cream); }
+  .hide { display: none; }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>MUSIC</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section>
+    <h2>NOW PLAYING</h2>
+    <div class="player">
+      <div class="art"><img id="art" alt=""></div>
+      <div class="meta">
+        <div class="title" id="title">Nothing playing</div><div class="artist" id="artist"></div><div class="album" id="album"></div>
+        <div class="bar" id="bar"><i id="fill"></i></div><div class="times"><span id="t0">0:00</span><span id="t1">0:00</span></div>
+        <div class="ctl">
+          <button class="ghost" data-c="previous" title="Previous">⏮</button><button id="bPlay" data-c="toggle" title="Play / pause">⏯</button><button class="ghost" data-c="next" title="Next">⏭</button>
+          <button class="ghost" id="bShuf" title="Shuffle">🔀</button><button class="ghost" id="bRep" title="Repeat">🔁</button>
+          <span id="volBox">🔊 <input type="range" id="vol" min="0" max="100"></span>
+        </div>
+        <div class="err" id="err"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="h">
+    <h2>SOURCE</h2>
+    <div class="tabs"><button id="pWin">Windows media (Apple Music, Spotify app, …)</button><button id="pSp">Spotify account</button></div>
+    <div id="winBox">
+      <p class="muted">Follows whatever your music app tells Windows it is playing: <b>Apple Music for Windows</b>, the Spotify desktop app, iTunes, foobar and more. No sign-in needed. Pick the app to follow:</p>
+      <div class="row"><label class="fld">App<select id="appSel"></select></label><button class="ghost" id="appSave">Use this app</button></div>
+      <p class="muted">Controls here and in chat work through Windows. Volume, search and song requests are Spotify-only.</p>
+    </div>
+    <div id="spBox" class="hide">
+      <p class="muted">Needs a free Spotify developer app (<b>developer.spotify.com/dashboard &rarr; Create app</b>, choose "Web API"). Add this <b>Redirect URI</b> to it exactly: <code id="redir"></code> Then paste its <b>Client ID</b> here. Controlling playback needs Spotify <b>Premium</b>.</p>
+      <div class="row"><label class="fld">Client ID<input id="cid" placeholder="32 letters and numbers"></label><button id="cidSave">Save</button><button class="alt" id="spConn">Connect Spotify</button><button class="ghost" id="spOut">Disconnect</button></div>
+      <div class="muted" id="spStat"></div>
+    </div>
+  </section>
+
+  <section class="r" id="reqSec">
+    <h2>SONG REQUESTS &amp; SEARCH (SPOTIFY)</h2>
+    <div class="row"><label class="fld" style="max-width:220px">Chat requests (<code>!sr song name</code>)<select id="reqOn"><option value="0">Off</option><option value="1">On</option></select></label>
+      <label class="fld" style="max-width:220px">Who can request<select id="reqLvl"><option value="everyone">Everyone</option><option value="subscriber">Subscribers+</option><option value="vip">VIPs+</option><option value="moderator">Mods only</option></select></label><button class="ghost" id="reqSave">Save</button></div>
+    <div class="row"><label class="fld">Find a song<input id="q" placeholder="Search Spotify…"></label></div>
+    <div id="results"></div>
+  </section>
+
+  <section>
+    <h2>ON STREAM &amp; IN CHAT</h2>
+    <p class="muted">Overlay: add a Browser source <code>http://localhost:8420/overlays/nowplaying.html</code> (700 &times; 220). It slides in while music plays and shows the art, title, artist, album and a live progress bar. Add <code>?mode=always</code> to keep it up when paused, or <code>?mode=change&amp;hold=12</code> to pop up for 12 seconds at the start of each song.<br>
+    Chat: <code>!song</code> (everyone), mods: <code>!skip</code> <code>!previous</code> <code>!pause</code> <code>!play</code> <code>!volume 50</code>. Text sources can read <code>now_playing.txt</code>, <code>now_playing_title.txt</code>, <code>now_playing_artist.txt</code> from <code>data/labels</code>, and commands can use <code>{now_playing}</code>.</p>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (p, b) => fetch('/api/media/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3500); }
+const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+let M = null, skew = 0, formFilled = false;
+async function act(a, body) { const r = await post(a, body); if (r.error) toast(r.error, true); else setTimeout(refresh, 700); return r; }
+document.querySelector('.ctl').onclick = (e) => { const c = e.target.closest('[data-c]'); if (c) act(c.dataset.c); };
+$('bShuf').onclick = () => act('shuffle', { on: !M.shuffle });
+$('bRep').onclick = () => act('repeat', { mode: M.repeat === 'none' ? 'list' : M.repeat === 'list' ? 'track' : 'none' });
+$('vol').onchange = () => act('volume', { percent: +$('vol').value });
+$('bar').onclick = (e) => { if (!M || !M.durationMs || !M.canSeek) return; const r = $('bar').getBoundingClientRect(); act('seek', { ms: Math.round((e.clientX - r.left) / r.width * M.durationMs) }); };
+function tick() {
+  if (!M) return; const playing = M.status === 'playing', pos = Math.min(M.durationMs || 0, M.positionMs + (playing ? Date.now() + skew - M.positionAt : 0));
+  $('fill').style.width = (M.durationMs ? Math.min(100, pos / M.durationMs * 100) : 0) + '%'; $('t0').textContent = mmss(pos); $('t1').textContent = M.durationMs ? mmss(M.durationMs) : '';
+}
+function paint(d) {
+  M = d; skew = d.now - Date.now();
+  $('title').textContent = d.title || 'Nothing playing'; $('artist').textContent = d.artist; $('album').textContent = d.album;
+  const art = !d.art ? '/assets/logo.png' : d.art; if ($('art').dataset.s !== art) { $('art').dataset.s = art; $('art').src = art; }
+  $('bPlay').textContent = d.status === 'playing' ? '⏸' : '▶';
+  $('bShuf').className = d.shuffle ? 'on' : 'ghost'; $('bRep').className = d.repeat !== 'none' ? 'on' : 'ghost'; $('bRep').textContent = d.repeat === 'track' ? '🔂' : '🔁';
+  $('volBox').style.display = d.canVolume ? '' : 'none'; if (d.volume != null && document.activeElement !== $('vol')) $('vol').value = d.volume;
+  $('err').textContent = d.error || '';
+  const sp = d.provider === 'spotify';
+  $('pWin').className = sp ? 'ghost' : ''; $('pSp').className = sp ? '' : 'ghost'; $('winBox').classList.toggle('hide', sp); $('spBox').classList.toggle('hide', !sp); $('reqSec').style.opacity = sp ? 1 : .45;
+  $('redir').textContent = d.spotify.redirectUri;
+  $('spStat').textContent = d.spotify.connected ? '✓ Connected' + (d.spotify.user ? ' as ' + d.spotify.user : '') : 'Not connected yet.';
+  const apps = ['auto'].concat(d.sessions || []); if (d.cfg.app && !apps.includes(d.cfg.app)) apps.push(d.cfg.app);
+  if (!formFilled || document.activeElement !== $('appSel')) { $('appSel').innerHTML = apps.map((a) => `<option value="${esc(a)}">${a === 'auto' ? 'Automatic (first music player found)' : esc(a)}</option>`).join('') + '<option value="any">Anything Windows is playing (incl. browser videos)</option>'; $('appSel').value = d.cfg.app || 'auto'; }
+  if (!formFilled) { $('cid').value = d.cfg.spotifyClientId || ''; $('reqOn').value = d.cfg.requests ? '1' : '0'; $('reqLvl').value = d.cfg.requestLevel; formFilled = true; }
+  tick();
+}
+async function refresh() { try { paint(await fetch('/api/media').then((r) => r.json())); } catch (e) { /* restarting */ } }
+const es = new EventSource('/events'); es.addEventListener('media', (e) => paint(JSON.parse(e.data)));
+$('pWin').onclick = async () => { await post('settings', { provider: 'windows' }); refresh(); }; $('pSp').onclick = async () => { await post('settings', { provider: 'spotify' }); refresh(); };
+$('appSave').onclick = async () => { await post('settings', { app: $('appSel').value }); toast('Following ' + $('appSel').value); refresh(); };
+$('cidSave').onclick = async () => { await post('settings', { spotifyClientId: $('cid').value }); toast('Saved'); refresh(); };
+$('spConn').onclick = async () => { await post('settings', { spotifyClientId: $('cid').value }); const r = await post('spotify/connect'); if (r.error) toast(r.error, true); else window.open(r.url, '_blank'); };
+$('spOut').onclick = async () => { await post('spotify/disconnect'); toast('Disconnected'); refresh(); };
+$('reqSave').onclick = async () => { await post('settings', { requests: $('reqOn').value === '1', requestLevel: $('reqLvl').value }); toast('Saved'); };
+let qT; $('q').oninput = () => { clearTimeout(qT); qT = setTimeout(async () => {
+  const q = $('q').value.trim(); if (!q) { $('results').innerHTML = ''; return; }
+  const r = await post('search', { q }); if (r.error) { $('results').innerHTML = `<div class="err">${esc(r.error)}</div>`; return; }
+  $('results').innerHTML = r.results.map((t) => `<div class="res" data-u="${esc(t.uri)}"><img src="${esc(t.art)}" alt=""><div><b>${esc(t.name)}</b><span>${esc(t.artist)} &middot; ${esc(t.album || '')}</span></div><button class="ghost" data-r="queue">Add to queue</button><button data-r="playuri">Play now</button></div>`).join('') || '<div class="muted">No songs found.</div>'; }, 350); };
+$('results').onclick = async (e) => { const b = e.target.closest('[data-r]'); if (!b) return; const r = await post(b.dataset.r, { uri: b.closest('.res').dataset.u }); if (r.error) toast(r.error, true); else { toast(b.dataset.r === 'queue' ? 'Added to the queue' : 'Playing'); setTimeout(refresh, 700); } };
+refresh(); setInterval(tick, 250); setInterval(refresh, 10000);
+</script></body></html>

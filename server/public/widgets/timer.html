@@ -1,0 +1,9 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="w.css"><script src="/ui-theme.js"></script></head><body>
+<div class="lbl" id="l">Timer</div><div class="big" id="t">-</div>
+<div class="row" style="margin-top:8px"><button data-a="pause" class="g">Pause</button><button data-a="resume">Resume</button><button data-a="add" data-s="60" class="o">+1 min</button><button data-a="add" data-s="-60" class="g">-1 min</button><button data-a="reset" class="r">Reset</button></div>
+<script src="w.js"></script><script>
+let C = null;
+function draw() { if (!C) return; const ms = C.mode === 'running' ? Math.max(0, C.endsAt - Date.now()) : C.remainingMs; $('t').textContent = mmss(ms / 1000); $('l').textContent = (C.label || 'Timer') + ' - ' + C.mode; }
+get('/api/countdown').then((c) => { C = c; draw(); }); live({ countdown: (c) => { C = c; draw(); } }); setInterval(draw, 500);
+document.querySelectorAll('[data-a]').forEach((b) => (b.onclick = () => act(b, () => post('/api/countdown/' + b.dataset.a, b.dataset.s ? { seconds: +b.dataset.s } : {}))));
+</script></body></html>

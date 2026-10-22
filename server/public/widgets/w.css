@@ -1,0 +1,10 @@
+:root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --olive:#8a9a3b; --line:#2f3938; }
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; } body { background: var(--iron-d); color: var(--cream); font: 14px/1.35 "Bahnschrift","Segoe UI",sans-serif; padding: 8px; overflow: auto; }
+button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 8px 10px; border: 0; cursor: pointer; background: var(--aqua); color: var(--iron); } button:hover { filter: brightness(1.12); } button:active { transform: translateY(1px); }
+button.o { background: var(--heat); } button.r { background: var(--rust); color: var(--cream); } button.c { background: var(--cream); } button.g { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.v { background: var(--olive); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; } .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.big { font-size: 34px; font-weight: 700; letter-spacing: 2px; font-variant-numeric: tabular-nums; line-height: 1.1; } .lbl { font-size: 10px; letter-spacing: 3px; color: #9aa39f; text-transform: uppercase; } .muted { color: #9aa39f; font-size: 12px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; } .stats b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+.ev { padding: 4px 0; border-bottom: 1px solid var(--line); } .ev i { font-style: normal; color: var(--aqua); font-size: 10px; letter-spacing: 3px; text-transform: uppercase; display: block; }
+.ok { animation: ok .5s; } @keyframes ok { 30% { box-shadow: 0 0 0 4px #fff6; } } .bad { outline: 2px solid var(--rust); }

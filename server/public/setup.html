@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Setup</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --green:#7bc47f; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 820px; margin: 0 auto; padding: 18px 20px 60px; display: grid; gap: 12px; grid-template-columns: 1fr; }
+  section { background: var(--iron-d); padding: 16px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); } section.w { grid-column: 1 / -1; }
+  h2 { font-size: 13px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 9px 14px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); } button:hover { filter: brightness(1.12); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.alt { background: var(--aqua); } button.bad { background: var(--rust); color: var(--cream); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; } .muted { color: #9aa39f; font-size: 13px; line-height: 1.45; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; margin: 8px 0; } .fld input { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; }
+  .light { width: 18px; height: 18px; border-radius: 50%; background: #555; display: inline-block; vertical-align: middle; margin-right: 8px; box-shadow: 0 0 10px #0008; } .light.green { background: var(--green); box-shadow: 0 0 12px var(--green); } .light.amber { background: var(--heat); box-shadow: 0 0 12px var(--heat); } .light.red { background: var(--rust); box-shadow: 0 0 12px var(--rust); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } td { padding: 5px 0; border-bottom: 1px solid #2f3938; } td:first-child { color: #9aa39f; width: 38%; }
+  .chk { display: flex; gap: 8px; align-items: center; } .chk input { width: 18px; height: 18px; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; max-width: 90vw; } #toast.bad { background: var(--rust); color: var(--cream); }
+  .err { font-size: 12px; color: var(--heat); } ol { margin-left: 20px; } li { margin: 4px 0; }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head><body>
+<header><img src="/assets/logo.png" alt=""><h1>SETUP &amp; HEALTH</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section class="w" data-open>
+    <h2>STATUS</h2>
+    <div style="font-size:20px"><span class="light" id="light"></span><span id="lightTxt">Checking&hellip;</span></div>
+    <table id="stat" style="margin-top:12px"></table>
+    <div class="err" id="errs" style="margin-top:8px"></div>
+  </section>
+
+  <section class="h" data-open>
+    <h2>1. CONNECT TWITCH</h2>
+    <div class="row"><button id="bTwitch">Log in with Twitch</button><span class="muted" id="bTwitchMsg">Opens Twitch in your browser: log in and press Authorize. Nothing to copy or paste.</span></div>
+    <details id="adv"><summary class="muted" style="cursor:pointer">Advanced: use my own Twitch app (Client ID)</summary>
+    <p class="muted">Create a free app at <b>dev.twitch.tv/console</b> (Category: Application Integration, Client Type: <b>Public</b>), copy its Client ID here, then press Connect.</p>
+    <label class="fld">Twitch Client ID<input id="cid" placeholder="paste your Client ID" autocomplete="off" spellcheck="false"></label>
+    <div class="row"><button id="cidSave">Save</button></div></details>
+  </section>
+
+  <section class="h" data-open>
+    <h2>2. OBS SCENES</h2>
+    <p class="muted">Installs the ItMeCasey scene collection (Starting Soon, Gameplay, Just Chatting, Full Cam, Be Right Back, Ending) wired to this app. Close OBS first, or use Download and import it in OBS &gt; Scene Collection &gt; Import.</p>
+    <div class="row"><button id="obsInstall">Install into OBS</button><a href="/api/obs/collection" download="ItMeCasey.json"><button class="ghost">Download file</button></a></div>
+    <div class="err" id="obsMsg"></div>
+    <h2 style="margin-top:14px">OBS WEBSOCKET</h2>
+    <p class="muted">Needed for scene switching and reward hooks. In OBS: Tools &gt; WebSocket Server Settings &gt; enable.</p>
+    <div class="row"><label class="fld" style="margin:0;flex:1">Host<input id="oh" value="127.0.0.1"></label><label class="fld" style="margin:0;width:100px">Port<input id="op" value="4455"></label></div>
+    <label class="fld">Password<input id="opw" type="password" placeholder="(unchanged)" autocomplete="off"></label>
+    <div class="row"><button id="obsSave" class="alt">Save</button><button id="obsTest" class="ghost">Test connection</button><span class="muted" id="obsRes"></span></div>
+  </section>
+
+  <section class="h" id="vmSec">
+    <h2>AUDIO + VOD (VOICEMEETER)</h2>
+    <p class="muted">Keeps your music and alert sounds out of the Twitch VOD (so you don't get muted sections) while viewers still hear everything live. Voicemeeter splits the sounds, and OBS leaves the music and alerts off audio <b>Track 2</b>, the track Twitch saves for the VOD. <b>Banana</b> is enough for this; Potato just has more inputs.</p>
+
+    <h3 style="margin:10px 0 4px">1. GET VOICEMEETER</h3>
+    <div class="row" id="vmGet"></div><div class="muted" id="vmMsg"></div>
+    <div class="muted">The files come only from VB-Audio's own site, and the app checks they are signed by VB-Audio before running them. Windows will ask permission, then Voicemeeter's installer opens: press Install, then <b>restart Windows</b> (it installs audio drivers).</div>
+
+    <h3 style="margin:14px 0 4px">2. WINDOWS SETTINGS (about 1 minute)</h3>
+    <ol class="muted" style="margin-left:18px;line-height:1.7">
+      <li><b>Sound settings &rarr; Output:</b> set your default output to <b>Voicemeeter Input (VB-Audio Voicemeeter VAIO)</b>. Games, browser and system sounds then go through Voicemeeter.</li>
+      <li><b>Sound settings &rarr; Input:</b> leave your real microphone as the default (Voicemeeter reads it directly).</li>
+      <li><b>Volume mixer / App volume:</b> for your <b>music player</b> (Spotify, browser, ...), set the output to <b>Voicemeeter Aux Input</b>. That is what keeps music off the VOD. Discord can stay on the main one (or use Aux too if you don't want chat on stream).</li>
+    </ol>
+    <div class="row"><button class="ghost" data-page="sound">Open Sound settings</button><button class="ghost" data-page="volume">Open App volume</button></div>
+
+    <h3 style="margin:14px 0 4px">3. SET UP VOICEMEETER</h3>
+    <div class="row"><label class="fld">Version<select id="vmKind"><option value="banana">Banana</option><option value="potato">Potato</option></select></label>
+      <label class="fld">Your microphone<select id="vmMic"></select></label><label class="fld">Your headphones / speakers<select id="vmOut"></select></label>
+      <label class="fld" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="vmHear" style="width:18px;height:18px">Hear myself in my headphones</label>
+      <button class="ghost" id="vmDev">Refresh devices</button><button id="vmCfg">Set up Voicemeeter</button></div>
+    <div class="muted" id="vmCfgMsg">This routes your mic and game/chat sound to <b>B1</b> (stream + VOD) and your music (Aux input) to <b>B2</b> (stream only). You hear everything in your headphones.</div>
+
+    <h3 style="margin:14px 0 4px">4. OBS: NO MUSIC OR ALERTS IN THE VOD</h3>
+    <p class="muted">OBS must be running with WebSocket on (step 2 above). Scan, tick the sources that should <b>not</b> be in the VOD (alerts, music players, overlays with sound), then apply. This adds two Voicemeeter inputs, puts them on the right tracks, and mutes the old Desktop Audio and Mic so nothing is doubled.</p>
+    <div class="row"><button class="ghost" id="vmScan">Scan OBS</button></div><div id="vmInputs" class="muted"></div>
+    <div class="row"><button id="vmApply" style="display:none">Keep these out of the VOD</button></div><div id="vmSteps" class="muted"></div>
+    <div class="muted" style="margin-top:8px"><b>Two things OBS won't let an app switch, do them once:</b> (a) <b>Settings &rarr; Stream</b>: tick <b>Twitch VOD Track Audio</b> (uses Track 2); (b) restart OBS so Advanced output mode takes effect. Then record a short test (Settings &rarr; Output &rarr; Recording: untick Track 2) or check your next VOD.</div>
+  </section>
+
+  <section class="r">
+    <h2>BACKUP &amp; RESTORE</h2>
+    <p class="muted">Your alerts, commands, hooks, goals, board, uploads and settings. A copy is also saved automatically every day (last 7 kept).</p>
+    <label class="chk muted"><input type="checkbox" id="withLogins"> Include my Twitch / Spotify logins (keep the file private!)</label>
+    <div class="row"><a id="dl" href="/api/backup/download"><button>Download backup</button></a><button class="ghost" id="bkNow">Save one now</button></div>
+    <div class="row"><label class="fld" style="margin:0;flex:1">Restore from a backup file<input type="file" id="rfile" accept=".zip"></label><button class="bad" id="restore">Restore</button></div>
+    <div class="muted" id="bkList"></div>
+  </section>
+
+  <section class="r">
+    <h2>CONTROL FROM ANOTHER DEVICE</h2>
+    <p class="muted">Lets your phone or a second PC on your home network open the dashboard and the Board. It always asks for this password. Leave it off if you don't need it.</p>
+    <div class="row"><input id="pw" type="password" placeholder="New password (8+ characters)" style="flex:1;font:inherit;padding:8px;background:var(--iron);color:var(--cream);border:2px solid #46504f"><button id="pwSave">Set password</button></div>
+    <label class="chk"><input type="checkbox" id="lan"> Allow other devices on my network</label>
+    <div class="muted" id="lanInfo" style="margin-top:6px"></div>
+    <div class="row"><button class="ghost" id="pwClear">Remove password</button><span class="muted" id="pwNote"></span></div>
+  </section>
+
+  <section>
+    <h2>REALISTIC VOICES (OPTIONAL)</h2>
+    <p class="muted">Natural-sounding text-to-speech voices that run on your PC (about 120 MB). Needs Python 3.9&ndash;3.13 installed. Without it the normal Windows voices are used.</p>
+    <div class="row"><button id="kInstall" class="alt">Install realistic voices</button><span class="muted" id="kState"></span></div>
+    <pre class="muted" id="kLog" style="white-space:pre-wrap;max-height:130px;overflow:auto"></pre>
+  </section>
+  <section>
+    <h2>APP</h2>
+    <div class="row"><button class="ghost" id="restart">Restart the server</button><span class="muted">Applies LAN/restore changes. The app also restarts it automatically if it ever stops.</span></div>
+    <div class="muted" id="paths"></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 4200); }
+const fmtUp = (s) => (s > 3600 ? Math.floor(s / 3600) + 'h ' + Math.floor(s % 3600 / 60) + 'm' : Math.floor(s / 60) + 'm ' + (s % 60) + 's');
+const row = (k, v) => '<tr><td>' + k + '</td><td>' + v + '</td></tr>';
+
+async function refresh() {
+  let h; try { h = await fetch('/api/health').then((r) => r.json()); } catch (e) { $('light').className = 'light red'; $('lightTxt').textContent = 'Server not answering'; return; }
+  $('light').className = 'light ' + h.light;
+  $('lightTxt').textContent = h.light === 'green' ? 'All good: connected to Twitch' : !h.clientId ? 'Add your Twitch Client ID (step 1)' : !h.twitch.loggedIn ? 'Press Connect Twitch on the dashboard' : 'Twitch is ' + h.twitch.eventsub + '…';
+  $('stat').innerHTML = row('Twitch', h.twitch.loggedIn ? esc(h.twitch.login) + ' (' + esc(h.twitch.eventsub) + ')' : 'not connected') + row('OBS', h.obs.configured ? 'configured' : 'not set up') + row('Music', esc(h.media.provider) + ' / ' + esc(h.media.status))
+    + row('Realistic voices', h.tts.kokoro ? 'installed' : 'not installed (optional)') + row('Version', esc(h.version)) + row('Running for', fmtUp(h.uptimeSec)) + row('Backups saved', h.backups);
+  $('errs').innerHTML = h.recentErrors.length ? 'Recent problems:<br>' + h.recentErrors.map((e) => new Date(e.t).toLocaleTimeString() + ' ' + esc(e.text)).join('<br>') : '';
+  $('paths').innerHTML = 'Your data lives in: <b>' + esc(h.dataDir) + '</b>';
+  $('lan').checked = h.access.lan; $('lanInfo').innerHTML = h.access.lan ? 'Open on your phone: ' + (h.access.addresses.map((a) => '<b>' + esc(a) + '</b>').join(' or ') || 'your PC\'s address') : '';
+  $('pwNote').textContent = h.access.hasPassword ? 'A password is set.' : 'No password set.';
+}
+async function loadBackups() { const l = await fetch('/api/backup/list').then((r) => r.json()); $('bkList').innerHTML = l.length ? 'Saved copies: ' + l.slice(0, 5).map((f) => esc(f.name) + ' (' + Math.round(f.size / 1024) + ' KB)').join(', ') : 'No saved copies yet.'; }
+
+$('bTwitch').onclick = async () => { const r = await post('/api/auth/start'); if (r.error) { $('adv').open = true; return toast(r.error, true); } if (r.verification_uri) window.open(r.verification_uri, '_blank'); $('bTwitchMsg').textContent = 'Waiting for you to press Authorize in the browser…'; };
+$('cidSave').onclick = async () => { const r = await post('/api/config', { clientId: $('cid').value }); toast(r.error || 'Saved', !!r.error); refresh(); };
+$('obsInstall').onclick = async () => {
+  let r = await post('/api/obs/install', {});
+  if (r.error === 'exists') { if (!confirm('An ItMeCasey scene collection already exists in OBS. Replace it? (The old one is kept as a .bak file.)')) return; r = await post('/api/obs/install', { overwrite: true }); }
+  $('obsMsg').textContent = ''; if (r.error) { $('obsMsg').textContent = r.error; return toast(r.error, true); } toast('Installed. In OBS pick Scene Collection > ItMeCasey.');
+};
+$('obsSave').onclick = async () => { const r = await post('/api/hooks/obs/save', { host: $('oh').value, port: $('op').value, password: $('opw').value || '__keep__' }); toast(r.error || 'Saved', !!r.error); };
+$('obsTest').onclick = async () => { $('obsRes').textContent = 'Testing…'; const r = await post('/api/hooks/obs/test'); $('obsRes').textContent = r.error ? r.error : 'Connected to OBS ' + r.obsVersion; };
+$('withLogins').onchange = () => { $('dl').href = '/api/backup/download' + ($('withLogins').checked ? '?includeLogins=1' : ''); };
+$('bkNow').onclick = async () => { const r = await post('/api/backup/create', { includeLogins: $('withLogins').checked }); toast(r.error || 'Saved ' + Math.round(r.size / 1024) + ' KB', !!r.error); loadBackups(); };
+$('restore').onclick = async () => {
+  const f = $('rfile').files[0]; if (!f) return toast('Choose a backup file first', true);
+  if (!confirm('Replace your current settings with this backup? A copy of the current settings is kept first.')) return;
+  const r = await fetch('/api/backup/restore', { method: 'POST', body: f }).then((x) => x.json()); if (r.error) return toast(r.error, true);
+  toast('Restored. Restarting…'); await post('/api/app/restart'); setTimeout(() => location.reload(), 3500);
+};
+$('pwSave').onclick = async () => { const r = await post('/api/access/settings', { password: $('pw').value }); if (r.error) return toast(r.error, true); $('pw').value = ''; toast('Password set'); refresh(); };
+$('lan').onchange = async () => { const r = await post('/api/access/settings', { lan: $('lan').checked }); if (r.error) { toast(r.error, true); $('lan').checked = false; return; } toast('Saved: restarting so it takes effect…'); await post('/api/app/restart'); setTimeout(refresh, 3500); };
+$('pwClear').onclick = async () => { await post('/api/access/settings', { clearPassword: true }); toast('Password removed; remote access is off. Restarting…'); await post('/api/app/restart'); setTimeout(refresh, 3500); };
+
+// ---------------------------------------------------------------- Voicemeeter + VOD
+let vmTimer = null;
+async function vmRefresh() {
+  const v = await fetch('/api/vm').then((r) => r.json()); const row = $('vmGet'); row.innerHTML = '';
+  if (v.platform !== 'win32') { $('vmMsg').textContent = 'Voicemeeter is Windows-only.'; return; }
+  let busy = false, msg = '';
+  for (const k of ['banana', 'potato']) {
+    const x = v[k], name = k === 'banana' ? 'Banana' : 'Potato'; busy = busy || x.state === 'working'; if (x.msg && x.state !== 'idle') msg = name + ': ' + x.msg;
+    if (x.installed) row.insertAdjacentHTML('beforeend', '<span style="padding:8px 12px;background:#11171a">' + name + ' installed &#10003;</span>');
+    else row.insertAdjacentHTML('beforeend', '<button data-vm="download" data-k="' + k + '" class="' + (x.state === 'ready' ? 'ghost' : '') + '"' + (x.state === 'working' ? ' disabled' : '') + '>' + (x.state === 'working' ? 'Working...' : 'Download ' + name) + '</button>' + (x.state === 'ready' ? '<button data-vm="install" data-k="' + k + '">Install ' + name + '</button>' : ''));
+  }
+  row.insertAdjacentHTML('beforeend', '<a class="btn ghost" href="https://vb-audio.com/Voicemeeter/banana.htm" target="_blank">Open vb-audio.com</a>');
+  $('vmMsg').textContent = msg; $('vmMsg').style.color = /error|not signed|failed|wrong|could not/i.test(msg) ? 'var(--rust)' : '';
+  clearTimeout(vmTimer); if (busy) vmTimer = setTimeout(vmRefresh, 1500);
+}
+$('vmGet').onclick = async (e) => {
+  const a = e.target.dataset.vm; if (!a) return; const r = await post('/api/vm/' + a, { kind: e.target.dataset.k }); if (r.error) toast(r.error, true); else if (a === 'install') toast('Follow the installer, then restart Windows'); vmRefresh();
+};
+document.querySelectorAll('#vmSec [data-page]').forEach((b) => { b.onclick = () => post('/api/vm/open', { page: b.dataset.page }); });
+async function vmDevices() {
+  const d = await fetch('/api/vm/devices').then((r) => r.json()); const opt = (l) => l.map((n) => '<option>' + esc(n) + '</option>').join('') || '<option value="">(none found)</option>';
+  $('vmMic').innerHTML = opt(d.inputs); $('vmOut').innerHTML = opt(d.outputs); if (d.error) toast(d.error, true);
+}
+$('vmDev').onclick = vmDevices;
+$('vmCfg').onclick = async () => {
+  $('vmCfgMsg').textContent = 'Setting up (Voicemeeter will open if it is not running)...';
+  const r = await post('/api/vm/configure', { kind: $('vmKind').value, mic: $('vmMic').value, out: $('vmOut').value, hearMic: $('vmHear').checked });
+  $('vmCfgMsg').innerHTML = r.error ? '<span style="color:var(--rust)">' + esc(r.error) + '</span>' : 'Done. Mic &rarr; B1, game/chat (Voicemeeter Input) &rarr; headphones + B1, music (Aux) &rarr; headphones + B2.'; if (!r.error) toast('Voicemeeter is set up');
+};
+$('vmScan').onclick = async () => {
+  $('vmInputs').textContent = 'Asking OBS...'; const r = await fetch('/api/vm/obs/inputs').then((x) => x.json());
+  if (r.error) { $('vmInputs').innerHTML = '<span style="color:var(--rust)">' + esc(r.error) + '</span>'; $('vmApply').style.display = 'none'; return; }
+  $('vmInputs').innerHTML = r.inputs.length ? '<div>Tick what must stay <b>out of the VOD</b>:</div>' + r.inputs.map((i) => '<label style="display:flex;gap:8px;align-items:center;padding:3px 0"><input type="checkbox" class="vmEx" data-n="' + esc(i.name) + '"' + (i.keepOut ? ' checked' : '') + ' style="width:18px;height:18px"><b style="color:var(--cream)">' + esc(i.name) + '</b> <span>(' + esc(i.kind.replace(/_/g, ' ')) + ')</span></label>').join('') : 'No audio sources found in OBS.';
+  $('vmApply').style.display = r.inputs.length ? '' : 'none';
+};
+$('vmApply').onclick = async () => {
+  if (!confirm('Change OBS now? This adds two Voicemeeter sources, sets their audio tracks, mutes the old Desktop Audio and Mic, and switches OBS to Advanced output mode.')) return;
+  $('vmSteps').textContent = 'Working...'; const r = await post('/api/vm/obs/apply', { exclude: [...document.querySelectorAll('.vmEx:checked')].map((c) => c.dataset.n), muteOld: true });
+  $('vmSteps').innerHTML = r.error ? '<span style="color:var(--rust)">' + esc(r.error) + '</span>' : r.steps.map((x) => '<div style="color:' + (x.ok ? 'var(--aqua)' : 'var(--rust)') + '">' + (x.ok ? '&#10003; ' : '&#10007; ') + esc(x.label) + (x.detail ? ' <span class="muted">' + esc(x.detail) + '</span>' : '') + '</div>').join('');
+};
+vmRefresh(); vmDevices();
+async function kPoll() {
+  const k = await fetch('/api/tts/install').then((r) => r.json()).catch(() => null); if (!k) return;
+  $('kLog').textContent = k.lines.join('\n'); $('kLog').scrollTop = 1e6; $('kState').textContent = k.running ? 'Installing… this can take a few minutes' : k.ok === true ? 'Installed' : k.ok === false ? 'Failed: see the messages below' : '';
+  $('kInstall').disabled = k.running; if (k.running) setTimeout(kPoll, 1500);
+}
+$('kInstall').onclick = async () => { const r = await post('/api/tts/install'); if (r.error) return toast(r.error, true); kPoll(); };
+kPoll();
+$('restart').onclick = async () => { await post('/api/app/restart'); toast('Restarting…'); setTimeout(refresh, 3500); };
+(async () => {
+  const c = await fetch('/api/config').then((r) => r.json()); $('cid').value = c.clientId || '';
+  const o = await fetch('/api/hooks').then((r) => r.json()); if (o.obs) { $('oh').value = o.obs.host; $('op').value = o.obs.port; }
+  refresh(); loadBackups(); setInterval(refresh, 5000);
+})();
+</script></body></html>

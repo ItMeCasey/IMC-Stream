@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="w.css"><script src="/ui-theme.js"></script></head><body>
+<div class="lbl">OBS stream</div><div class="big" id="st">-</div><div class="muted" id="tm"></div>
+<div class="row" style="margin-top:8px"><button id="go" class="v">Go live</button><button id="rec" class="g">Record</button></div>
+<div class="muted" id="m" style="margin-top:6px"></div>
+<script src="w.js"></script><script>
+let S = null, armed = false, t0 = 0;
+function draw() {
+  if (!S) return; $('st').textContent = S.streaming ? (S.reconnecting ? 'RECONNECTING' : 'LIVE') : 'OFFLINE'; $('st').style.color = S.streaming ? 'var(--rust)' : '#9aa39f';
+  const parts = []; if (S.streaming) parts.push('streaming ' + mmss(S.seconds + (Date.now() - t0) / 1000)); if (S.recording) parts.push('recording ' + mmss(S.recordSeconds + (Date.now() - t0) / 1000) + (S.paused ? ' (paused)' : '')); $('tm').textContent = parts.join(' - ');
+  if (!armed) $('go').textContent = S.streaming ? 'Stop stream' : 'Go live'; $('go').className = S.streaming ? 'r' : 'v'; $('rec').textContent = S.recording ? 'Stop recording' : 'Record';
+}
+async function load() { try { S = await post('/api/hooks/obs/status'); if (S.error) throw new Error(S.error); t0 = Date.now(); $('m').textContent = ''; draw(); } catch (e) { S = null; $('st').textContent = '-'; $('m').textContent = 'OBS: ' + e.message; } }
+$('go').onclick = (e) => {
+  if (!S) return load();
+  if (S.streaming && !armed) { armed = true; $('go').textContent = 'Press again to stop'; setTimeout(() => { armed = false; draw(); }, 3000); return; }   // stopping needs a second press
+  armed = false; act(e.target, () => post('/api/hooks/obs/stream', { op: S.streaming ? 'stop' : 'start' }).then((r) => { setTimeout(load, 800); return r; }));
+};
+$('rec').onclick = (e) => { if (!S) return load(); act(e.target, () => post('/api/hooks/obs/record', { op: S.recording ? 'stop' : 'start' }).then((r) => { setTimeout(load, 800); return r; })); };
+load(); setInterval(load, 5000); setInterval(draw, 1000);
+</script></body></html>

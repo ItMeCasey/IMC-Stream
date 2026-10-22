@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Reward Hooks</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 18px 24px 50px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); } h3 { font-size: 13px; letter-spacing: 3px; color: #9aa39f; margin: 14px 0 8px; }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 7px 13px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); }
+  button:hover { filter: brightness(1.12); } button.alt { background: var(--aqua); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.red { background: var(--drust); color: var(--cream); } button.sm { padding: 4px 9px; font-size: 11px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; }
+  .fld input, .fld select, .fld textarea { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 7px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; } .fld input[type=checkbox] { width: 22px; height: 22px; }
+  .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin: 8px 0; } .row > .fld { flex: 1; min-width: 150px; }
+  .muted { color: #9aa39f; font-size: 13px; } .err { color: var(--heat); margin: 6px 0; } code { background: #151b1b; padding: 1px 5px; }
+  .hook { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); } .hook.off { opacity: .45; } .hook .nm { font-weight: 700; letter-spacing: 1px; }
+  .chip { display: inline-block; background: #333f3e; padding: 2px 9px; margin: 3px 4px 0 0; font-size: 12px; } .chip.v { cursor: pointer; } .chip.v:hover { background: var(--heat); color: var(--iron); }
+  .act { background: #1f2626; border-top: 1px solid var(--line); padding: 10px 12px; margin: 8px 0; } .act .top { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; } .act .top b { flex: 1; letter-spacing: 2px; text-transform: uppercase; font-size: 13px; }
+  .run { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; } .ok { color: #6fcf6f; } .bad { color: var(--rust); }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; max-width: 90%; } #toast.bad { background: var(--rust); color: var(--cream); }
+  #editor { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .sw { position: relative; width: 46px; height: 24px; background: #46504f; cursor: pointer; border: 0; padding: 0; } .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: var(--cream); transition: left .15s; } .sw.on { background: var(--aqua); } .sw.on::after { left: 25px; background: var(--iron); }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>REWARD HOOKS</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section>
+    <h2>WHEN A CHANNEL POINT REWARD IS REDEEMED&hellip;</h2>
+    <p class="muted" style="margin-bottom:8px">Each hook waits for a reward, then runs its actions in order: show an overlay alert, say something in chat, run a chat command, call a webhook, show a source or switch scene in OBS, give or take currency, change a counter, and mark the redemption done. Several hooks can match the same reward.</p>
+    <div class="err" id="err"></div>
+    <div id="hooks"></div>
+    <div class="row"><button id="newHook">+ New hook</button>
+      <label class="fld" style="max-width:190px">Test as viewer<input id="testUser" value="TestViewer"></label>
+      <label class="fld" style="max-width:300px">Test viewer message<input id="testInput" value="hello there"></label></div>
+    <div id="editor">
+      <input type="hidden" id="hId">
+      <div class="row"><label class="fld">Hook name<input id="hName" maxlength="40" placeholder="Hydrate"></label>
+        <label class="fld">Runs when<select id="hWhen"><option value="any">Any reward is redeemed</option><option value="reward">This reward…</option><option value="title">Reward name contains…</option></select></label>
+        <label class="fld" id="hRewardBox">Reward<select id="hReward"></select></label>
+        <label class="fld" id="hTitleBox">Text<input id="hTitle" maxlength="60" placeholder="hydrate"></label>
+        <label class="fld" style="max-width:100px"><span>Enabled</span><input id="hOn" type="checkbox" checked></label></div>
+      <h3>ACTIONS (run top to bottom)</h3>
+      <div id="acts"></div>
+      <div class="row" id="addRow"></div>
+      <div class="muted">In messages and commands you can use: <span id="vars"></span></div>
+      <div class="row"><button id="save">Save hook</button><button class="ghost" id="cancel">Cancel</button></div>
+    </div>
+  </section>
+
+  <section class="h">
+    <h2>RECENT RUNS</h2><div id="runs"></div>
+  </section>
+
+  <section class="r">
+    <h2>OBS CONNECTION</h2>
+    <p class="muted">Needed only for the OBS actions. In OBS open <b>Tools &gt; WebSocket Server Settings</b>, tick <b>Enable WebSocket server</b>, and copy the port and password here. The password is stored in <code>data/state.json</code> on this computer only.</p>
+    <div class="row"><label class="fld">Address<input id="oHost" style="max-width:200px"></label><label class="fld">Port<input id="oPort" type="number" style="max-width:110px"></label>
+      <label class="fld">Password<input id="oPass" type="password" placeholder="(unchanged)" style="max-width:220px"></label>
+      <button id="oSave">Save</button><button class="alt" id="oTest">Test connection</button><button class="ghost" id="oScenes">Load my scenes</button></div>
+    <div class="muted" id="oStat"></div>
+    <datalist id="obsScenes"></datalist><datalist id="obsSources"></datalist><datalist id="alertKeys"></datalist>
+  </section>
+
+  <section>
+    <h2>YOUR CHANNEL POINT REWARDS</h2>
+    <div id="rList" class="muted">Loading...</div>
+    <p class="muted" style="margin-top:6px">Switch rewards on or off, rename them or change the cost. Twitch only lets an app switch rewards it created. Rewards you made on twitch.tv are listed too, with a button that makes a copy this app can control.</p>
+  </section>
+
+  <section>
+    <h2>CREATE A REWARD ON TWITCH</h2>
+    <p class="muted">Twitch only lets this app mark redemptions as fulfilled or refund them for rewards <b>this app created</b>. Rewards you made on Twitch still trigger hooks, but the "mark redemption" action won't work for them. Affiliate or Partner required.</p>
+    <div class="row"><label class="fld">Title<input id="rTitle" maxlength="45"></label><label class="fld" style="max-width:130px">Cost<input id="rCost" type="number" min="1" value="500"></label>
+      <label class="fld" style="max-width:150px">Cooldown (s)<input id="rCd" type="number" min="0" value="0"></label>
+      <label class="fld" style="max-width:130px"><span>Viewer types text</span><input id="rIn" type="checkbox"></label></div>
+    <div class="row"><label class="fld">Description shown to viewers<input id="rPrompt" maxlength="200"></label><button id="rMake">Create reward</button></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (p, b) => fetch('/api/hooks/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3800); }
+const ANN = ['primary', 'blue', 'green', 'orange', 'purple'];
+const AD = {
+  alert: ['Show an overlay alert', [['key', 'Custom alert key', 'key']]],
+  chat: ['Say in chat', [['text', 'Message', 'area'], ['announce', 'Style', 'style']]],
+  command: ['Run a chat command', [['text', 'Command (e.g. !so {input})', 'text'], ['asBroadcaster', 'Run with my permissions', 'check']]],
+  webhook: ['Call a webhook', [['url', 'Address (https://…)', 'text'], ['body', 'Body (optional, JSON or text)', 'area']]],
+  'obs-source': ['Show an OBS source', [['scene', 'Scene (blank = current)', 'scene'], ['source', 'Source name', 'source'], ['seconds', 'Visible for (s, 0 = stay)', 'number']]],
+  'obs-scene': ['Switch OBS scene', [['scene', 'Scene', 'scene']]],
+  points: ['Give or take currency', [['amount', 'Amount (negative takes)', 'number']]],
+  counter: ['Change a counter', [['name', 'Counter name', 'text'], ['delta', 'Add (negative subtracts)', 'number']]],
+  tts: ['Speak aloud (text-to-speech)', [['text', 'What the voice says', 'area'], ['voice', 'Voice (blank = default)', 'text']]],
+  countdown: ['Change the countdown / subathon timer', [['op', 'What to do', 'cdop'], ['seconds', 'Seconds (negative subtracts)', 'number']]],
+  status: ['Mark the redemption', [['status', 'Result', 'status']]],
+};
+let V = { hooks: [], runs: [] }, rewards = [], acts = [];
+const rname = (h) => h.match.rewardId ? (rewards.find((r) => r.id === h.match.rewardId) || {}).title || h.match.rewardName || h.match.rewardId : h.match.title ? 'name contains "' + h.match.title + '"' : 'any reward';
+function drawHooks() {
+  $('hooks').innerHTML = V.hooks.map((h) => `<div class="hook ${h.enabled ? '' : 'off'}" data-id="${h.id}"><input type="checkbox" data-a="toggle" ${h.enabled ? 'checked' : ''}>
+    <div><div class="nm">${esc(h.name)} <span class="muted">&mdash; ${esc(rname(h))}</span></div>${h.actions.map((a) => `<span class="chip">${(a.delay ? a.delay + 's &rarr; ' : '') + esc(AD[a.type][0])}</span>`).join('')}</div>
+    <div class="row" style="margin:0"><button class="alt sm" data-a="test">Test</button><button class="ghost sm" data-a="edit">Edit</button><button class="red sm" data-a="del">Delete</button></div></div>`).join('') || '<p class="muted">No hooks yet. Press “+ New hook”.</p>';
+  $('runs').innerHTML = V.runs.map((r) => `<div class="run"><b>${esc(r.hook)}</b> <span class="muted">${new Date(r.ts).toLocaleTimeString()} &middot; ${esc(r.user)} &middot; ${esc(r.reward)}${r.test ? ' &middot; TEST' : ''}</span><br>${r.results.map((x) => `<span class="${x.ok ? 'ok' : 'bad'}">${x.ok ? '✓' : '✗'} ${esc(AD[x.type] ? AD[x.type][0] : x.type)}: ${esc(x.msg)}</span>`).join('<br>')}</div>`).join('') || '<p class="muted">Nothing has run yet.</p>';
+  $('alertKeys').innerHTML = (V.alertKeys || []).map((k) => `<option value="${esc(k)}">`).join('');
+  $('oHost').value = $('oHost').value || V.obs.host; $('oPort').value = $('oPort').value || V.obs.port; $('oPass').placeholder = V.obs.hasPassword ? '(saved — leave blank to keep)' : '(none)';
+}
+function drawActs() {
+  $('acts').innerHTML = acts.map((a, i) => `<div class="act" data-i="${i}"><div class="top"><b>${i + 1}. ${esc(AD[a.type][0])}</b>
+    <label class="fld" style="flex-direction:row;align-items:center;gap:6px">Wait<input data-f="delay" type="number" min="0" style="width:70px" value="${a.delay || 0}">s first</label>
+    <button class="ghost sm" data-m="up">↑</button><button class="ghost sm" data-m="down">↓</button><button class="red sm" data-m="rm">✕</button></div>
+    <div class="row" style="margin:0">${AD[a.type][1].map(([f, label, kind]) => {
+      const v = a[f] == null ? '' : a[f];
+      if (kind === 'area') return `<label class="fld" style="flex-basis:100%">${label}<textarea data-f="${f}" rows="2">${esc(v)}</textarea></label>`;
+      if (kind === 'check') return `<label class="fld" style="max-width:200px"><span>${label}</span><input data-f="${f}" type="checkbox" ${v ? 'checked' : ''}></label>`;
+      if (kind === 'style') return `<label class="fld"><span>${label}</span><select data-f="${f}"><option value="">Normal chat message</option>${ANN.map((c) => `<option value="${c}" ${v === c ? 'selected' : ''}>Announcement (${c === 'primary' ? 'channel color' : c})</option>`).join('')}</select></label>`;
+      if (kind === 'cdop') return `<label class="fld"><span>${label}</span><select data-f="${f}">${[['add', 'Add time'], ['start', 'Start a new timer'], ['pause', 'Pause'], ['resume', 'Resume'], ['reset', 'Reset'], ['show', 'Show'], ['hide', 'Hide']].map(([k, t]) => `<option value="${k}" ${(v || 'add') === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
+      if (kind === 'status') return `<label class="fld"><span>${label}</span><select data-f="${f}"><option value="FULFILLED" ${v !== 'CANCELED' ? 'selected' : ''}>Mark fulfilled</option><option value="CANCELED" ${v === 'CANCELED' ? 'selected' : ''}>Cancel and refund points</option></select></label>`;
+      const list = kind === 'key' ? 'alertKeys' : kind === 'scene' ? 'obsScenes' : kind === 'source' ? 'obsSources' : '';
+      return `<label class="fld"><span>${label}</span><input data-f="${f}" ${list ? 'list="' + list + '"' : ''} type="${kind === 'number' ? 'number' : 'text'}" value="${esc(v)}"></label>`;
+    }).join('')}</div></div>`).join('') || '<p class="muted">No actions yet. Add one below.</p>';
+}
+$('addRow').innerHTML = '<span class="muted">Add:</span> ' + Object.entries(AD).map(([k, v]) => `<button class="ghost sm" data-add="${k}">${v[0]}</button>`).join(' ');
+$('addRow').onclick = (e) => { const k = e.target.dataset.add; if (!k) return; acts.push({ type: k, delay: 0, seconds: 5, amount: 100, delta: 1, status: 'FULFILLED', text: k === 'chat' ? '{name} redeemed {reward}!' : k === 'command' ? '!so {input}' : '' }); drawActs(); };
+$('acts').oninput = (e) => { const f = e.target.dataset.f; if (!f) return; const i = +e.target.closest('.act').dataset.i; acts[i][f] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; if (f === 'scene') loadSources(e.target.value); };
+$('acts').onchange = (e) => { const f = e.target.dataset.f; if (f && e.target.tagName === 'SELECT') { acts[+e.target.closest('.act').dataset.i][f] = e.target.value; } };
+$('acts').onclick = (e) => { const m = e.target.dataset.m; if (!m) return; const i = +e.target.closest('.act').dataset.i; if (m === 'rm') acts.splice(i, 1); else { const j = m === 'up' ? i - 1 : i + 1; if (j >= 0 && j < acts.length) [acts[i], acts[j]] = [acts[j], acts[i]]; } drawActs(); };
+$('vars').innerHTML = ['{name}', '{input}', '{reward}', '{cost}', '{1}', '{points}', '{game}', '{randomname}', '{counter.name+}', '{latest_follower}'].map((v) => `<span class="chip v" data-v="${v}">${v}</span>`).join('');
+$('vars').onclick = (e) => { const v = e.target.dataset.v; const t = document.activeElement; if (v && t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT') && t.dataset.f) { t.value += v; t.dispatchEvent(new Event('input', { bubbles: true })); } else if (v) toast('Click into a message box first, then pick a variable'); };
+function when() { const w = $('hWhen').value; $('hRewardBox').style.display = w === 'reward' ? '' : 'none'; $('hTitleBox').style.display = w === 'title' ? '' : 'none'; }
+$('hWhen').onchange = when;
+function openEditor(h) {
+  h = h || { name: '', enabled: true, match: {}, actions: [] };
+  $('editor').style.display = 'block'; $('hId').value = h.id || ''; $('hName').value = h.name; $('hOn').checked = h.enabled;
+  $('hReward').innerHTML = rewards.map((r) => `<option value="${esc(r.id)}">${esc(r.title)} (${r.cost})</option>`).join('') || '<option value="">(no rewards found: connect Twitch)</option>';
+  $('hWhen').value = h.match.rewardId ? 'reward' : h.match.title ? 'title' : 'any'; if (h.match.rewardId) $('hReward').value = h.match.rewardId; $('hTitle').value = h.match.title || '';
+  acts = JSON.parse(JSON.stringify(h.actions)); when(); drawActs(); $('hName').focus();
+}
+$('newHook').onclick = () => openEditor(null); $('cancel').onclick = () => { $('editor').style.display = 'none'; };
+$('save').onclick = async () => {
+  const w = $('hWhen').value, rw = rewards.find((r) => r.id === $('hReward').value);
+  const r = await post('save', { id: $('hId').value || undefined, name: $('hName').value, enabled: $('hOn').checked, actions: acts,
+    match: { rewardId: w === 'reward' ? $('hReward').value : '', rewardName: w === 'reward' && rw ? rw.title : '', title: w === 'title' ? $('hTitle').value : '' } });
+  if (r.error) return toast(r.error, true); toast('Hook saved'); $('editor').style.display = 'none'; load();
+};
+$('hooks').onclick = async (e) => {
+  const b = e.target.closest('[data-a]'); if (!b) return; const h = V.hooks.find((x) => x.id === b.closest('.hook').dataset.id), a = b.dataset.a;
+  if (a === 'edit') return openEditor(h);
+  if (a === 'toggle') { await post('save', Object.assign({}, h, { enabled: b.checked })); return load(); }
+  if (a === 'del') { if (!b.dataset.arm) { b.dataset.arm = 1; b.textContent = 'Sure?'; setTimeout(() => { delete b.dataset.arm; b.textContent = 'Delete'; }, 3000); return; } await post('delete', { id: h.id }); return load(); }
+  if (a === 'test') { b.textContent = '…'; const r = await post('test', { id: h.id, input: $('testInput').value, user: $('testUser').value }); b.textContent = 'Test'; if (r.error) toast(r.error, true); else toast(r.results.every((x) => x.ok) ? 'Ran all actions' : 'Some actions failed: see Recent runs', !r.results.every((x) => x.ok)); load(); }
+};
+// ---- OBS
+$('oSave').onclick = async () => { const r = await post('obs/save', { host: $('oHost').value, port: $('oPort').value, password: $('oPass').value === '' ? '__keep__' : $('oPass').value }); $('oPass').value = ''; if (r.error) toast(r.error, true); else { toast('Saved'); load(); } };
+$('oTest').onclick = async () => { $('oStat').textContent = 'Connecting…'; const r = await post('obs/test'); $('oStat').textContent = r.error ? '✗ ' + r.error : '✓ Connected to OBS ' + r.obsVersion + ' (WebSocket ' + r.websocketVersion + ')'; $('oStat').className = r.error ? 'err' : 'ok'; };
+$('oScenes').onclick = async () => { const r = await post('obs/scenes'); if (r.error) { $('oStat').textContent = '✗ ' + r.error; $('oStat').className = 'err'; return; } $('obsScenes').innerHTML = r.map((s) => `<option value="${esc(s)}">`).join(''); $('oStat').textContent = '✓ Loaded ' + r.length + ' scenes: they now appear as suggestions in the scene boxes.'; $('oStat').className = 'ok'; };
+let srcScene = null; async function loadSources(scene) { if (scene === srcScene) return; srcScene = scene; const r = await post('obs/sources', { scene }); if (Array.isArray(r)) $('obsSources').innerHTML = r.map((s) => `<option value="${esc(s)}">`).join(''); }
+// ---- create reward
+$('rMake').onclick = async () => { const r = await post('reward/create', { title: $('rTitle').value, cost: $('rCost').value, cooldown: $('rCd').value, input: $('rIn').checked, prompt: $('rPrompt').value }); if (r.error) toast(r.error, true); else { toast('Created "' + r.title + '" on Twitch'); $('rTitle').value = ''; loadRewards(); } };
+function drawRewards() {
+  $('rList').innerHTML = rewards.length ? rewards.map((r) => '<div class="run" data-id="' + esc(r.id) + '" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="sw' + (r.enabled ? ' on' : '') + '" data-a="rtog" title="On / off"' + (r.mine ? '' : ' disabled') + '></button>'
+    + '<b style="flex:1;min-width:140px' + (r.enabled ? '' : ';opacity:.55') + '">' + esc(r.title) + (r.mine ? '' : ' <span class="muted">made on twitch.tv</span>') + '</b>'
+    + '<input class="rc" type="number" min="1" value="' + r.cost + '" style="width:90px"' + (r.mine ? '' : ' disabled') + '>' + (r.mine ? '<button class="ghost" data-a="rcost">Set cost</button><button class="danger" data-a="rdel">Delete</button>' : '<button class="ghost" data-a="rcopy" title="Twitch does not let apps change rewards made on twitch.tv. This makes a copy the app can manage; switch the original off on Twitch.">Make controllable copy</button>') + '</div>').join('') : '<p class="muted">No rewards found (connect Twitch, Affiliate or Partner required).</p>';
+}
+$('rList').onclick = async (e) => {
+  const a = e.target.dataset.a; if (!a) return; const row = e.target.closest('[data-id]'), id = row.dataset.id, r = rewards.find((x) => x.id === id);
+  if (a === 'del' || a === 'rdel') { if (!e.target.dataset.arm) { e.target.dataset.arm = 1; e.target.textContent = 'Sure?'; setTimeout(() => { delete e.target.dataset.arm; e.target.textContent = 'Delete'; }, 3000); return; } const x = await post('reward/delete', { id }); if (x.error) toast(x.error, true); else toast('Deleted'); return loadRewards(); }
+  if (a === 'rcopy') { const x = await post('reward/copy', { id }); toast(x.error || 'Created "' + x.title + '". Turn the original off on Twitch.', !!x.error); return loadRewards(); }
+  const x = a === 'rtog' ? await post('reward/update', { id, enabled: !r.enabled }) : await post('reward/update', { id, cost: row.querySelector('.rc').value });
+  if (x.error) toast(x.error, true); else toast(a === 'rtog' ? (r.enabled ? 'Disabled' : 'Enabled') : 'Cost updated'); loadRewards();
+};
+async function loadRewards() { const r = await fetch('/api/hooks/rewards').then((x) => x.json()); rewards = r.rewards || []; $('err').textContent = r.error ? 'Rewards: ' + r.error + (/scope|auth|403|401/i.test(r.error) ? ' (press Connect Twitch again on the dashboard)' : '') : ''; drawHooks(); drawRewards(); }
+async function load() { V = await fetch('/api/hooks').then((r) => r.json()); drawHooks(); }
+loadRewards(); load(); setInterval(() => { if (!document.activeElement || !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) load(); }, 4000);
+</script></body></html>

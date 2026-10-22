@@ -1,0 +1,300 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Game Arena</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* OBS Browser Source: http://localhost:8420/overlays/arena.html?scale=1   (suggested size 520 x 300)
+     ONE overlay for every pixel game: duels, boss raids, the arena royale and team battles. The results are decided by the server, this only plays them.
+     ?demo=1 plays a duel every few seconds.  Silent. */
+  #card { position: absolute; left: 10px; right: 10px; bottom: 10px; top: 10px; opacity: 0; transform: translateY(40px) scale(.96); transition: opacity .35s, transform .5s cubic-bezier(.2,.9,.2,1); filter: drop-shadow(0 10px 16px rgba(0,0,0,.55)); }
+  #card.on { opacity: 1; transform: none; }
+  #arena { position: absolute; inset: 0; background: var(--iron); clip-path: polygon(0 0, 100% 0, calc(100% - 22px) 100%, 0 100%); overflow: hidden; }
+  #arena::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 8px; background: linear-gradient(90deg, var(--aqua) 0 30%, var(--heat) 30% 55%, var(--rust) 55% 75%, var(--drust) 75% 90%, var(--cream) 90%); z-index: 3; }
+  canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .name { position: absolute; padding: 1px 10px 0; font-size: 21px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; font-stretch: 85%; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; color: var(--iron); transition: opacity .3s; z-index: 2; }
+  .name.a { background: var(--aqua); transform: translateX(-90%); } .name.b { background: var(--heat); transform: translateX(-10%); } .name.dead { opacity: .5; text-decoration: line-through; }
+  #top { position: absolute; left: 0; right: 0; top: 16px; text-align: center; z-index: 2; font-weight: 700; letter-spacing: 6px; font-size: 18px; color: var(--cream); text-transform: uppercase; }
+  #top b { color: var(--heat); }
+  #banner { position: absolute; left: 0; right: 0; top: 40px; text-align: center; z-index: 4; font-size: 48px; font-weight: 700; letter-spacing: 6px; font-stretch: 80%; text-transform: uppercase; color: var(--cream); text-shadow: 0 5px 0 var(--drust), 0 0 20px rgba(0,0,0,.6); opacity: 0; transform: scale(.5); }
+  #banner small { display: block; font-size: 22px; letter-spacing: 5px; color: var(--heat); margin-top: 2px; text-shadow: none; }
+  #banner.go { animation: pop 2.6s ease-out forwards; } @keyframes pop { 0% { opacity: 0; transform: scale(.5); } 12% { opacity: 1; transform: scale(1.12); } 22% { transform: scale(1); } 85% { opacity: 1; } 100% { opacity: 0; } }
+</style></head>
+<body>
+<div id="card"><div id="arena"><canvas id="cv" width="480" height="270"></canvas><div id="top"></div><div class="name a" id="na"></div><div class="name b" id="nb"></div><div id="banner"></div></div></div>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search), BASE = icmBase('arena', +(Q.get('port') || C.serverPort || 8420));
+  const cv = document.getElementById('cv'), g = cv.getContext('2d'), W = 480, H = 270, U = 4, GROUND = 238;
+  g.imageSmoothingEnabled = false;
+  const $ = (id) => document.getElementById(id);
+  const queue = []; let playing = false;
+
+  // ---------------------------------------------------------------- tiny deterministic random
+  const rng = (seed) => { let s = seed >>> 0 || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
+  const hash = (str) => { let h = 2166136261; for (const c of String(str)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
+
+  // ---------------------------------------------------------------- pixel people, drawn from rectangles (16 x 24 units, facing right)
+  const SKINS = ['#f1c9a0', '#d9a074', '#a8734a', '#7a4a2c'], HAIR = ['#2b1d14', '#6b3f1d', '#d9b45a', '#c9442b', '#3b3b3b', '#e8e0d0'];
+  function look(name, team) {
+    const r = rng(hash(name)), SH = { a: ['#4FBBBC', '#2f8a8b'], b: ['#F39120', '#c06a0c'], red: ['#EC4624', '#b13a22'], blue: ['#4FBBBC', '#2f8a8b'] }, MIX = [['#4FBBBC', '#2f8a8b'], ['#F39120', '#c06a0c'], ['#EC4624', '#b13a22'], ['#E2DAC2', '#b3ab92'], ['#8e7cc3', '#5f4f99']], sh = SH[team] || MIX[hash(name) % 5];
+    const p = { skin: SKINS[Math.floor(r() * 4)], hair: HAIR[Math.floor(r() * 6)], long: r() < 0.4, shirt: sh[0], shirt2: sh[1], pants: '#2a3333', boots: '#14191a', blade: '#e8f1f2', hilt: '#B13A22' };
+    return p;
+  }
+  function R(x, y, w, h, c, ox, oy, flip) { g.fillStyle = c; const X = flip ? ox - (x + w) * U : ox + x * U; g.fillRect(Math.round(X), Math.round(oy + y * U), w * U, h * U); }
+  /** pose: idle | walk | wind | slash | hit | dead | win   frame: animation counter */
+  function person(p, pose, frame, ox, oy, flip, flash) {
+    const bob = pose === 'idle' ? (frame % 2 ? 1 : 0) : 0, step = pose === 'walk' ? frame % 2 : 0;
+    g.save();
+    if (pose === 'dead') { g.translate(ox + (flip ? -10 : 10) * U, oy + 22 * U); g.rotate((flip ? -1 : 1) * Math.PI / 2); g.translate(-ox, -(oy + 22 * U)); }
+    const y0 = oy + bob * U, skin = flash ? '#ffffff' : p.skin, shirt = flash ? '#ffffff' : p.shirt, hair = flash ? '#ffffff' : p.hair, lean = pose === 'hit' ? -2 : 0;
+    // legs
+    R(5, 15, 3, 7, p.pants, ox, y0, flip); R(8 + (step ? 1 : 0), 15, 3, 7, p.pants, ox, y0, flip);
+    R(5 - (step ? 1 : 0), 22, 3, 2, p.boots, ox, y0, flip); R(8 + (step ? 1 : 0), 22, 4, 2, p.boots, ox, y0, flip);
+    // torso + back arm
+    R(4 + lean, 7, 8, 8, shirt, ox, y0, flip); R(4 + lean, 13, 8, 2, p.shirt2, ox, y0, flip); R(3 + lean, 8, 2, 6, skin, ox, y0, flip);
+    // head
+    R(5 + lean, 0, 6, 7, skin, ox, y0, flip); R(5 + lean, 0, 6, 2, hair, ox, y0, flip); R(4 + lean, 1, 2, p.long ? 7 : 3, hair, ox, y0, flip);
+    if (pose === 'dead') { R(8 + lean, 3, 1, 1, '#14191a', ox, y0, flip); R(10 + lean, 3, 1, 1, '#14191a', ox, y0, flip); R(9 + lean, 4, 1, 1, '#14191a', ox, y0, flip); }
+    else { R(9 + lean, 3, 1, 2, '#14191a', ox, y0, flip); if (pose === 'hit') R(8 + lean, 5, 3, 1, '#14191a', ox, y0, flip); }
+    // front arm + sword
+    const sx = 11 + lean;
+    if (pose === 'wind') { R(sx, 4, 2, 5, skin, ox, y0, flip); R(sx, 1, 2, 3, p.hilt, ox, y0, flip); R(sx + 0, -9, 2, 10, p.blade, ox, y0, flip); }
+    else if (pose === 'slash') { R(sx, 8, 6, 2, skin, ox, y0, flip); R(sx + 6, 6, 2, 6, p.hilt, ox, y0, flip); R(sx + 8, 8, 14, 2, p.blade, ox, y0, flip); }
+    else if (pose === 'win') { R(sx, 2, 2, 6, skin, ox, y0, flip); R(sx - 1, 0, 4, 2, p.hilt, ox, y0, flip); R(sx, -10, 2, 10, p.blade, ox, y0, flip); }
+    else if (pose === 'dead') { R(sx, 9, 2, 5, skin, ox, y0, flip); }
+    else { R(sx, 8, 2, 6, skin, ox, y0, flip); R(sx, 13, 2, 2, p.hilt, ox, y0, flip); R(sx, 14, 2, 9, p.blade, ox, y0, flip); }
+    g.restore();
+  }
+  function spark(x, y, t) { const n = 10; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, d = 6 + t * 26; g.fillStyle = i % 2 ? '#F39120' : '#E2DAC2'; g.fillRect(Math.round(x + Math.cos(a) * d) - 2, Math.round(y + Math.sin(a) * d) - 2, 4, 4); } g.fillStyle = '#ffffff'; g.fillRect(x - 3, y - 3, 6, 6); }
+  function ground() { g.fillStyle = '#1A2020'; g.fillRect(0, GROUND, W, H - GROUND); g.fillStyle = '#2f3938'; for (let x = 0; x < W; x += 24) g.fillRect(x, GROUND, 12, 4); g.fillStyle = '#B13A22'; g.fillRect(0, GROUND, W, 3); }
+
+  // ---------------------------------------------------------------- one duel
+  const TOTAL = 9800, FREEZE = +Q.get('freeze') || 0;   // ?freeze=2500 shows one moment of the fight (for tuning)
+  function play(m) {
+    return new Promise((done) => {
+      const r = rng(hash(m.a + m.b + (m.seed || ''))), pa = look(m.a, 'a'), pb = look(m.b, 'b'), winA = m.winner === 'a';
+      // who lands each exchange: the winner lands the last one, the rest is random
+      const hits = [r() < .5, r() < .5, winA]; if (hits[0] === hits[1] && hits[0] !== winA && r() < .5) hits[1] = !hits[1];
+      const ax0 = -60, bx0 = W + 60, ax1 = 176, bx1 = 292, T = { in: 700, walk: 1700, fight: 6100, end: 7100 };
+      $('na').style.display = $('nb').style.display = ''; $('na').textContent = m.a; $('nb').textContent = m.b; $('na').classList.remove('dead'); $('nb').classList.remove('dead');
+      $('top').innerHTML = 'Duel for <b>' + Number(m.amount || 0).toLocaleString() + ' ' + String(m.currency || 'points').replace(/[<>&]/g, '') + '</b>';
+      $('card').classList.add('on'); const bn = $('banner'); bn.innerHTML = 'Duel!'; bn.classList.remove('go'); void bn.offsetWidth; bn.classList.add('go');
+      const t0 = performance.now(); let lastClash = -1, shake = 0;
+      function frame(now) {
+        const t = FREEZE || (now - t0); g.clearRect(0, 0, W, H); ground();
+        let ax = ax0, bx = bx1 + 120, pA = 'idle', pB = 'idle', flA = false, flB = false, sp = null, fr = Math.floor(t / 180);
+        const walk = Math.min(1, Math.max(0, (t - T.in) / (T.walk - T.in))), ease = 1 - Math.pow(1 - walk, 2);
+        ax = ax0 + (ax1 - ax0) * ease; bx = (bx0 + 0) + (bx1 - bx0) * ease; if (walk > 0 && walk < 1) { pA = pB = 'walk'; }
+        if (t >= T.walk && t < T.fight) {   // three exchanges, 1.47s each
+          const k = (t - T.walk) / ((T.fight - T.walk) / 3), i = Math.min(2, Math.floor(k)), ph = k - i;   // phase 0..1 inside an exchange
+          const atk = hits[i] ? 'a' : 'b';
+          if (ph < .4) { if (atk === 'a') pA = 'wind'; else pB = 'wind'; }
+          else if (ph < .7) { if (atk === 'a') { pA = 'slash'; ax += 20; pB = 'hit'; bx += 10; flB = ph < .5; } else { pB = 'slash'; bx -= 20; pA = 'hit'; ax -= 10; flA = ph < .5; }
+            sp = { x: W / 2 + (atk === 'a' ? 18 : -18), y: GROUND - 62, t: (ph - .4) / .3 }; if (lastClash !== i) { lastClash = i; shake = 6; } }
+          else { if (atk === 'a') pB = 'hit'; else pA = 'hit'; }
+        }
+        if (t >= T.fight) {   // the last exchange decided it: loser down, winner celebrates
+          const dt = (t - T.fight) / 1000; if (winA) { pA = 'win'; pB = 'dead'; bx += 22; } else { pB = 'win'; pA = 'dead'; ax -= 22; }
+          if (lastClash !== 9) { lastClash = 9; const w = winA ? m.a : m.b; bn.innerHTML = String(w).replace(/[<>&]/g, '') + ' wins!<small>+' + Number(m.amount || 0).toLocaleString() + ' ' + String(m.currency || 'points').replace(/[<>&]/g, '') + '</small>'; bn.classList.remove('go'); void bn.offsetWidth; bn.classList.add('go'); (winA ? $('nb') : $('na')).classList.add('dead'); }
+          if (dt > .4) for (let i = 0; i < 18; i++) { const px = ((i * 53 + Math.floor(t / 30) * 7) % W), py = ((i * 37 + t / 6) % (H - 20)); g.fillStyle = ['#4FBBBC', '#F39120', '#EC4624', '#E2DAC2'][i % 4]; g.fillRect(px, (py + dt * 40) % (H - 30), 4, 4); }
+        }
+        const off = shake > 0 ? (shake-- % 2 ? 3 : -3) : 0; g.save(); g.translate(off, 0);
+        const dy = (p) => (p === 'dead' ? 4 * U : 0);
+        person(pa, pA, fr, ax, GROUND - 24 * U + dy(pA) - (pA === 'dead' ? 20 : 0), false, flA); person(pb, pB, fr, bx + 16 * U, GROUND - 24 * U + dy(pB) - (pB === 'dead' ? 20 : 0), true, flB);
+        if (sp) spark(sp.x, sp.y, sp.t); g.restore();
+        $('na').style.left = (ax + 8 * U) + 'px'; $('na').style.top = (GROUND - 24 * U - 34 + (pA === 'dead' ? 70 : 0)) + 'px'; $('nb').style.left = (bx + 8 * U) + 'px'; $('nb').style.top = (GROUND - 24 * U - 34 + (pB === 'dead' ? 70 : 0)) + 'px';
+        if (t < TOTAL) requestAnimationFrame(frame); else { $('card').classList.remove('on'); setTimeout(done, 700); }
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+  async function pump() { if (playing) return; playing = true; while (queue.length) { while (mode) await new Promise((r) => setTimeout(r, 400)); await play(queue.shift()); } playing = false; }
+  window.playDuel = (m) => { queue.push(m); pump(); };
+
+  // ================================================================ group games (the server decides everything, this plays it)
+  let mode = null, frameN = 0;
+  const esc = (t) => String(t == null ? '' : t).replace(/[<>&]/g, '');
+  const short = (n) => { n = String(n); return n.length > 12 ? n.slice(0, 11) + '…' : n; };
+  const bannerShow = (html) => { const bn = $('banner'); bn.innerHTML = html; bn.classList.remove('go'); void bn.offsetWidth; bn.classList.add('go'); };
+  const setTop = (html) => { $('top').innerHTML = html; };
+  const ease = (x) => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 2);
+  function label(txt, x, y, col, size, align) { g.font = '700 ' + (size || 13) + 'px Bahnschrift,"Arial Narrow",sans-serif'; g.textAlign = align || 'center'; g.lineWidth = 4; g.strokeStyle = '#222A2A'; g.strokeText(txt, x, y); g.fillStyle = col || '#E2DAC2'; g.fillText(txt, x, y); }
+  function bar(x, y, w, h, frac, col, text) { g.fillStyle = '#14191a'; g.fillRect(x - 2, y - 2, w + 4, h + 4); g.fillStyle = '#3a4444'; g.fillRect(x, y, w, h); g.fillStyle = col; g.fillRect(x, y, Math.max(0, Math.round(w * Math.min(1, Math.max(0, frac)))), h); if (text) label(text, x + w / 2, y + h - 2, '#E2DAC2', 12); }
+  function endMode(ms) { const m = mode; setTimeout(() => { if (mode === m) { mode = null; $('card').classList.remove('on'); setTimeout(pump, 700); } }, ms); }
+
+  // ---- the boss monster, from rectangles
+  function monster(seed, ox, oy, u, o) {
+    const r = rng(seed), body = ['#6aa84f', '#8e5ea2', '#c0392b', '#2e86c1', '#b9770e'][Math.floor(r() * 5)], dark = '#14191a', white = o.flash ? '#fff' : '#f4f0e4', c = o.flash ? '#ffffff' : body;
+    const P = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(Math.round(ox + x * u), Math.round(oy + y * u), w * u, h * u); };
+    P(3, 17, 5, 2, dark); P(12, 17, 5, 2, dark); P(2, 4, 16, 13, c); P(5, 1, 10, 4, c); P(3, 0, 2, 3, white); P(15, 0, 2, 3, white);
+    P(5, 7, 4, 4, white); P(11, 7, 4, 4, white); P(o.angry ? 7 : 6, 8, 2, 3, dark); P(o.angry ? 11 : 12, 8, 2, 3, dark); P(6, 13, 8, 3, dark); P(7, 13, 1, 1, white); P(10, 13, 1, 1, white); P(13, 13, 1, 1, white);
+  }
+
+  function drawBoss(m, now) {
+    const t = now - m.t0, o = m.over, left = Math.max(0, Math.ceil((m.until - now) / 1000));
+    setTop(esc(m.name) + (o ? '' : ' <b>' + left + 's</b>'));
+    bar(40, 44, 400, 14, m.hp / m.max, m.hp / m.max < .3 ? '#EC4624' : '#F39120', Math.max(0, m.hp) + ' / ' + m.max + ' HP');
+    const sinceHit = now - m.lastHit, shk = sinceHit < 220 ? Math.round((Math.random() - .5) * 10) : 0, fl = sinceHit < 110;
+    let by = 238 - 19 * 7 + Math.round(Math.sin(t / 320) * 3), a = 1;
+    if (o && o.win) { const p = Math.min(1, (now - o.t0) / 1800); a = 1 - p; by += p * 50; }
+    if (a > 0) { g.globalAlpha = a; monster(m.seed, 326 + shk, by, 7, { flash: fl, angry: m.hp / m.max < .4 }); g.globalAlpha = 1; }
+    const fr = Math.floor(now / 180), list = m.hitters;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const h = list[i], slot = h.slot, x = 8 + slot * 52, striking = now - h.last < 380, pose = o ? (o.win ? 'win' : 'idle') : striking ? 'slash' : (now - h.last < 90000 ? 'idle' : 'idle');
+      person(h.look, pose, fr + slot, x + (pose === 'slash' ? 14 : 0), GROUND - 24 * U, false, false);
+      label(short(h.name), x + 32, GROUND - 24 * U - (pose === 'win' ? 48 : 8) + (slot % 2 ? -14 : 0), h.sub ? '#F39120' : '#E2DAC2', 12);
+    }
+    for (const f of m.floats) { const p = (now - f.t0) / 1000; if (p > 1.1) continue; g.globalAlpha = Math.max(0, 1.1 - p); label(f.txt, f.x, 150 - p * 54, f.col, f.size); g.globalAlpha = 1; }
+    m.floats = m.floats.filter((f) => now - f.t0 < 1200);
+  }
+  function bossEvent(d) {
+    if (d.type === 'boss:start') {
+      mode = { kind: 'boss', name: d.name, hp: d.hp, max: d.max, seed: d.seed, t0: performance.now(), until: performance.now() + d.seconds * 1000, hitters: [], floats: [], lastHit: -1e9, over: null, nextSlot: 0 };
+      $('card').classList.add('on'); bannerShow(esc(d.name) + '<small>Type !hit to attack</small>'); return;
+    }
+    const m = mode; if (!m || m.kind !== 'boss') return; const now = performance.now();
+    if (d.type === 'boss:hit') {
+      m.hp = d.hp; m.lastHit = now; let h = m.hitters.find((x) => x.name === d.name);
+      if (!h) { h = { name: d.name, look: look(d.name, null), slot: 0, last: now, sub: d.sub }; if (m.hitters.length >= 5) { const old = m.hitters.reduce((a, b) => (a.last < b.last ? a : b)); h.slot = old.slot; m.hitters.splice(m.hitters.indexOf(old), 1); } else h.slot = m.nextSlot++ % 5; m.hitters.push(h); }
+      h.last = now; h.sub = d.sub;
+      m.floats.push({ txt: (d.crit ? 'CRIT ' : '') + '-' + d.dmg, x: 340 + Math.random() * 110, t0: now, col: d.crit ? '#F39120' : d.big ? '#4FBBBC' : '#E2DAC2', size: d.crit || d.big ? 20 : 15 });
+    } else if (d.type === 'boss:end') {
+      m.over = { win: d.win, t0: now };
+      bannerShow(d.win ? esc(d.name) + ' defeated!<small>' + (d.last ? esc(d.last) + ' lands the final blow' : 'Chat wins') + '</small>' : esc(d.name) + ' escaped!<small>Better luck next time</small>');
+      endMode(7500);
+    }
+  }
+
+  // ---- arena royale
+  const SLOT = (i) => 14 + i * 57;
+  function drawRoyale(m, now) {
+    const fr = Math.floor(now / 180);
+    if (m.phase === 'lobby') {
+      setTop('Arena · entry <b>' + Number(m.fee).toLocaleString() + '</b> · !join · <b>' + Math.max(0, Math.ceil((m.until - now) / 1000)) + 's</b>');
+      for (let i = 0; i < m.max; i++) { const p = m.players[i]; if (p) { person(look(p, null), 'idle', fr + i, SLOT(i), GROUND - 24 * U, false, false); label(short(p), SLOT(i) + 32, GROUND - 24 * U - 6, '#E2DAC2', 12); } else { g.fillStyle = '#2f3938'; g.fillRect(SLOT(i) + 20, GROUND - 14, 24, 6); } }
+      label(m.players.length + ' / ' + m.max + ' fighters', W / 2, 62, '#F39120', 16); return;
+    }
+    const tt = now - m.t0, E = m.events, N = E.length, i = Math.min(N, Math.floor(tt / 3200)), p = (tt - i * 3200) / 3200, cx = W / 2;
+    const home = {}; m.players.forEach((n, k) => { home[n] = SLOT(k); });
+    const dead = new Set(); for (let k = 0; k < Math.min(i, N); k++) dead.add(E[k].loser);
+    const cur = i < N ? E[i] : null, over = i >= N;
+    setTop(over ? 'Arena <b>' + esc(m.champion) + '</b>' : 'Arena · round <b>' + (i + 1) + '</b> of ' + N);
+    if (cur && p > .72) dead.add(cur.loser);
+    for (const n of m.players) {
+      if (cur && (n === cur.a || n === cur.b) && p < 1) continue;
+      const isDead = dead.has(n), champ = over && n === m.champion;
+      if (isDead) g.globalAlpha = .35; person(look(n, null), isDead ? 'dead' : champ ? 'win' : 'idle', fr, home[n], GROUND - 24 * U + (isDead ? 4 * U - 20 : 0), false, false); g.globalAlpha = 1;
+      label(short(n), home[n] + 32, GROUND - 24 * U - (champ ? 52 : 6), champ ? '#F39120' : isDead ? '#7d8686' : '#E2DAC2', 12);
+    }
+    if (cur && p < 1) {
+      const aw = cur.winner === 'a', lA = look(cur.a, null), lB = look(cur.b, null), tx = ease(p / .2), back = p > .86 ? ease((p - .86) / .14) : 0;
+      const ax1 = cx - 78, bx1 = cx + 14, ha = home[cur.a], hb = home[cur.b];
+      let ax = ha + (ax1 - ha) * tx, bx = hb + (bx1 - hb) * tx, pa = tx < 1 ? 'walk' : 'idle', pb = pa, fa = false, fb = false, sp = null;
+      if (p >= .2 && p < .72) { const k = Math.floor((p - .2) / .13), atkA = k % 2 === 0; if (atkA) { pa = 'slash'; ax += 14; pb = 'hit'; fb = true; } else { pb = 'slash'; bx -= 14; pa = 'hit'; fa = true; } sp = { x: cx - 4, y: GROUND - 62, t: ((p - .2) % .13) / .13 }; }
+      if (p >= .72) { if (aw) { pa = 'win'; pb = 'dead'; bx += 18; } else { pb = 'win'; pa = 'dead'; ax -= 18; } if (back) { if (aw) ax += (ha - ax) * back; else bx += (hb - bx) * back; } }
+      person(lA, pa, fr, ax, GROUND - 24 * U + (pa === 'dead' ? 4 * U - 20 : 0), false, fa); person(lB, pb, fr, bx + 16 * U, GROUND - 24 * U + (pb === 'dead' ? 4 * U - 20 : 0), true, fb);
+      if (sp) spark(sp.x, sp.y, sp.t); label(short(cur.a), ax + 32, GROUND - 24 * U - 8, '#4FBBBC', 13); label(short(cur.b), bx + 32, GROUND - 24 * U - 8, '#F39120', 13);
+    }
+  }
+  function royaleEvent(d) {
+    const now = performance.now();
+    if (d.type === 'royale:open') { mode = { kind: 'royale', phase: 'lobby', fee: d.fee, max: d.max || 8, players: [], until: now + d.seconds * 1000, t0: now }; $('card').classList.add('on'); bannerShow('Arena!<small>Type !join to fight</small>'); return; }
+    if (d.type === 'royale:cancel') { if (mode) { bannerShow('Arena called off<small>Not enough fighters</small>'); endMode(2600); } return; }
+    if (d.type === 'royale:join') { if (mode && mode.kind === 'royale' && mode.phase === 'lobby' && !mode.players.includes(d.name)) mode.players.push(d.name); return; }
+    if (d.type === 'royale:battle') {
+      mode = { kind: 'royale', phase: 'battle', max: 8, players: d.players, events: d.events, champion: d.champion, pot: d.pot, t0: now, fee: 0, until: 0, bannered: false };
+      $('card').classList.add('on'); bannerShow('Fight!<small>' + d.players.length + ' fighters</small>');
+      const m = mode; setTimeout(() => { if (mode === m) { bannerShow(esc(d.champion) + ' wins!<small>+' + Number(d.pot).toLocaleString() + '</small>'); } }, d.events.length * 3200 + 200); endMode(d.ms + 4200);
+    }
+  }
+
+  // ---- team battle
+  function drawTeams(m, now) {
+    const fr = Math.floor(now / 180), R = m.red, B = m.blue, show = (a) => a.slice(0, 6);
+    if (m.phase === 'lobby') {
+      setTop('Team battle · entry <b>' + Number(m.fee).toLocaleString() + '</b> · <b>' + Math.max(0, Math.ceil((m.until - now) / 1000)) + 's</b>');
+      show(R).forEach((n, i) => person(look(n, 'red'), 'idle', fr + i, 150 - i * 28, GROUND - 24 * U, false, false)); show(B).forEach((n, i) => person(look(n, 'blue'), 'idle', fr + i, 330 + i * 28 + 0, GROUND - 24 * U, true, false));
+      label('RED ' + R.length + '  (!red)', 110, 70, '#EC4624', 18); label('BLUE ' + B.length + '  (!blue)', W - 110, 70, '#4FBBBC', 18); label('VS', W / 2, 150, '#E2DAC2', 22); return;
+    }
+    const tt = now - m.t0, rounds = m.rounds, N = rounds.length, i = Math.min(N, Math.floor(tt / 2300)), p = (tt - i * 2300) / 2300, over = i >= N;
+    const prev = i === 0 ? m.start : { red: rounds[i - 1].hpRed, blue: rounds[i - 1].hpBlue }, cur = over ? prev : { red: rounds[i].hpRed, blue: rounds[i].hpBlue };
+    const k = over ? 1 : Math.min(1, Math.max(0, (p - .45) / .3)), hr = prev.red + (cur.red - prev.red) * k, hb = prev.blue + (cur.blue - prev.blue) * k;
+    setTop('Team battle' + (over ? ' · <b>' + m.winner.toUpperCase() + '</b>' : ' · round <b>' + (i + 1) + '</b>'));
+    bar(20, 44, 200, 14, hr / m.start.red, '#EC4624', 'RED'); bar(W - 220, 44, 200, 14, hb / m.start.blue, '#4FBBBC', 'BLUE');
+    let pr = 'idle', pb = 'idle', adv = 0;
+    if (!over) { if (p < .25) { pr = pb = 'wind'; } else if (p < .6) { pr = pb = 'slash'; adv = 14; } else { pr = pb = 'idle'; } }
+    const redWin = over && m.winner === 'red', blueWin = over && m.winner === 'blue';
+    show(R).forEach((n, ix) => { const ps = over ? (redWin ? 'win' : 'dead') : pr; g.globalAlpha = ps === 'dead' ? .4 : 1; person(look(n, 'red'), ps, fr + ix, 150 - ix * 28 + adv, GROUND - 24 * U + (ps === 'dead' ? 4 * U - 20 : 0), false, !over && p > .3 && p < .45 && ix % 2 === 0); g.globalAlpha = 1; });
+    show(B).forEach((n, ix) => { const ps = over ? (blueWin ? 'win' : 'dead') : pb; g.globalAlpha = ps === 'dead' ? .4 : 1; person(look(n, 'blue'), ps, fr + ix, 330 + ix * 28 - adv + 16 * U - 16 * U, GROUND - 24 * U + (ps === 'dead' ? 4 * U - 20 : 0), true, !over && p > .3 && p < .45 && ix % 2 === 0); g.globalAlpha = 1; });
+    if (!over && p > .3 && p < .6) { spark(W / 2, GROUND - 62, (p - .3) / .3); }
+    if (!over && p > .3 && p < .95) { const q = (p - .3) / .65; g.globalAlpha = 1 - q; label('-' + rounds[i].blue, 130, 150 - q * 40, '#EC4624', 20); label('-' + rounds[i].red, W - 130, 150 - q * 40, '#4FBBBC', 20); g.globalAlpha = 1; }
+  }
+  function teamsEvent(d) {
+    const now = performance.now();
+    if (d.type === 'teams:open') { mode = { kind: 'teams', phase: 'lobby', fee: d.fee, red: [], blue: [], until: now + d.seconds * 1000, t0: now }; $('card').classList.add('on'); bannerShow('Team battle!<small>!red or !blue</small>'); return; }
+    if (d.type === 'teams:cancel') { if (mode) { bannerShow('Called off<small>Needs both sides</small>'); endMode(2600); } return; }
+    if (d.type === 'teams:join') { if (mode && mode.kind === 'teams' && mode.phase === 'lobby') { const L = mode[d.side]; if (!L.includes(d.name)) L.push(d.name); } return; }
+    if (d.type === 'teams:battle') {
+      mode = { kind: 'teams', phase: 'battle', red: d.red, blue: d.blue, rounds: d.rounds, start: d.start, winner: d.winner, each: d.each, t0: now, fee: 0, until: 0 };
+      $('card').classList.add('on'); bannerShow('Fight!<small>' + d.red.length + ' vs ' + d.blue.length + (d.bonus > 1 ? ' · smaller team +' + Math.round((d.bonus - 1) * 100) + '%' : '') + '</small>');
+      const m = mode; setTimeout(() => { if (mode === m) bannerShow('Team ' + d.winner + ' wins!<small>+' + Number(d.each).toLocaleString() + ' each</small>'); }, d.rounds.length * 2300 + 200); endMode(d.ms + 4200);
+    }
+  }
+
+
+  // ---- horse race (bets are a Twitch prediction; the server picks the winner and finishing times, this only plays them)
+  const COATS = ['#8b5a2b', '#c68642', '#3b2a1a', '#d9d9d9', '#a0522d', '#6b4423', '#e0b070', '#4a4a4a', '#b07040', '#7a5230'], SILKS = ['#4FBBBC', '#F39120', '#EC4624', '#E2DAC2', '#8e7cc3', '#6aa84f', '#2e86c1', '#d96ba0', '#f1c40f', '#ffffff'];
+  const X0 = 120, X1 = 372;
+  function horse(i, ox, oy, u, fr, win) {
+    const P = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(ox + x * u), Math.round(oy + y * u), w * u, h * u); }, coat = COATS[i % 10], dk = '#14191a', f = fr % 2;
+    if (f) { P(5, 9, 2, 5, coat); P(7, 9, 2, 4, coat); P(12, 9, 2, 4, coat); P(14, 9, 2, 5, coat); } else { P(3, 9, 2, 4, coat); P(5, 9, 2, 5, coat); P(13, 9, 2, 5, coat); P(15, 9, 2, 3, coat); }
+    P(1, 3, 3, 3, dk); P(4, 3, 12, 6, coat); P(14, 0, 3, 6, coat); P(16, 1, 5, 3, coat); P(17, -1, 1, 2, dk); P(19, 2, 1, 1, dk); P(14, 0, 1, 4, dk);
+    P(8, -2, 4, 5, SILKS[i % 10]); P(9, -4, 3, 2, '#f1c9a0'); P(8, -5, 4, 1, SILKS[(i + 3) % 10]);
+    if (win) { g.fillStyle = '#F39120'; g.fillRect(Math.round(ox + 6 * u), Math.round(oy - 12 * u), 8 * u, 2 * u); }
+  }
+  function track(n, y0, y1) { g.fillStyle = '#2c2418'; g.fillRect(0, y0, W, y1 - y0); for (let i = 1; i < n; i++) { g.fillStyle = 'rgba(226,218,194,.13)'; g.fillRect(0, y0 + (y1 - y0) * i / n, W, 1); }
+    for (let y = y0; y < y1; y += 8) { g.fillStyle = Math.floor(y / 8) % 2 ? '#E2DAC2' : '#222A2A'; g.fillRect(X1 + 44, y, 6, 8); g.fillStyle = Math.floor(y / 8) % 2 ? '#222A2A' : '#E2DAC2'; g.fillRect(X1 + 50, y, 6, 8); }
+    g.fillStyle = '#B13A22'; g.fillRect(X0 - 14, y0, 3, y1 - y0); }
+  function drawRace(m, now) {
+    const n = m.horses.length, y0 = 68, y1 = 236, lh = (y1 - y0) / n, u = lh >= 30 ? 2.5 : lh >= 20 ? 1.8 : 1.2, fr = Math.floor(now / 110);
+    track(n, y0, y1);
+    if (m.phase === 'open') {
+      setTop('Horse race · bets close in <b>' + Math.max(0, Math.ceil((m.until - now) / 1000)) + 's</b>');
+      label('Bet channel points on a horse!', W / 2, 58, '#F39120', 15);
+      m.horses.forEach((nm, i) => { const y = y0 + lh * i + lh / 2; horse(i, X0 - 10 * u, y - 7 * u, u, 0, false); label(short(nm), X0 - 10 * u - 5, y + 4, '#E2DAC2', 11, 'right'); });
+      return;
+    }
+    const t = (now - m.t0) / 1000; let lead = 0, leadP = -1; const ps = m.horses.map((nm, i) => { const T = m.times[i], uu = Math.min(1, t / T), sd = m.seeds[i], a = .04 + (sd % 70) / 1000, k = 2 + (sd % 3), ph = (sd % 628) / 100; let p = uu + a * Math.sin(Math.PI * 2 * k * uu + ph) * uu * (1 - uu); if (t > T) p = 1 + Math.min(1, (t - T) / 1.2) * .08; if (p > leadP) { leadP = p; lead = i; } return p; });
+    const done = t >= m.times[m.winner];
+    setTop(done ? 'Winner <b>' + esc(m.horses[m.winner]) + '</b>' : 'Horse race · <b>' + esc(m.horses[lead]) + '</b> leads');
+    ps.forEach((p, i) => { const y = y0 + lh * i + lh / 2, x = X0 + p * (X1 - X0), running = t < m.times[i] && t > 0, oy = y - 7 * u - (running ? Math.abs(Math.sin(t * 11 + i)) * 2 : 0);
+      if (running) { for (let d = 0; d < 3; d++) { g.fillStyle = 'rgba(226,218,194,' + (.5 - d * .15) + ')'; g.fillRect(Math.round(x - 6 - d * 9 - (fr + d) % 3), Math.round(y + 6 * u - d * 2), 4, 3); } }
+      horse(i, x - 10 * u, oy, u, running ? fr + i : 0, done && i === m.winner);
+      label(short(m.horses[i]), x - 10 * u - 5, y + 4, done && i === m.winner ? '#F39120' : '#E2DAC2', 11, 'right'); });
+  }
+  function raceEvent(d) {
+    const now = performance.now();
+    if (d.type === 'race:open') { mode = { kind: 'race', phase: 'open', horses: d.horses, until: now + d.seconds * 1000, t0: now }; $('card').classList.add('on'); bannerShow('Horse race!<small>Place your bets with channel points</small>'); return; }
+    if (d.type === 'race:go') {
+      mode = { kind: 'race', phase: 'go', horses: d.horses, times: d.times, seeds: d.seeds, winner: d.winner, t0: now, until: 0 };
+      $('card').classList.add('on');
+      const m = mode; setTimeout(() => { if (mode === m) bannerShow(esc(d.horses[d.winner]) + ' wins!<small>Predictions pay out</small>'); }, d.times[d.winner] * 1000 + 600); endMode(d.ms);
+    }
+  }
+
+  function gameLoop(now) {
+    requestAnimationFrame(gameLoop);
+    if (!mode || playing) return;
+    $('na').style.display = $('nb').style.display = 'none'; $('card').classList.add('on');
+    g.clearRect(0, 0, W, H); ground(); g.save();
+    try { if (mode.kind === 'boss') drawBoss(mode, now); else if (mode.kind === 'royale') drawRoyale(mode, now); else if (mode.kind === 'teams') drawTeams(mode, now); else if (mode.kind === 'race') drawRace(mode, now); } catch (x) { /* a bad frame must never kill the overlay */ }
+    g.restore();
+  }
+  requestAnimationFrame(gameLoop);
+  const onArena = (e) => { try { const d = JSON.parse(e.data); if (d.type === 'stop') { mode = null; $('card').classList.remove('on'); pump(); } else if (d.type.startsWith('boss:')) bossEvent(d); else if (d.type.startsWith('royale:')) royaleEvent(d); else if (d.type.startsWith('teams:')) teamsEvent(d); else if (d.type.startsWith('race:')) raceEvent(d); } catch (x) { /* ignore */ } };
+  window.arenaEvent = (d) => bossOrOther(d);
+  function bossOrOther(d) { onArena({ data: JSON.stringify(d) }); }
+  const es = new EventSource(BASE + '/events'); es.addEventListener('arena', onArena); es.addEventListener('duel', (e) => { try { window.playDuel(JSON.parse(e.data)); } catch (x) { /* ignore */ } });
+  if (Q.get('demo')) { const names = [['RetroRider', 'VinylVince'], ['TealTina', 'ChaosChad'], ['GenerousGamer', 'BitBaron']]; let i = 0; const go = () => { const n = names[i++ % 3]; window.playDuel({ a: n[0], b: n[1], winner: Math.random() < .5 ? 'a' : 'b', amount: 500, currency: 'coins' }); }; setTimeout(go, 500); setInterval(go, 11500); }
+})();
+</script></body></html>

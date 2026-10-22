@@ -1,0 +1,7 @@
+{
+  "clientId": "",
+  "port": 8420,
+  "resetSessionOnStreamOnline": true,
+  "recentCount": 5,
+  "stripe": { "apiKey": "", "paymentLinkId": "", "pollSeconds": 20 }
+}

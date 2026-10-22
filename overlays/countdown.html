@@ -1,0 +1,54 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Countdown</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* OBS Browser Source: http://localhost:8420/overlays/countdown.html (or the file path; size 640 x 230).
+     Controlled from the dashboard (Timer page) and chat (!countdown). Without the server it falls back to a plain countdown of config.js "startMinutes". */
+  body { display: flex; flex-direction: column; justify-content: center; padding-left: 6px; transition: opacity .5s; } body.off { opacity: 0; }
+  .label { font-size: 30px; font-weight: 700; letter-spacing: 8px; color: var(--aqua); display: flex; gap: 14px; align-items: center; }
+  .tag { background: var(--heat); color: var(--iron); font-size: 16px; letter-spacing: 4px; padding: 2px 10px 0; transform: skewX(-12deg); display: none; } .paused .tag { display: inline-block; }
+  .time { font-size: 150px; font-weight: 700; line-height: 1; font-stretch: 80%; color: var(--cream); font-variant-numeric: tabular-nums; letter-spacing: 2px; margin-top: 4px; }
+  .time.small { font-size: 112px; } .done .time { color: var(--heat); animation: pulse 1s infinite; } .done .time.msg { font-size: 96px; }
+  .low .time { color: var(--rust); }
+  .bar { width: 420px; height: 10px; margin-top: 14px; background: var(--iron-d); } .bar i { display: block; height: 100%; width: 100%; background:
+    linear-gradient(90deg, var(--aqua) 0 30%, var(--heat) 30% 55%, var(--rust) 55% 75%, var(--drust) 75% 90%, var(--cream) 90%); background-size: 420px 100%; transition: width .4s linear; }
+  .bump { position: absolute; right: 30px; top: 40px; font-size: 38px; font-weight: 700; letter-spacing: 3px; color: var(--heat); opacity: 0; transform: translateY(12px); } .bump small { display: block; font-size: 15px; color: var(--cream); letter-spacing: 3px; text-align: right; }
+  .bump.go { animation: bump 3.2s ease-out forwards; } @keyframes bump { 0% { opacity: 0; transform: translateY(12px); } 12% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+  @keyframes pulse { 50% { opacity: .55; } }
+</style></head>
+<body id="body">
+<div id="root">
+  <div class="label"><span id="label"></span><span class="tag">PAUSED</span></div>
+  <div class="time" id="time">00:00</div>
+  <div class="bar"><i id="fill"></i></div>
+</div>
+<div class="bump" id="bump"></div>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search);
+  const BASE = icmBase('countdown', +(Q.get('port') || C.serverPort || 8420));
+  const $ = (id) => document.getElementById(id);
+  let D = null, skew = 0, lastBump = 0, gotServer = false;
+  const fmt = (ms) => { const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(s % 60).padStart(2, '0'); };
+  function draw() {
+    if (!D) return;
+    const now = Date.now() + skew, rem = D.mode === 'running' ? Math.max(0, D.endsAt - now) : D.remainingMs, done = D.mode === 'done' || (D.mode === 'running' && rem <= 0);
+    document.body.classList.toggle('off', !D.visible);
+    $('root').className = (done ? 'done ' : '') + (D.mode === 'paused' ? 'paused ' : '') + (!done && D.mode === 'running' && rem < 30000 ? 'low' : '');
+    $('label').textContent = done ? '' : D.label;
+    const t = $('time'); t.textContent = done ? (D.doneMessage || "LET'S GO!") : fmt(rem); t.className = 'time' + (done ? ' msg' : rem >= 3600000 ? ' small' : '');
+    $('fill').style.width = (done ? 0 : D.durationMs ? Math.min(100, rem / D.durationMs * 100) : 0) + '%';
+    if (D.lastAdd && D.lastAdd.at !== lastBump) { lastBump = D.lastAdd.at; if (now - D.lastAdd.at < 6000) { const b = $('bump'), s = D.lastAdd.seconds; b.innerHTML = (s > 0 ? '+' : '-') + fmt(Math.abs(s) * 1000) + (D.lastAdd.why ? '<small>' + String(D.lastAdd.why).replace(/[<>&]/g, '').toUpperCase() + '</small>' : ''); b.classList.remove('go'); void b.offsetWidth; b.classList.add('go'); } }
+  }
+  const es = new EventSource(BASE + '/events');
+  es.addEventListener('countdown', (e) => { gotServer = true; D = JSON.parse(e.data); skew = D.now - Date.now(); draw(); });
+  setInterval(draw, 200);
+  // no server running: plain local countdown so the scene still works
+  setTimeout(() => {
+    if (gotServer) return; const mins = +(Q.get('minutes') || C.startMinutes || 5), end = Date.now() + mins * 60000;
+    D = { mode: 'running', endsAt: end, remainingMs: mins * 60000, durationMs: mins * 60000, visible: true, label: Q.get('label') || C.startMessage || 'WE GO LIVE IN', doneMessage: C.doneMessage || "LET'S GO!", now: Date.now() }; skew = 0; draw();
+  }, 2500);
+})();
+</script>
+</body></html>

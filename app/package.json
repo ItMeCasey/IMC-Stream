@@ -1,0 +1,51 @@
+{
+  "name": "itmecasey-stream",
+  "productName": "ItMeCasey Stream",
+  "version": "1.0.0",
+  "description": "Local Twitch alerts, overlays, chat bot and stream control for ItMeCasey",
+  "author": "ItMeCasey",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis",
+    "pack": "electron-builder --win --dir",
+    "test": "node supervisor-test.js"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.itmecasey.stream",
+    "productName": "ItMeCasey Stream",
+    "copyright": "ItMeCasey",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "supervisor.js", "package.json", "build/*.png"],
+    "asar": true,
+    "extraResources": [
+      { "from": "../server", "to": "server", "filter": ["**/*", "!kokoro/**", "!node_modules/**", "!data/**", "!*-test.js", "!selftest.js", "!make-label-docs.js", "!config.local.json"] },
+      { "from": "../overlays", "to": "overlays" },
+      { "from": "../assets", "to": "assets" },
+      { "from": "../sounds", "to": "sounds" },
+      { "from": "../transitions", "to": "transitions" }
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ItMeCasey Stream",
+      "uninstallDisplayName": "ItMeCasey Stream",
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    }
+  }
+}

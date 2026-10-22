@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Chat Bot</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 28px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:6px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 40px; } h1 { font-size: 24px; letter-spacing: 6px; } header a { margin-left: auto; color: var(--aqua); }
+  nav { display: flex; gap: 4px; padding: 14px 28px 0; flex-wrap: wrap; }
+  nav button { font: inherit; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; font-size: 13px; padding: 9px 16px; background: var(--iron-d); color: var(--cream); border: 0; cursor: pointer; }
+  nav button.on { background: var(--heat); color: var(--iron); }
+  main { max-width: 1150px; margin: 0 auto; padding: 18px 28px 50px; }
+  .tab { display: none; } .tab.on { display: block; }
+  section, .card { background: var(--iron-d); padding: 18px 20px; margin-bottom: 16px; border-top: 1px solid var(--line); }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } h3 { font-size: 14px; letter-spacing: 3px; margin-bottom: 8px; color: var(--heat); }
+  button.b { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 6px 12px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); }
+  button.b.alt { background: var(--aqua); } button.b.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.b.red { background: var(--drust); color: var(--cream); }
+  button.b:hover { filter: brightness(1.12); }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; }
+  .fld input, .fld select, .fld textarea { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 7px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; }
+  .fld input[type=checkbox] { width: 22px; height: 22px; } textarea { resize: vertical; }
+  .form { display: none; flex-wrap: wrap; gap: 12px; align-items: end; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  .item { display: grid; grid-template-columns: auto minmax(120px, 1fr) minmax(220px, 3fr) auto; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .item.off { opacity: .45; } .nm { font-weight: 700; letter-spacing: 1px; } .sub { font-size: 13px; color: #9aa39f; word-break: break-word; }
+  .chip { display: inline-block; background: #333f3e; padding: 2px 8px; margin: 2px 4px 2px 0; cursor: pointer; font-size: 13px; } .chip:hover { background: var(--heat); color: var(--iron); }
+  .muted { color: #9aa39f; font-size: 13px; } code { background: #151b1b; padding: 1px 5px; } a { color: var(--aqua); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .card { border-left-color: var(--heat); margin: 0; } .card.on { border-left-color: #6fcf6f; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } td, th { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line); text-align: left; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; }
+  #toast.bad { background: var(--rust); color: var(--cream); } .code { font-size: 36px; letter-spacing: 8px; color: var(--heat); font-weight: 700; }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>ITMECASEY // CHAT BOT</h1><a href="/">&larr; Dashboard</a></header>
+<nav id="nav"></nav>
+<main>
+  <div class="tab" id="t-commands">
+    <section><h2>COMMANDS</h2><div id="cmdList"></div>
+      <div class="row" style="margin-top:0"><button class="b alt" id="exHtml">Download commands page for viewers</button><button class="b ghost" id="exTxt">Copy text for a Twitch panel</button><span class="muted">A themed page listing your custom commands plus the ones viewers can use (host it anywhere, or paste the text into a panel).</span></div>
+      <div class="row"><button class="b" id="cNew">+ New command</button></div>
+      <form class="form" id="cForm">
+        <input type="hidden" id="cId">
+        <label class="fld">Command (no !)<input id="cName" maxlength="30" style="width:160px"></label>
+        <label class="fld">Aliases<input id="cAlias" placeholder="dc, disc" style="width:160px"></label>
+        <label class="fld">Who can use it<select id="cLevel"></select></label>
+        <label class="fld">Cooldown (s)<input id="cCd" type="number" min="0" style="width:90px" value="5"></label>
+        <label class="fld">Per-user cooldown (s)<input id="cUcd" type="number" min="0" style="width:90px" value="10"></label>
+        <div style="flex-basis:100%"></div>
+        <label class="fld">Reply style<select id="cStyle"></select></label>
+        <label class="fld">Several lines<select id="cMode"><option value="all">Send every line</option><option value="random">Pick one random line</option><option value="rotate">Rotate through the lines</option></select></label>
+        <label class="fld">Words it needs<input id="cNeed" type="number" min="0" max="9" style="width:90px" value="0"></label>
+        <label class="fld" style="min-width:240px;flex:1">Message if words are missing<input id="cUsage" maxlength="200" placeholder="Usage: !shoutout <name>"></label>
+        <label class="fld">Only while live<input id="cLive" type="checkbox"></label>
+        <label class="fld">Hidden from !commands<input id="cHide" type="checkbox"></label>
+        <label class="fld" style="flex-basis:100%">Short description for viewers (optional, shown on the exported commands page)<input id="cDesc" maxlength="140"></label>
+        <label class="fld" style="flex-basis:100%">What the bot says (one message per line; use variables from the list below)<textarea id="cResp" rows="4" maxlength="1500" placeholder="Hey {name}, welcome! {randomname} says hi too. We're playing {game}."></textarea></label>
+        <div style="flex-basis:100%">
+          <div class="row" style="margin:0 0 6px"><b class="muted">VARIABLES</b><input id="pSearch" placeholder="Search variables…" style="font:inherit;padding:5px 9px;background:var(--iron);color:var(--cream);border:2px solid #46504f;max-width:240px"><span class="muted">Click one to insert it where your cursor is.</span></div>
+          <div id="palette"></div>
+        </div>
+        <div style="flex-basis:100%" class="card on" id="pvBox">
+          <h3>LIVE PREVIEW</h3>
+          <div class="row"><label class="fld">Test as<input id="cTestUser" value="TestViewer" style="width:150px"></label><label class="fld">Words typed after the command<input id="cTestArgs" value="friend" style="width:220px"></label></div>
+          <div id="cPrev" class="muted">Start typing…</div>
+        </div>
+        <div style="flex-basis:100%" class="row"><button class="b" type="submit">Save command</button><button class="b ghost" type="button" id="cCancel">Cancel</button></div>
+      </form>
+    </section>
+    <section style="border-color:var(--rust)"><h2>YOUR VARIABLES &amp; COUNTERS</h2>
+      <p class="muted" style="margin-bottom:8px">Make your own pieces to reuse in any command, timer or event message. <b>Text</b>: <code>{var.discord}</code> always shows the same text. <b>List</b>: <code>{var.mood}</code> picks a random item each time. <b>Counters</b> (<code>{counter.deaths+}</code> adds one) are created the first time a command uses them. Mods can also type <code>!setvar name text</code> and <code>!listadd name item</code> in chat.</p>
+      <div id="varList"></div>
+      <div class="row"><button class="b" id="vNew">+ New variable</button></div>
+      <form class="form" id="vForm">
+        <label class="fld">Name<input id="vName" maxlength="30" style="width:170px" placeholder="discord"></label>
+        <label class="fld">Kind<select id="vType"><option value="text">Text</option><option value="list">List (random pick)</option></select></label>
+        <label class="fld" id="vTextBox" style="flex:1;min-width:260px">Text<input id="vText" maxlength="300"></label>
+        <label class="fld" id="vListBox" style="flex-basis:100%;display:none">Items (one per line)<textarea id="vItems" rows="4"></textarea></label>
+        <div style="flex-basis:100%" class="row"><button class="b" type="submit">Save variable</button><button class="b ghost" type="button" id="vCancel">Cancel</button></div>
+      </form>
+      <h3 style="margin-top:14px">Counters</h3><div id="ctrList" class="muted"></div>
+    </section>
+    <section style="border-color:var(--heat)"><h2>BUILT-IN COMMANDS</h2><p class="muted" id="builtin"></p>
+      <p class="muted" style="margin-top:8px">Mods can also manage commands from chat: <code>!addcom name [-ul=moderator] [-cd=10] response</code>, <code>!editcom name new response</code>, <code>!delcom name</code>. Other mod tools: <code>!permit user</code> (allow one link for 60s), <code>!so channel</code>, <code>!game</code>/<code>!title</code> (set), <code>!addquote</code>/<code>!delquote</code>, <code>!counter name [+|-|set N|reset]</code>, <code>!trivia</code>, <code>!raffle open|draw|close</code>.</p></section>
+  </div>
+
+  <div class="tab" id="t-timers">
+    <section><h2>TIMERS</h2><p class="muted" style="margin-bottom:8px">Repeating chat messages. A timer only fires if enough chat lines happened since its last post, so it won't talk to an empty room.</p>
+      <div id="tmList"></div><div class="row"><button class="b" id="tNew">+ New timer</button></div>
+      <form class="form" id="tForm">
+        <input type="hidden" id="tId">
+        <label class="fld">Name<input id="tName" maxlength="40"></label>
+        <label class="fld">Every (minutes)<input id="tMin" type="number" min="1" style="width:100px" value="15"></label>
+        <label class="fld">Min chat lines<input id="tLines" type="number" min="0" style="width:100px" value="3"></label>
+        <label class="fld">Only while live<input id="tLive" type="checkbox" checked></label>
+        <label class="fld">Enabled<input id="tOn" type="checkbox" checked></label>
+        <label class="fld">Reply style<select id="tStyle"></select></label>
+        <label class="fld" style="flex-basis:100%">Message<textarea id="tMsg" rows="2" maxlength="450"></textarea></label>
+        <div style="flex-basis:100%" class="row"><button class="b" type="submit">Save timer</button><button class="b ghost" type="button" id="tCancel">Cancel</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="tab" id="t-mod">
+    <section><h2>SPAM PROTECTION</h2><p class="muted" style="margin-bottom:10px">The bot needs you logged in as the channel owner (or a mod). Exempt = that rank <b>and above</b> is ignored. Timeouts double for repeat offences within 10 minutes.</p>
+      <div class="grid" id="filters"></div>
+      <div class="row" style="margin-top:14px"><button class="b" id="fSave">Save protection settings</button></div></section>
+  </div>
+
+  <div class="tab" id="t-currency">
+    <section><h2>CURRENCY</h2>
+      <div class="row">
+        <label class="fld">Name (viewers type !name)<input id="cuName" maxlength="20" style="width:160px"></label>
+        <label class="fld">Earned per minute<input id="cuPpm" type="number" min="0" style="width:110px"></label>
+        <label class="fld">Subscriber multiplier<input id="cuMul" type="number" min="1" step="0.5" style="width:100px"></label>
+        <label class="fld">Earn while offline<input id="cuOff" type="checkbox"></label>
+      </div>
+      <p class="muted">Active chatters (talked in the last 10 minutes) earn this every minute while you are live. Everything below is saved together.</p>
+      <h3 style="margin-top:16px">Bonuses for events</h3>
+      <div id="cuBonuses"></div>
+      <h3 style="margin-top:16px">Daily bonus (<code>!daily</code>)</h3>
+      <div class="row">
+        <label class="fld">On<input id="dyOn" type="checkbox"></label>
+        <label class="fld">Amount<input id="dyAmt" type="number" min="0" style="width:100px"></label>
+        <label class="fld">Extra per streak day<input id="dyStk" type="number" min="0" style="width:110px"></label>
+        <label class="fld">Streak bonus caps at day<input id="dyMax" type="number" min="0" style="width:110px"></label>
+      </div>
+      <div class="row"><button class="b" id="cuSave">Save currency settings</button><span class="muted" id="cuTot"></span></div>
+    </section>
+    <section style="border-color:var(--heat)"><h2>VIEWERS &amp; ADMIN</h2>
+      <div class="row">
+        <label class="fld">Viewer<input id="adName" placeholder="username" style="width:180px"></label>
+        <label class="fld">Amount<input id="adAmt" type="number" min="0" style="width:120px"></label>
+        <button class="b" data-ad="add">Give</button><button class="b ghost" data-ad="remove">Take away</button><button class="b ghost" data-ad="set">Set balance</button>
+      </div>
+      <div class="row"><label class="fld">Give everyone active right now<input id="bnAmt" type="number" min="1" style="width:120px"></label><button class="b alt" id="bnGo">Give bonus</button><span class="muted">Chat: <code>!addpoints user n</code> <code>!removepoints user n</code> <code>!setpoints user n</code> <code>!bonus n</code></span></div>
+      <div class="row"><input id="vSearch" placeholder="Search viewers…" style="font:inherit;padding:7px 10px;background:var(--iron);color:var(--cream);border:2px solid #46504f;max-width:260px"></div>
+      <table id="vTable"></table>
+    </section>
+    <section style="border-color:var(--rust)"><h2>RECENT ACTIVITY</h2><table id="ledger"></table></section>
+  </div>
+
+  <div class="tab" id="t-shop">
+    <section><h2>PENDING APPROVALS</h2><div id="pending"></div></section>
+    <section style="border-color:var(--heat)"><h2>SHOP ITEMS</h2>
+      <p class="muted" style="margin-bottom:8px">Viewers spend currency with <code>!shop</code> and <code>!redeem &lt;item or number&gt; [message]</code>. An item can post a chat reply, trigger one of your own alerts (give it the same <b>trigger key</b> as a Custom alert on the dashboard), and/or wait for your approval first.</p>
+      <div id="shopList"></div><div class="row"><button class="b" id="sNew">+ New item</button></div>
+      <form class="form" id="sForm">
+        <input type="hidden" id="sId">
+        <label class="fld">Name<input id="sName" maxlength="40" style="width:200px"></label>
+        <label class="fld">Cost<input id="sCost" type="number" min="0" style="width:100px" value="100"></label>
+        <label class="fld">Stock (blank = unlimited)<input id="sStock" type="number" min="0" style="width:130px"></label>
+        <label class="fld">Cooldown (s)<input id="sCd" type="number" min="0" style="width:90px" value="0"></label>
+        <label class="fld">Per-user cooldown (s)<input id="sUcd" type="number" min="0" style="width:110px" value="0"></label>
+        <label class="fld">Needs my approval<input id="sApp" type="checkbox"></label>
+        <label class="fld">Enabled<input id="sOn" type="checkbox" checked></label>
+        <label class="fld" style="flex-basis:100%">Chat reply ($(user) $(item) $(cost) $(1)…)<input id="sResp" maxlength="400" value="$(user) redeemed $(item)!"></label>
+        <label class="fld">Alert trigger key (optional)<input id="sKey" placeholder="e.g. glug" style="width:200px"></label>
+        <div style="flex-basis:100%" class="row"><button class="b" type="submit">Save item</button><button class="b ghost" type="button" id="sCancel">Cancel</button></div>
+      </form>
+    </section>
+  </div>
+
+  <div class="tab" id="t-games">
+    <section><h2>CHAT GAMES</h2>
+      <p class="muted" style="margin-bottom:8px">Games have their own page now, with on/off switches and a builder for your own games: <b>Chat Games</b> in the left menu.</p>
+      <div class="row">
+        <label class="fld">Gamble win chance %<input id="gWin" type="number" min="5" max="95" style="width:100px"></label>
+        <label class="fld">Max bet (0 = none)<input id="gMax" type="number" min="0" style="width:100px"></label>
+        <label class="fld">Trivia reward<input id="gTr" type="number" min="0" style="width:100px"></label>
+        <label class="fld">Trivia seconds<input id="gTs" type="number" min="5" style="width:90px"></label>
+        <label class="fld">Duel seconds<input id="gDs" type="number" min="10" style="width:90px"></label>
+        <label class="fld">Pixel duel overlay<input id="gAnim" type="checkbox" title="Plays a short pixel-art fight in OBS before the winner is announced in chat"></label>
+        <button class="b" id="gSave">Save</button>
+      </div>
+      <p class="muted">Chat commands: <code>!points</code> <code>!gamble &lt;n|all&gt;</code> <code>!slots &lt;n&gt;</code> <code>!duel &lt;user&gt; &lt;n&gt;</code> + <code>!accept</code> <code>!give &lt;user&gt; &lt;n&gt;</code> <code>!top</code> <code>!8ball</code> <code>!roll [NdM]</code> <code>!flip</code>; mods: <code>!trivia</code> (<span id="trN"></span> questions, editable in <code>data/bot.json</code>), <code>!raffle open</code> / <code>!enter</code> / <code>!draw</code>.</p></section>
+    <div class="grid">
+      <section><h2>LEADERBOARD</h2><table id="lb"></table></section>
+      <section><h2>QUOTES</h2><div id="quotes"></div></section>
+      <section><h2>COUNTERS</h2><div id="counters" class="muted"></div></section>
+    </div>
+  </div>
+
+  <div class="tab" id="t-events">
+    <section><h2>EVENT MESSAGES IN CHAT</h2><p class="muted" style="margin-bottom:10px">The bot can thank people in chat when these happen (the on-stream alerts are separate). Test alerts never trigger these. Variables: $(user) $(amount) $(months) $(total) $(viewers) $(tier)</p>
+      <div id="evList"></div><div class="row"><button class="b" id="eSave">Save event messages</button></div></section>
+    <section style="border-color:var(--heat)"><h2>CHAT EXTRAS</h2>
+      <div class="row"><label class="fld">Welcome first-time chatters<input id="xwOn" type="checkbox"></label><label class="fld" style="flex:1;min-width:260px">Welcome message<input id="xwMsg" maxlength="300"></label><label class="fld">Only while live<input id="xwLive" type="checkbox"></label></div>
+      <p class="muted">Says hello the first time someone you have never seen before chats. Variables like $(user) work.</p>
+      <div class="row"><label class="fld">Auto-shoutout raiders<input id="xrOn" type="checkbox"></label><span class="muted">When someone raids you, the bot runs <code>!so</code> for them (chat message + Twitch shoutout).</span></div>
+      <div class="row"><label class="fld">Regulars<input id="xgOn" type="checkbox"></label><label class="fld">Watch minutes<input id="xgMin" type="number" min="0" style="width:110px"></label><label class="fld">or messages<input id="xgMsg" type="number" min="0" style="width:110px"></label><span class="muted">Viewers who pass either number are treated like subscribers for commands and spam filters (0 = ignore that number).</span></div>
+      <div class="row"><button class="b" id="xSave">Save chat extras</button></div></section>
+  </div>
+
+  <div class="tab" id="t-settings">
+    <section><h2>BOT SETTINGS</h2>
+      <div class="row">
+        <label class="fld">Bot enabled<input id="sOn" type="checkbox"></label>
+        <label class="fld">Command prefix<input id="sPre" maxlength="3" style="width:70px"></label>
+        <label class="fld">!clip command<select id="clipOn"><option value="1">On</option><option value="0">Off</option></select></label>
+        <label class="fld">Who can clip<select id="clipLvl"><option value="everyone">Everyone</option><option value="subscriber">Subscribers+</option><option value="vip">VIPs+</option><option value="moderator">Mods only</option></select></label>
+        <button class="b" id="sSave">Save</button>
+      </div>
+    </section>
+    <section style="border-color:var(--heat)"><h2>BOT ACCOUNT (OPTIONAL)</h2>
+      <p class="muted">By default the bot replies as <b>you</b>. Once a bot account is connected, <b>all chat comes from the bot</b>: replies, timers, event messages, announcements and anything you type in the chat box in this app. To reply under its own name (like Nightbot), connect a second Twitch account here: press the button, then <b>log in as the bot account</b> at the Twitch link and enter the code. Then press <b>Connect Twitch</b> on the dashboard once so your own login grants the bot permission (<code>channel:bot</code>), or make the bot account a moderator.</p>
+      <div class="row"><span id="acct" class="muted"></span></div>
+      <div id="dev" style="display:none"><p class="muted">Open <a id="devLink" target="_blank" rel="noreferrer"></a> while logged in as the bot, and enter:</p><div class="code" id="devCode"></div></div>
+      <div class="row"><button class="b alt" id="aStart">Connect bot account</button><button class="b ghost" id="aOut">Disconnect</button></div>
+    </section>
+    <section><h2>SAY SOMETHING AS THE BOT</h2>
+      <div class="row"><input id="sayTxt" style="flex:1;min-width:240px;font:inherit;padding:8px 10px;background:var(--iron);color:var(--cream);border:2px solid #46504f" maxlength="450" placeholder="Type a message…"><select id="sayStyle" style="font:inherit;padding:8px;background:var(--iron);color:var(--cream);border:2px solid #46504f"></select><button class="b" id="sayBtn">Send</button></div></section>
+  </div>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (p, b) => fetch('/api/bot/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 2800); }
+async function call(p, b, ok) { const r = await post(p, b); if (r.error) { toast(r.error, true); return null; } if (ok) toast(ok); await load(); return r; }
+let V = null, tab = localStorage.getItem('botTab') || 'commands';
+const TABS = [['commands', 'Commands'], ['timers', 'Timers'], ['mod', 'Moderation'], ['currency', 'Currency'], ['shop', 'Shop'], ['games', 'Games'], ['events', 'Event messages'], ['settings', 'Settings']];
+$('nav').innerHTML = TABS.map(([k, l]) => `<button data-t="${k}">${l}</button>`).join('');
+$('nav').onclick = (e) => { if (e.target.dataset.t) { tab = e.target.dataset.t; localStorage.setItem('botTab', tab); show(); } };
+function show() { document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t.id === 't-' + tab)); document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.t === tab)); }
+
+// ---- commands
+const ANN = ['primary', 'blue', 'green', 'orange', 'purple'];
+const styleOpts = (sel) => '<option value="">Normal chat message</option>' + ANN.map((c) => `<option value="${c}" ${sel === c ? 'selected' : ''}>Announcement (${c === 'primary' ? 'channel color' : c})</option>`).join('');
+let CAT = [];
+async function loadCatalog() { const r = await post('variables'); if (Array.isArray(r)) { CAT = r; drawPalette(); } }
+function drawPalette() {
+  const q = $('pSearch').value.trim().toLowerCase();
+  $('palette').innerHTML = CAT.map((g, gi) => {
+    const items = g.items.filter((i) => !q || i.token.toLowerCase().includes(q) || (i.desc || '').toLowerCase().includes(q)); if (!items.length) return '';
+    return `<details ${q || gi < 3 ? 'open' : ''}><summary>${esc(g.group)} <span class="muted">(${items.length})</span></summary>${items.map((i) => `<span class="chip" data-t="${esc(i.token)}" title="${esc(i.desc || '')}${i.value !== undefined && i.value !== '' && i.value !== null ? ' - now: ' + esc(i.value) : ''}">${esc(i.token)}</span>`).join('')}</details>`;
+  }).join('') || '<span class="muted">No variables match.</span>';
+}
+$('pSearch').oninput = drawPalette;
+$('palette').onclick = (e) => {
+  const c = e.target.closest('.chip'); if (!c) return; const t = $('cResp'), s = t.selectionStart == null ? t.value.length : t.selectionStart, en = t.selectionEnd == null ? s : t.selectionEnd;
+  t.value = t.value.slice(0, s) + c.dataset.t + t.value.slice(en); t.focus(); t.selectionStart = t.selectionEnd = s + c.dataset.t.length; preview();
+};
+let pvT;
+function preview() {
+  clearTimeout(pvT);
+  pvT = setTimeout(async () => {
+    const r = await post('command/test', { response: $('cResp').value, args: $('cTestArgs').value, user: $('cTestUser').value });
+    if (r.error) { $('cPrev').textContent = r.error; return; }
+    $('cPrev').innerHTML = (r.lines.length ? r.lines.map((l) => `<div style="background:#2a3333;padding:6px 10px;margin:4px 0;border-left:4px solid var(--aqua);color:var(--cream)">${esc(l)}</div>`).join('') : '<span class="muted">Nothing yet.</span>')
+      + (r.unknown.length ? `<div style="color:var(--heat);margin-top:6px">Not recognised (will be sent as typed): ${r.unknown.map((x) => '<code>' + esc(x) + '</code>').join(' ')}</div>` : '')
+      + (r.used.length ? `<div class="muted" style="margin-top:6px">${r.used.map((x) => '<code>' + esc(x.token) + '</code> &rarr; ' + esc(x.value)).join(' &nbsp; ')}</div>` : '');
+  }, 300);
+}
+$('cResp').oninput = preview; $('cTestArgs').oninput = preview; $('cTestUser').oninput = preview;
+// ---- your variables
+let editVar = '';
+function drawVars() {
+  $('varList').innerHTML = Object.entries(V.vars || {}).map(([n, v]) => `<div class="item" data-n="${esc(n)}"><span></span><div><div class="nm">{var.${esc(n)}}</div><div class="sub">${v.type === 'list' ? 'list, ' + v.items.length + ' items' : 'text'}</div></div><div class="sub">${esc(v.type === 'list' ? v.items.join(' | ') : v.value)}</div><div class="row" style="margin:0"><button class="b ghost" data-v="edit">Edit</button><button class="b red" data-v="del">Delete</button></div></div>`).join('') || '<p class="muted">No variables yet.</p>';
+  $('ctrList').innerHTML = Object.entries(V.counters || {}).map(([n, v]) => `<div class="row" data-c="${esc(n)}" style="margin:2px 0"><code>{counter.${esc(n)}}</code> = <b>${v}</b> <button class="b ghost" data-c="set">Set</button> <button class="b red" data-c="del">Delete</button></div>`).join('') || 'None yet. They appear once a command uses {counter.name+}.';
+}
+function vKind() { $('vTextBox').style.display = $('vType').value === 'text' ? '' : 'none'; $('vListBox').style.display = $('vType').value === 'list' ? '' : 'none'; }
+$('vType').onchange = vKind;
+$('vNew').onclick = () => { $('vForm').style.display = 'flex'; $('vName').value = ''; $('vName').disabled = false; $('vType').value = 'text'; $('vText').value = ''; $('vItems').value = ''; vKind(); $('vName').focus(); };
+$('vCancel').onclick = () => { $('vForm').style.display = 'none'; };
+$('vForm').onsubmit = async (e) => { e.preventDefault(); if (await call('var/save', { name: $('vName').value, type: $('vType').value, value: $('vText').value, items: $('vItems').value }, 'Variable saved')) { $('vForm').style.display = 'none'; loadCatalog(); } };
+$('varList').onclick = async (e) => {
+  const b = e.target.closest('[data-v]'); if (!b) return; const n = b.closest('.item').dataset.n, v = V.vars[n];
+  if (b.dataset.v === 'edit') { $('vForm').style.display = 'flex'; $('vName').value = n; $('vType').value = v.type; $('vText').value = v.value || ''; $('vItems').value = (v.items || []).join('\n'); vKind(); return; }
+  if (!b.dataset.arm) { b.dataset.arm = 1; b.textContent = 'Sure?'; setTimeout(() => { delete b.dataset.arm; b.textContent = 'Delete'; }, 3000); return; } await call('var/delete', { name: n }, 'Deleted'); loadCatalog();
+};
+$('ctrList').onclick = async (e) => {
+  const b = e.target.closest('[data-c]'); if (!b || !b.closest('.row')) return; const n = b.closest('.row').dataset.c;
+  if (b.dataset.c === 'set') { const v = prompt('Set {counter.' + n + '} to:', V.counters[n]); if (v !== null) await call('counter/set', { name: n, value: v }, 'Updated'); }
+  else await call('counter/delete', { name: n }, 'Deleted');
+};
+function drawCommands() {
+  $('cLevel').innerHTML = V.levels.map((l) => `<option>${l}</option>`).join('');
+  $('cmdList').innerHTML = V.commands.map((c) => `
+    <div class="item ${c.enabled ? '' : 'off'}" data-id="${c.id}">
+      <input type="checkbox" data-a="toggle" ${c.enabled ? 'checked' : ''}>
+      <div><div class="nm">${esc(V.settings.prefix + c.name)}</div><div class="sub">${esc(c.level)} &middot; ${c.cd}s / ${c.userCd}s &middot; used ${c.uses || 0}x${c.announce ? ' &middot; announcement' : ''}${c.mode && c.mode !== 'all' ? ' &middot; ' + c.mode : ''}${c.needArgs ? ' &middot; needs ' + c.needArgs + ' word(s)' : ''}${c.liveOnly ? ' &middot; live only' : ''}${(c.aliases || []).length ? ' &middot; ' + c.aliases.map((a) => V.settings.prefix + a).join(' ') : ''}</div></div>
+      <div class="sub">${esc(c.response)}</div>
+      <div class="row" style="margin:0"><button class="b ghost" data-a="edit">Edit</button><button class="b red" data-a="del">Delete</button></div>
+    </div>`).join('') || '<p class="muted">No custom commands yet.</p>';
+  $('builtin').textContent = V.builtin.map((b) => V.settings.prefix + b).join('  ');
+}
+function openCmd(c) {
+  c = c || { name: '', aliases: [], level: 'everyone', cd: 5, userCd: 10, response: '', hidden: false, mode: 'all', announce: '', needArgs: 0, usage: '', liveOnly: false };
+  $('cForm').style.display = 'flex'; $('cId').value = c.id || ''; $('cName').value = c.name; $('cAlias').value = (c.aliases || []).join(', '); $('cLevel').value = c.level;
+  $('cCd').value = c.cd; $('cUcd').value = c.userCd; $('cResp').value = c.response; $('cHide').checked = !!c.hidden; $('cDesc').value = c.desc || ''; $('cStyle').innerHTML = styleOpts(c.announce || ''); $('cMode').value = c.mode || 'all'; $('cNeed').value = c.needArgs || 0; $('cUsage').value = c.usage || ''; $('cLive').checked = !!c.liveOnly; $('cPrev').textContent = 'Start typing…'; preview(); $('cName').focus();
+}
+$('exHtml').onclick = () => { window.open('/api/commands/export?format=html&download=1', '_blank'); };
+$('exTxt').onclick = async () => { const t = await fetch('/api/commands/export?format=md').then((r) => r.text()); try { await navigator.clipboard.writeText(t); toast('Copied: paste it into a Twitch panel description'); } catch (e) { prompt('Copy this:', t); } };
+$('cNew').onclick = () => openCmd(); $('cCancel').onclick = () => { $('cForm').style.display = 'none'; };
+const cmdBody = (extra) => Object.assign({ id: $('cId').value || undefined, name: $('cName').value, aliases: $('cAlias').value, level: $('cLevel').value, cd: $('cCd').value, userCd: $('cUcd').value, response: $('cResp').value, hidden: $('cHide').checked, desc: $('cDesc').value, mode: $('cMode').value, announce: $('cStyle').value, needArgs: $('cNeed').value, usage: $('cUsage').value, liveOnly: $('cLive').checked, enabled: true }, extra);
+$('cForm').onsubmit = async (e) => { e.preventDefault(); const c = V.commands.find((x) => x.id === $('cId').value); if (await call('command/save', cmdBody({ enabled: c ? c.enabled : true }), 'Command saved')) $('cForm').style.display = 'none'; };
+$('cmdList').onclick = async (e) => {
+  const b = e.target.closest('[data-a]'); if (!b) return; const c = V.commands.find((x) => x.id === b.closest('.item').dataset.id);
+  if (b.dataset.a === 'edit') return openCmd(c);
+  if (b.dataset.a === 'toggle') return call('command/save', Object.assign({}, c, { aliases: (c.aliases || []).join(','), enabled: b.checked }));
+  if (b.dataset.a === 'del') { if (!b.dataset.arm) { b.dataset.arm = 1; b.textContent = 'Sure?'; setTimeout(() => { delete b.dataset.arm; b.textContent = 'Delete'; }, 3000); return; } call('command/delete', { id: c.id }, 'Deleted'); }
+};
+
+// ---- timers
+function drawTimers() {
+  $('tmList').innerHTML = V.timers.map((t) => `
+    <div class="item ${t.enabled ? '' : 'off'}" data-id="${t.id}">
+      <input type="checkbox" data-a="toggle" ${t.enabled ? 'checked' : ''}>
+      <div><div class="nm">${esc(t.name)}</div><div class="sub">every ${t.minutes} min &middot; after ${t.minLines} lines${t.onlyLive ? ' &middot; live only' : ''}</div></div>
+      <div class="sub">${esc(t.message)}</div>
+      <div class="row" style="margin:0"><button class="b ghost" data-a="edit">Edit</button><button class="b red" data-a="del">Delete</button></div>
+    </div>`).join('') || '<p class="muted">No timers.</p>';
+}
+function openTimer(t) {
+  t = t || { name: '', minutes: 15, minLines: 3, onlyLive: true, enabled: true, message: '' };
+  $('tForm').style.display = 'flex'; $('tId').value = t.id || ''; $('tName').value = t.name; $('tMin').value = t.minutes; $('tLines').value = t.minLines; $('tLive').checked = t.onlyLive; $('tOn').checked = t.enabled; $('tMsg').value = t.message; $('tStyle').innerHTML = styleOpts(t.announce || '');
+}
+$('tNew').onclick = () => openTimer(); $('tCancel').onclick = () => { $('tForm').style.display = 'none'; };
+$('tForm').onsubmit = async (e) => { e.preventDefault(); if (await call('timer/save', { id: $('tId').value || undefined, name: $('tName').value, minutes: $('tMin').value, minLines: $('tLines').value, onlyLive: $('tLive').checked, enabled: $('tOn').checked, message: $('tMsg').value, announce: $('tStyle').value }, 'Timer saved')) $('tForm').style.display = 'none'; };
+$('tmList').onclick = async (e) => {
+  const b = e.target.closest('[data-a]'); if (!b) return; const t = V.timers.find((x) => x.id === b.closest('.item').dataset.id);
+  if (b.dataset.a === 'edit') return openTimer(t);
+  if (b.dataset.a === 'toggle') return call('timer/save', Object.assign({}, t, { enabled: b.checked }));
+  if (b.dataset.a === 'del') { if (!b.dataset.arm) { b.dataset.arm = 1; b.textContent = 'Sure?'; setTimeout(() => { delete b.dataset.arm; b.textContent = 'Delete'; }, 3000); return; } call('timer/delete', { id: t.id }, 'Deleted'); }
+};
+
+// ---- filters
+const FDESC = { links: 'Links', caps: 'Excess caps', symbols: 'Symbol spam', emotes: 'Emote spam', repeat: 'Repeated characters / words', length: 'Long messages', blacklist: 'Banned words & phrases' };
+const FEXTRA = { caps: [['percent', 'Caps % over'], ['minLen', 'Min letters']], symbols: [['percent', 'Symbols % over'], ['minLen', 'Min length']], emotes: [['max', 'Max emotes']], repeat: [['chars', 'Same char x'], ['words', 'Same word x']], length: [['max', 'Max characters']] };
+function drawFilters() {
+  $('filters').innerHTML = Object.entries(V.filters).map(([k, f]) => `
+    <div class="card ${f.on ? 'on' : ''}" data-f="${k}">
+      <h3>${FDESC[k]}</h3>
+      <div class="row"><label class="fld">On<input type="checkbox" data-k="on" ${f.on ? 'checked' : ''}></label>
+        <label class="fld">Action<select data-k="action">${['delete', 'timeout', 'ban'].map((a) => `<option ${f.action === a ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
+        <label class="fld">Timeout (s)<input data-k="timeout" type="number" min="1" style="width:80px" value="${f.timeout}"></label>
+        <label class="fld">Exempt<select data-k="exempt">${V.levels.slice(1).map((a) => `<option ${f.exempt === a ? 'selected' : ''}>${a}</option>`).join('')}</select></label></div>
+      <div class="row">${(FEXTRA[k] || []).map(([p, l]) => `<label class="fld">${l}<input data-k="${p}" type="number" min="1" style="width:90px" value="${f[p]}"></label>`).join('')}</div>
+      ${k === 'links' ? `<label class="fld">Allowed domains (one per line)<textarea data-k="whitelist" rows="3">${esc((f.whitelist || []).join('\n'))}</textarea></label>` : ''}
+      ${k === 'blacklist' ? `<label class="fld">Words / phrases (one per line; /regex/ allowed)<textarea data-k="words" rows="4">${esc((f.words || []).join('\n'))}</textarea></label>` : ''}
+      <label class="fld" style="margin-top:8px">Chat message after action (optional)<input data-k="message" value="${esc(f.message)}"></label>
+    </div>`).join('');
+}
+$('fSave').onclick = () => {
+  const out = {};
+  document.querySelectorAll('#filters .card').forEach((c) => { const o = {}; c.querySelectorAll('[data-k]').forEach((i) => { o[i.dataset.k] = i.type === 'checkbox' ? i.checked : i.value; }); out[c.dataset.f] = o; });
+  call('filters', out, 'Protection saved');
+};
+
+// ---- games
+function drawGames() {
+  const s = V.settings, g = s.games;
+  $('gWin').value = Math.round(g.gambleWin * 100); $('gMax').value = g.maxBet; $('gTr').value = g.triviaReward; $('gTs').value = g.triviaSeconds; $('gDs').value = g.duelSeconds; $('gAnim').checked = g.duelAnim !== false; $('trN').textContent = V.triviaCount;
+  $('lb').innerHTML = '<tr><th>#</th><th>Viewer</th><th>' + esc(s.currency) + '</th><th></th></tr>' + V.top.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td>${p.pts.toLocaleString()}</td><td><button class="b ghost" data-id="${p.id}" data-name="${esc(p.name)}">Set</button></td></tr>`).join('');
+  $('quotes').innerHTML = V.quotes.map((q) => `<div class="row"><span class="muted">#${q.n}</span> <span>${esc(q.text)}</span> <button class="b red" data-n="${q.n}">x</button></div>`).join('') || '<p class="muted">No quotes. Mods: !addquote text</p>';
+  $('counters').innerHTML = Object.entries(V.counters).map(([k, v]) => `<div>${esc(k)}: <b>${v}</b></div>`).join('') || 'None yet. Use $(counter name+) in a command.';
+}
+$('gSave').onclick = () => call('settings', { enabled: V.settings.enabled, prefix: V.settings.prefix, currency: V.settings.currency, pointsPerMin: V.settings.pointsPerMin, subMultiplier: V.settings.subMultiplier, awardOffline: V.settings.awardOffline,
+  games: { gambleWin: $('gWin').value / 100, maxBet: $('gMax').value, triviaReward: $('gTr').value, triviaSeconds: $('gTs').value, duelSeconds: $('gDs').value, duelAnim: $('gAnim').checked } }, 'Saved');
+$('lb').onclick = (e) => { const b = e.target.closest('button[data-id]'); if (!b) return; const v = prompt('Set ' + b.dataset.name + "'s balance to:"); if (v !== null) call('points/set', { id: b.dataset.id, pts: v }, 'Updated'); };
+$('quotes').onclick = (e) => { const b = e.target.closest('button[data-n]'); if (b) call('quote/delete', { n: +b.dataset.n }, 'Deleted'); };
+
+// ---- currency
+const BNAME = { follow: ['New follower (once per person)', 'amount'], sub: ['New sub', 'amount'], resub: ['Resub', 'amount'], giftsub: ['Gift sub (per sub gifted)', 'amount'], bits: ['Bits (per 100 bits)', 'amount'], raid: ['Raid (base + per raider)', 'amount'] };
+function drawCurrency() {
+  const s = V.settings; $('cuName').value = s.currency; $('cuPpm').value = s.pointsPerMin; $('cuMul').value = s.subMultiplier; $('cuOff').checked = s.awardOffline;
+  $('cuBonuses').innerHTML = Object.entries(V.bonuses).map(([k, b]) => `<div class="row" data-b="${k}"><label class="fld" style="width:260px"><span>${BNAME[k][0]}</span><input type="checkbox" data-f="on" ${b.on ? 'checked' : ''} style="width:20px;height:20px"></label><label class="fld">Amount<input type="number" min="0" data-f="amount" value="${b.amount}" style="width:100px"></label>${'perViewer' in b ? `<label class="fld">Per raider<input type="number" min="0" data-f="perViewer" value="${b.perViewer}" style="width:100px"></label>` : ''}</div>`).join('');
+  const d = V.daily; $('dyOn').checked = d.on; $('dyAmt').value = d.amount; $('dyStk').value = d.streakBonus; $('dyMax').value = d.maxStreak;
+  $('cuTot').textContent = V.totals.viewers + ' viewers hold ' + V.totals.circulation.toLocaleString() + ' ' + s.currency + ' in total';
+  $('ledger').innerHTML = '<tr><th>When</th><th>Viewer</th><th>Change</th><th>Why</th></tr>' + V.ledger.map((x) => `<tr><td>${new Date(x.t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</td><td>${esc(x.name)}</td><td style="color:${x.delta > 0 ? '#6fcf6f' : '#EC4624'}">${x.delta > 0 ? '+' : ''}${x.delta.toLocaleString()}</td><td class="muted">${esc(x.reason)}</td></tr>`).join('') || '<tr><td class="muted">Nothing yet.</td></tr>';
+  loadViewers();
+}
+async function loadViewers() { const r = await post('viewers', { q: $('vSearch').value }); if (!Array.isArray(r)) return;
+  $('vTable').innerHTML = '<tr><th>Viewer</th><th>' + esc(V.settings.currency) + '</th><th>Active time</th><th>Daily streak</th></tr>' + r.map((p) => `<tr><td>${esc(p.name)}</td><td>${p.pts.toLocaleString()}</td><td>${Math.floor(p.mins / 60)}h ${p.mins % 60}m</td><td>${p.streak || ''}</td></tr>`).join(''); }
+let vT; $('vSearch').oninput = () => { clearTimeout(vT); vT = setTimeout(loadViewers, 250); };
+$('cuSave').onclick = () => {
+  const bonuses = {}; document.querySelectorAll('#cuBonuses .row').forEach((r) => { const o = {}; r.querySelectorAll('[data-f]').forEach((i) => { o[i.dataset.f] = i.type === 'checkbox' ? i.checked : i.value; }); bonuses[r.dataset.b] = o; });
+  call('settings', { enabled: V.settings.enabled, prefix: V.settings.prefix, currency: $('cuName').value, pointsPerMin: $('cuPpm').value, subMultiplier: $('cuMul').value, awardOffline: $('cuOff').checked, games: V.settings.games,
+    bonuses, daily: { on: $('dyOn').checked, amount: $('dyAmt').value, streakBonus: $('dyStk').value, maxStreak: $('dyMax').value } }, 'Currency settings saved');
+};
+document.querySelectorAll('[data-ad]').forEach((b) => b.onclick = async () => { const r = await post('points/adjust', { name: $('adName').value, amount: $('adAmt').value, mode: b.dataset.ad }); if (r.error) toast(r.error, true); else { toast($('adName').value + ' now has ' + r.pts.toLocaleString()); load(); } });
+$('bnGo').onclick = async () => { const r = await post('points/bonus', { amount: $('bnAmt').value }); if (r.error) toast(r.error, true); else { toast('Gave a bonus to ' + r.count + ' viewer(s)'); load(); } };
+
+// ---- shop
+function drawShop() {
+  $('pending').innerHTML = V.pending.map((p) => `<div class="item" data-n="${p.n}"><b>#${p.n}</b><div><div class="nm">${esc(p.name)} &rarr; ${esc(p.itemName)}</div><div class="sub">${p.cost.toLocaleString()} ${esc(V.settings.currency)}${p.text ? ' &middot; "' + esc(p.text) + '"' : ''}</div></div><div></div><div class="row" style="margin:0"><button class="b alt" data-s="approve">Approve</button><button class="b red" data-s="refund">Deny &amp; refund</button></div></div>`).join('') || '<p class="muted">Nothing waiting. Items marked "needs my approval" queue here (mods can also use !approve / !deny in chat).</p>';
+  $('shopList').innerHTML = V.shop.map((i) => `<div class="item ${i.enabled ? '' : 'off'}" data-id="${i.id}"><input type="checkbox" data-s="toggle" ${i.enabled ? 'checked' : ''}><div><div class="nm">${esc(i.name)} &middot; ${i.cost.toLocaleString()}</div><div class="sub">${i.stock == null ? 'unlimited' : i.stock + ' left'} &middot; redeemed ${i.uses || 0}x${i.approval ? ' &middot; needs approval' : ''}${i.alertKey ? ' &middot; alert "' + esc(i.alertKey) + '"' : ''}</div></div><div class="sub">${esc(i.response)}</div><div class="row" style="margin:0"><button class="b ghost" data-s="edit">Edit</button><button class="b red" data-s="del">Delete</button></div></div>`).join('') || '<p class="muted">No items yet.</p>';
+}
+function openItem(i) {
+  i = i || { name: '', cost: 100, stock: null, cd: 0, userCd: 0, approval: false, enabled: true, response: '$(user) redeemed $(item)!', alertKey: '' };
+  $('sForm').style.display = 'flex'; $('sId').value = i.id || ''; $('sName').value = i.name; $('sCost').value = i.cost; $('sStock').value = i.stock == null ? '' : i.stock; $('sCd').value = i.cd; $('sUcd').value = i.userCd;
+  $('sApp').checked = !!i.approval; $('sOn').checked = i.enabled; $('sResp').value = i.response; $('sKey').value = i.alertKey || ''; $('sName').focus();
+}
+$('sNew').onclick = () => openItem(); $('sCancel').onclick = () => { $('sForm').style.display = 'none'; };
+$('sForm').onsubmit = async (e) => { e.preventDefault(); if (await call('shop/save', { id: $('sId').value || undefined, name: $('sName').value, cost: $('sCost').value, stock: $('sStock').value, cd: $('sCd').value, userCd: $('sUcd').value,
+  approval: $('sApp').checked, enabled: $('sOn').checked, response: $('sResp').value, alertKey: $('sKey').value }, 'Item saved')) $('sForm').style.display = 'none'; };
+$('shopList').onclick = async (e) => {
+  const b = e.target.closest('[data-s]'); if (!b) return; const i = V.shop.find((x) => x.id === b.closest('.item').dataset.id);
+  if (b.dataset.s === 'edit') return openItem(i);
+  if (b.dataset.s === 'toggle') return call('shop/save', Object.assign({}, i, { enabled: b.checked }));
+  if (b.dataset.s === 'del') { if (!b.dataset.arm) { b.dataset.arm = 1; b.textContent = 'Sure?'; setTimeout(() => { delete b.dataset.arm; b.textContent = 'Delete'; }, 3000); return; } call('shop/delete', { id: i.id }, 'Deleted'); }
+};
+$('pending').onclick = (e) => { const b = e.target.closest('[data-s]'); if (!b) return; call(b.dataset.s === 'approve' ? 'shop/approve' : 'shop/refund', { n: +b.closest('.item').dataset.n }, b.dataset.s === 'approve' ? 'Approved' : 'Refunded'); };
+
+// ---- events
+const EVN = { follow: 'New follower', sub: 'New sub', resub: 'Resub', giftsub: 'Gift subs', bits: 'Bits', raid: 'Raid' };
+function drawEvents() {
+  $('evList').innerHTML = Object.entries(V.events).map(([k, e]) => `<div class="row" data-e="${k}"><label class="fld" style="width:120px">${EVN[k]}<input type="checkbox" ${e.on ? 'checked' : ''}></label><input value="${esc(e.msg)}" style="flex:1;min-width:260px;font:inherit;padding:7px 10px;background:var(--iron);color:var(--cream);border:2px solid #46504f"><select class="evStyle" style="font:inherit;padding:7px;background:var(--iron);color:var(--cream);border:2px solid #46504f">${styleOpts(e.announce || '')}</select></div>`).join('');
+}
+$('eSave').onclick = () => { const o = {}; document.querySelectorAll('#evList .row').forEach((r) => { o[r.dataset.e] = { on: r.querySelector('[type=checkbox]').checked, msg: r.querySelector('input:not([type])').value, announce: r.querySelector('.evStyle').value }; }); call('events', o, 'Saved'); };
+
+// ---- settings
+function drawSettings() {
+  $('sOn').checked = V.settings.enabled; $('sPre').value = V.settings.prefix; $('clipOn').value = V.settings.clip.on ? '1' : '0'; $('clipLvl').value = V.settings.clip.level;
+  const a = V.account; $('aStart').textContent = a.login ? 'Bot connected: ' + a.login : 'Connect bot account'; $('aStart').title = a.login ? 'Press to reconnect or switch the bot account' : ''; $('acct').textContent = a.login ? 'Replying as bot account: ' + a.login : (a.auth.message || 'Not connected - the bot replies as you.');
+  $('dev').style.display = a.device ? 'block' : 'none'; if (a.device) { $('devLink').href = a.device.verification_uri; $('devLink').textContent = a.device.verification_uri; $('devCode').textContent = a.device.user_code; }
+}
+$('sSave').onclick = () => call('settings', { clip: { on: $('clipOn').value === '1', level: $('clipLvl').value }, enabled: $('sOn').checked, prefix: $('sPre').value, currency: V.settings.currency, pointsPerMin: V.settings.pointsPerMin, subMultiplier: V.settings.subMultiplier, awardOffline: V.settings.awardOffline, games: V.settings.games }, 'Saved');
+$('aStart').onclick = async () => { const r = await post('account/start'); if (r.error) toast(r.error, true); else load(); };
+$('aOut').onclick = () => call('account/logout', {}, 'Bot account disconnected');
+$('sayStyle').innerHTML = styleOpts('');
+$('sayBtn').onclick = async () => { const r = await post('say', { message: $('sayTxt').value, announce: $('sayStyle').value }); if (r.error) toast(r.error, true); else { $('sayTxt').value = ''; toast('Sent'); } };
+
+function drawExtras() {
+  const x = V.settings.extras; if (!x || document.activeElement.closest && document.activeElement.closest('#t-events')) return;
+  $('xwOn').checked = x.welcome.on; $('xwMsg').value = x.welcome.msg; $('xwLive').checked = x.welcome.onlyLive; $('xrOn').checked = x.raidShout.on; $('xgOn').checked = x.regulars.on; $('xgMin').value = x.regulars.minutes; $('xgMsg').value = x.regulars.messages;
+}
+$('xSave').onclick = () => call('extras', { welcome: { on: $('xwOn').checked, msg: $('xwMsg').value, onlyLive: $('xwLive').checked }, raidShout: { on: $('xrOn').checked }, regulars: { on: $('xgOn').checked, minutes: $('xgMin').value, messages: $('xgMsg').value } }, 'Chat extras saved');
+async function load() {
+  V = await fetch('/api/bot').then((r) => r.json());
+  drawCommands(); drawVars(); drawTimers(); drawFilters(); drawGames(); drawEvents(); drawSettings(); drawExtras(); drawCurrency(); drawShop(); show();
+}
+loadCatalog(); load(); setInterval(() => { if (!document.querySelector('.form[style*="flex"]') && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA' && tab !== 'mod' && tab !== 'events' && tab !== 'currency') load(); else if (tab === 'currency' && document.activeElement.tagName !== 'INPUT') load(); }, 5000);
+</script></body></html>

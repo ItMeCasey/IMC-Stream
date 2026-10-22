@@ -1,0 +1,6 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="w.css"><script src="/ui-theme.js"></script></head><body><div class="grid" id="g"></div><div class="muted" id="none" style="display:none">No buttons yet. Make them on the Control Board page.</div>
+<script src="w.js"></script><script>
+const C = { teal: '', orange: 'o', rust: 'r', olive: 'v', cream: 'c' };
+async function load() { const v = await get('/api/scenes'); $('none').style.display = v.board.length ? 'none' : 'block'; $('g').innerHTML = ''; for (const b of v.board) { const e = document.createElement('button'); e.className = C[b.color] || ''; e.textContent = b.label; let armed = false; e.onclick = () => { if (b.confirm && !armed) { armed = true; e.textContent = 'Press again'; setTimeout(() => { armed = false; e.textContent = b.label; }, 3000); return; } armed = false; e.textContent = b.label; act(e, () => post('/api/scenes/press', { id: b.id })); }; $('g').appendChild(e); } }
+load(); setInterval(load, 20000);
+</script></body></html>

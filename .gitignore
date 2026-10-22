@@ -1,0 +1,24 @@
+# dependencies and build output
+node_modules/
+app/release/
+app/dist/
+*.exe
+*.blockmap
+# the optional realistic-voices install (a Python environment, hundreds of MB)
+server/kokoro/
+# your own data and logins: never commit these
+data/
+*.local.json
+.env
+tokens.json
+spotify.json
+paypal.json
+bot-account.json
+*.bak
+*.log
+# editor / OS / sync clutter
+__pycache__/
+*.pyc
+Thumbs.db
+desktop.ini
+.DS_Store

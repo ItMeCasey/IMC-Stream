@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Speech</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 980px; margin: 0 auto; padding: 18px 24px 50px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 13px; padding: 9px 15px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); }
+  button:hover { filter: brightness(1.12); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.alt { background: var(--aqua); }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; }
+  .fld input, .fld select, .fld textarea { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; } .fld input[type=checkbox] { width: 22px; height: 22px; } .fld input[type=range] { padding: 0; accent-color: var(--heat); }
+  .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin: 8px 0; } .row > .fld { flex: 1; min-width: 150px; }
+  .muted { color: #9aa39f; font-size: 13px; } .err { color: var(--heat); min-height: 18px; margin: 6px 0; } code { background: #151b1b; padding: 1px 5px; }
+  .hist { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; max-width: 90%; } #toast.bad { background: var(--rust); color: var(--cream); }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>SPEECH</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section>
+    <h2>VOICE</h2>
+    <div class="err" id="err"></div>
+    <div class="row"><label class="fld" style="max-width:150px"><span>Speech on</span><input id="on" type="checkbox"></label>
+      <label class="fld">Default voice<select id="voice"></select></label>
+      <label class="fld">Speed <b id="rateV" style="color:var(--cream)"></b><input id="rate" type="range" min="-10" max="10"></label>
+      <label class="fld">Pitch <b id="pitchV" style="color:var(--cream)"></b><input id="pitch" type="range" min="-2" max="2"></label>
+      <label class="fld">Volume <b id="volV" style="color:var(--cream)"></b><input id="vol" type="range" min="0" max="100"></label></div>
+    <div class="row"><label class="fld" style="max-width:200px">Longest message (characters)<input id="max" type="number" min="20" max="400"></label>
+      <div class="fld" style="flex:1;min-width:280px">Never read these: add words, phrases or /regex/ (one per line)
+        <textarea id="block" rows="2" placeholder="Add to the hidden list..."></textarea>
+        <span class="row" style="margin:4px 0 0"><button id="addBlock" type="button" class="alt">Add to list</button><span class="muted" id="blockInfo" style="text-transform:none;letter-spacing:0"></span></span>
+        <span class="muted" style="text-transform:none;letter-spacing:0;font-size:12px">The list is hidden on purpose: you can add to it but never see, edit or remove entries. Your chat bot's banned words always apply too.</span></div></div>
+    <button id="save">Save voice settings</button>
+    <p class="muted" style="margin-top:10px" id="voiceInfo"></p>
+  </section>
+
+  <section class="h">
+    <h2>TRY IT</h2>
+    <div class="row"><label class="fld">Say<textarea id="text" rows="2">Welcome to the stream! Thanks for the follow.</textarea></label><label class="fld" style="max-width:260px">Voice<select id="tryVoice"></select></label></div>
+    <div class="row"><button class="alt" id="preview">Hear it here</button><button id="speak">Speak on stream</button><button class="ghost" id="skip">Skip current</button><button class="ghost" id="clear">Clear queue</button></div>
+    <p class="muted">"Hear it here" plays in this browser tab only. "Speak on stream" sends it to your Alerts overlay (turn on <b>Control audio via OBS</b> for that source, already set in the starter scenes).</p>
+  </section>
+
+  <section class="r">
+    <h2>VIEWERS CAN TRIGGER SPEECH</h2>
+    <div class="row"><label class="fld" style="max-width:170px"><span><code>!tts</code> command on</span><input id="cmdOn" type="checkbox"></label>
+      <label class="fld">Who can use it<select id="cmdLvl"><option value="everyone">Everyone</option><option value="subscriber">Subscribers+</option><option value="vip">VIPs+</option><option value="moderator">Mods only</option></select></label>
+      <label class="fld">Cost (your chat currency)<input id="cmdCost" type="number" min="0"></label><label class="fld">Wait between uses (s)<input id="cmdCd" type="number" min="0"></label></div>
+    <button id="saveCmd">Save</button>
+    <p class="muted" style="margin-top:10px">Other ways to use the voice: in <b>Alerts</b>, edit an alert and tick <b>Read it aloud</b> (e.g. bits and tips read the viewer's message). In <b>Reward hooks</b>, add a <b>Speak aloud</b> action so a channel point reward reads what the viewer typed. Mods can type <code>!ttsskip</code> to cut off the current speech.</p>
+  </section>
+
+  <section>
+    <h2>RECENTLY SPOKEN</h2><div id="hist"></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (p, b) => fetch('/api/tts/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3200); }
+let V = null, filled = false;
+const sl = () => { $('rateV').textContent = $('rate').value; $('pitchV').textContent = $('pitch').value; $('volV').textContent = $('vol').value + '%'; };
+['rate', 'pitch', 'vol'].forEach((i) => $(i).oninput = sl);
+function paint(v) {
+  V = v; const c = v.cfg;
+  const grp = (label, list) => list.length ? `<optgroup label="${label}">` + list.map((x) => `<option value="${esc(x.name)}">${esc(x.name)} (${esc(x.gender)}${x.culture ? ', ' + esc(x.culture) : ''})</option>`).join('') + '</optgroup>' : '';
+  const opts = '<option value="">Default voice</option>' + grp('Kokoro: realistic', v.voices.filter((x) => x.engine === 'kokoro')) + grp('Windows: instant, robotic', v.voices.filter((x) => x.engine !== 'kokoro'));
+  if (!filled) {
+    filled = true; $('voice').innerHTML = opts.replace('Default voice', 'Windows default'); $('tryVoice').innerHTML = opts.replace('Default voice', 'Use the default above');
+    $('on').checked = c.on; $('voice').value = c.voice; $('rate').value = c.rate; $('pitch').value = c.pitch; $('vol').value = c.volume; $('max').value = c.maxChars; $('blockInfo').textContent = (c.blockCount || 0) + ' entries on the list';
+    $('cmdOn').checked = c.command.on; $('cmdLvl').value = c.command.level; $('cmdCost').value = c.command.cost; $('cmdCd').value = c.command.userCd; sl();
+  }
+  $('err').textContent = v.canSpeak ? '' : 'Text-to-speech needs Windows.';
+  const kv = v.voices.filter((x) => x.engine === 'kokoro'), wv = v.voices.filter((x) => x.engine !== 'kokoro');
+  $('voiceInfo').innerHTML = (v.kokoro.installed
+    ? '<b style="color:var(--aqua)">Kokoro realistic voices are installed</b> (' + esc(v.kokoro.model) + ', ' + kv.length + ' voices). A short line takes about a second to make, so alerts show first and the voice follows. Try <b>af_heart</b> (warm female), <b>af_bella</b>, <b>am_adam</b> or <b>am_michael</b> (male), <b>bf_emma</b> (British).'
+    : '<b style="color:var(--heat)">Want realistic voices?</b> Run <code>server\\install-kokoro.bat</code> (about 120 MB, free, offline), then restart the server.') +
+    '<br>' + wv.length + ' Windows voice(s): ' + wv.map((x) => esc(x.name)).join(', ') + '. More Windows voices and languages can be added in <b>Windows Settings &gt; Time &amp; language &gt; Speech</b>. Speed works for every voice; pitch only for Windows voices.';
+  $('hist').innerHTML = v.history.map((h) => `<div class="hist"><span>${esc(h.text)} <span class="muted">${h.by ? '&middot; ' + esc(h.by) + ' ' : ''}&middot; ${new Date(h.ts).toLocaleTimeString()}</span></span><button class="ghost" data-t="${esc(h.text)}">Speak again</button></div>`).join('') || '<p class="muted">Nothing yet.</p>';
+}
+async function load() { paint(await fetch('/api/tts').then((r) => r.json())); }
+$('addBlock').onclick = async () => { const t = $('block').value; if (!t.trim()) return; const r = await post('settings', { addBlock: t }); if (r.error) return toast(r.error, true); $('block').value = ''; $('blockInfo').textContent = (r.cfg.blockCount || 0) + ' entries on the list'; toast('Added'); };
+$('save').onclick = async () => { const r = await post('settings', { on: $('on').checked, voice: $('voice').value, rate: $('rate').value, pitch: $('pitch').value, volume: $('vol').value, maxChars: $('max').value }); if (r.error) toast(r.error, true); else toast('Saved'); };
+$('saveCmd').onclick = async () => { const r = await post('settings', { command: { on: $('cmdOn').checked, level: $('cmdLvl').value, cost: $('cmdCost').value, userCd: $('cmdCd').value } }); if (r.error) toast(r.error, true); else toast('Saved'); };
+const tryBody = () => ({ text: $('text').value, voice: $('tryVoice').value || undefined, rate: +$('rate').value, pitch: +$('pitch').value });
+$('preview').onclick = async () => { const r = await post('preview', tryBody()); if (r.error) return toast(r.error, true); const a = new Audio(r.url); a.volume = +$('vol').value / 100; a.play(); };
+$('speak').onclick = async () => { const r = await post('say', tryBody()); if (r.error) toast(r.error, true); else { toast('Sent to the overlay'); load(); } };
+$('skip').onclick = () => post('skip'); $('clear').onclick = () => post('clear');
+$('hist').onclick = async (e) => { const b = e.target.closest('[data-t]'); if (!b) return; const r = await post('say', { text: b.dataset.t }); if (r.error) toast(r.error, true); else load(); };
+load(); setInterval(() => { if (!document.activeElement || document.activeElement.tagName === 'BODY') load(); }, 5000);
+</script></body></html>

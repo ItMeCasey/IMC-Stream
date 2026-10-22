@@ -1,0 +1,49 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Hype Train</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* OBS Browser Source:  http://localhost:8420/overlays/hypetrain.html   (suggested size 760 x 170).  Add ?demo=1 to preview. Hidden while no train is running. */
+  .wrap { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 14px; filter: drop-shadow(0 8px 14px rgba(0,0,0,.5)); opacity: 0; transform: translateX(-60px); transition: opacity .5s, transform .6s cubic-bezier(.2,.9,.2,1); }
+  .wrap.on { opacity: 1; transform: none; }
+  .head { display: flex; align-items: baseline; gap: 18px; padding: 0 22px; margin-bottom: 8px; text-transform: uppercase; font-weight: 700; }
+  .tag { font-size: 30px; letter-spacing: 8px; color: var(--iron); background: var(--heat); padding: 2px 16px 0 12px; transform: skewX(-12deg); } .tag span { display: inline-block; transform: skewX(12deg); }
+  .lvl { font-size: 54px; line-height: 1; letter-spacing: 3px; font-stretch: 80%; } .lvl small { font-size: 22px; letter-spacing: 4px; color: var(--aqua); margin-right: 8px; }
+  .top { margin-left: auto; font-size: 22px; letter-spacing: 3px; color: var(--cream); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; } .top b { color: var(--heat); }
+  .track { position: relative; height: 50px; background: var(--iron-d); overflow: hidden; clip-path: polygon(26px 0, 100% 0, calc(100% - 26px) 100%, 0 100%); }
+  .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; overflow: hidden; transition: width 1.2s cubic-bezier(.2,.8,.2,1); }
+  .fill::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--full, 700px); background: linear-gradient(90deg, var(--aqua) 0 30%, var(--heat) 30% 55%, var(--rust) 55% 75%, var(--drust) 75% 90%, var(--cream) 90%); }
+  .fill::after { content: ""; position: absolute; top: 0; bottom: 0; width: 120px; left: -160px; background: linear-gradient(100deg, transparent, rgba(255,255,255,.3), transparent); transform: skewX(-20deg); animation: shine 2.4s infinite; }
+  @keyframes shine { 0% { left: -160px; } 60%, 100% { left: 110%; } }
+  .num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; letter-spacing: 3px; text-shadow: 0 2px 6px rgba(0,0,0,.85); font-variant-numeric: tabular-nums; }
+  .wrap.end .tag { background: var(--cream); } .wrap.end .tag span::after { content: " COMPLETE"; }
+  .bump { animation: bump .6s; } @keyframes bump { 30% { transform: scale(1.12); } }
+</style></head>
+<body>
+<div class="wrap" id="wrap">
+  <div class="head"><span class="tag"><span>HYPE TRAIN</span></span><span class="lvl" id="lvl"><small>LEVEL</small>1</span><span class="top" id="top"></span></div>
+  <div class="track" id="track"><div class="fill" id="fill"></div><div class="num" id="num"></div></div>
+</div>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search), BASE = icmBase('hypetrain', +(Q.get('port') || C.serverPort || 8420));
+  const $ = (id) => document.getElementById(id), nf = new Intl.NumberFormat('en-US');
+  let lastLevel = 0, hideT = null;
+  function draw(h) {
+    clearTimeout(hideT);
+    if (!h.active && !h.ended) { $('wrap').classList.remove('on', 'end'); lastLevel = 0; return; }
+    $('wrap').classList.add('on'); $('wrap').classList.toggle('end', !!h.ended);
+    $('lvl').innerHTML = '<small>LEVEL</small>' + h.level; if (h.level !== lastLevel && lastLevel) { $('lvl').classList.remove('bump'); void $('lvl').offsetWidth; $('lvl').classList.add('bump'); } lastLevel = h.level;
+    $('top').innerHTML = h.top ? 'TOP <b>' + String(h.top).replace(/[<>&]/g, '') + '</b>' : '';
+    const pct = h.goal ? Math.min(100, Math.max(0, h.progress / h.goal * 100)) : 0;
+    document.documentElement.style.setProperty('--full', $('track').clientWidth + 'px'); $('fill').style.width = pct + '%';
+    $('num').textContent = h.goal ? nf.format(h.progress) + ' / ' + nf.format(h.goal) : nf.format(h.total || 0);
+    if (h.ended) hideT = setTimeout(() => $('wrap').classList.remove('on', 'end'), 12000);
+  }
+  if (Q.get('demo')) { let p = 0, lv = 1; draw({ active: true, level: 1, progress: 0, goal: 1000, top: 'RetroRider', total: 0 }); setInterval(() => { p += 140; if (p >= 1000) { p = 0; lv = lv % 5 + 1; } draw({ active: true, level: lv, progress: p, goal: 1000, top: 'RetroRider', total: p }); }, 1200); return; }
+  let wasActive = false;
+  const on = (h) => { const ended = wasActive && !h.active; wasActive = !!h.active; draw(ended ? Object.assign({}, h, { active: false, ended: true, level: h.lastLevel || h.level, progress: h.goal, goal: h.goal || 1 }) : h); };
+  fetch(BASE + '/api/hype').then((r) => r.json()).then(on).catch(() => {});
+  const es = new EventSource(BASE + '/events'); es.addEventListener('hype', (e) => on(JSON.parse(e.data)));
+})();
+</script></body></html>

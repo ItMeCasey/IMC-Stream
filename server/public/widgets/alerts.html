@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="w.css"><script src="/ui-theme.js"></script></head><body>
+<div class="lbl">Alert queue</div><div class="row" style="margin:4px 0 10px"><button id="p" class="o">Pause</button><button id="m" class="r">Mute</button><button id="s" class="c">Skip</button><button id="c" class="g">Clear</button></div>
+<div class="lbl">Test an alert</div><div class="row" style="margin-top:4px" id="t"></div>
+<script src="w.js"></script><script>
+let K = { paused: false, muted: false };
+const ctl = (a) => post('/api/alerts/ctl', { action: a }).then((r) => { if (!r.error) { K = r; draw(); } return r; });
+function draw() { $('p').textContent = K.paused ? 'Resume' : 'Pause'; $('m').textContent = K.muted ? 'Unmute' : 'Mute'; }
+$('p').onclick = (e) => act(e.target, () => ctl(K.paused ? 'resume' : 'pause')); $('m').onclick = (e) => act(e.target, () => ctl(K.muted ? 'unmute' : 'mute')); $('s').onclick = (e) => act(e.target, () => ctl('skip')); $('c').onclick = (e) => act(e.target, () => ctl('clear'));
+live({ alertctl: (d) => { K = d; draw(); } });
+for (const [t, l] of [['follow', 'Follow'], ['sub', 'Sub'], ['bits', 'Bits'], ['raid', 'Raid']]) { const b = document.createElement('button'); b.className = 'g'; b.textContent = l; b.onclick = () => act(b, () => post('/api/test', { type: t })); $('t').appendChild(b); }
+</script></body></html>

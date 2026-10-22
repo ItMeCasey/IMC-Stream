@@ -1,0 +1,94 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Now Playing</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* OBS Browser Source: http://localhost:8420/overlays/nowplaying.html   (suggested size 700 x 220)
+     ?mode=playing (default: shown while music plays) | always (also while paused) | change (pops up on each new song, ?hold=12 seconds) */
+  .wrap { position: absolute; left: 20px; top: 20px; width: 640px; filter: drop-shadow(0 10px 18px rgba(0,0,0,.55)); transform: translateX(-720px); opacity: 0; transition: transform .75s cubic-bezier(.2,.9,.2,1), opacity .5s; }
+  .wrap.show { transform: none; opacity: 1; }
+  .card { background: var(--iron); display: flex; gap: 22px; padding: 16px 40px 16px 16px; clip-path: polygon(0 0, 100% 0, calc(100% - 30px) 100%, 0 100%); position: relative; min-height: 172px; }
+  .card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 8px; background: linear-gradient(90deg, var(--aqua) 0 30%, var(--heat) 30% 55%, var(--rust) 55% 75%, var(--drust) 75% 90%, var(--cream) 90%); }
+  .art { flex: none; width: 140px; height: 140px; margin-top: 8px; background: var(--iron-d) center/cover no-repeat; clip-path: polygon(0 0, 100% 0, calc(100% - 14px) 100%, 0 100%); position: relative; }
+  .art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; padding-top: 8px; }
+  .tag { align-self: flex-start; padding: 2px 0 0; display: flex; align-items: center; }
+  .eq { width: 240px; height: 32px; display: block; }
+  .title { margin-top: 8px; font-size: 34px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-stretch: 85%; line-height: 1.1; white-space: nowrap; overflow: hidden; }
+  .title span { display: inline-block; } .title.scroll span { animation: marquee var(--dur, 12s) linear infinite; padding-right: 60px; }
+  @keyframes marquee { 0%, 12% { transform: translateX(0); } 88%, 100% { transform: translateX(var(--shift)); } }
+  .artist { font-size: 22px; color: var(--cream); letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .album { font-size: 16px; color: var(--aqua); letter-spacing: 3px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; min-height: 20px; }
+  .prog { margin-top: 12px; display: flex; align-items: center; gap: 10px; font-size: 14px; color: #9aa39f; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+  .bar { flex: 1; height: 10px; background: var(--iron-d); clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%); } .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--aqua) 0 30%, var(--heat) 30% 55%, var(--rust) 55% 75%, var(--drust) 75% 90%, var(--cream) 90%); background-size: 640px 100%; }
+</style></head>
+<body>
+<div class="wrap" id="wrap"><div class="card" id="card">
+  <div class="art"><img id="art" alt=""></div>
+  <div class="info">
+    <div class="tag" title="Now playing"><canvas class="eq" id="eq" width="480" height="64"></canvas></div>
+    <div class="title" id="title"><span id="titleTxt"></span></div>
+    <div class="artist" id="artist"></div>
+    <div class="album" id="album"></div>
+    <div class="prog"><span id="t0">0:00</span><div class="bar"><i id="fill"></i></div><span id="t1">0:00</span></div>
+  </div>
+</div></div>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search);
+  const BASE = icmBase('nowplaying', +(Q.get('port') || C.serverPort || 8420));
+  const MODE = Q.get('mode') || C.nowPlayingMode || 'playing', HOLD = +(Q.get('hold') || C.nowPlayingHold || 12);
+  const $ = (id) => document.getElementById(id);
+  let M = null, skew = 0, popUntil = 0, lastTrack = '';
+  const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const now = () => Date.now() + skew;
+  const artUrl = (a) => (!a ? '../assets/logo.png' : a.startsWith('/') ? BASE + a : a);
+
+  function layoutTitle() {
+    const t = $('title'), s = $('titleTxt'); t.classList.remove('scroll');
+    if (s.scrollWidth > t.clientWidth + 2) { const shift = t.clientWidth - s.scrollWidth - 60; t.style.setProperty('--shift', shift + 'px'); t.style.setProperty('--dur', Math.max(8, -shift / 40) + 's'); t.classList.add('scroll'); }
+  }
+  function draw() {
+    if (!M) return;
+    const playing = M.status === 'playing', has = M.status !== 'none' && !!M.title;
+    let visible = false;
+    if (has) visible = MODE === 'always' ? true : MODE === 'change' ? now() < popUntil : playing;
+    $('wrap').classList.toggle('show', visible); $('card').classList.toggle('paused', !playing);
+    if (!has) return;
+    const pos = Math.min(M.durationMs || 0, M.positionMs + (playing ? now() - M.positionAt : 0));
+    $('fill').style.width = (M.durationMs ? Math.min(100, pos / M.durationMs * 100) : 0) + '%';
+    $('t0').textContent = mmss(pos); $('t1').textContent = M.durationMs ? mmss(M.durationMs) : '';
+  }
+  function load(d) {
+    skew = d.now - Date.now(); const prev = M; M = d;
+    const track = d.title + '|' + d.artist + '|' + d.album;
+    if (track !== lastTrack) {
+      lastTrack = track; if (d.title) popUntil = now() + HOLD * 1000;
+      $('titleTxt').textContent = d.title; $('artist').textContent = d.artist; $('album').textContent = d.album;
+      requestAnimationFrame(layoutTitle);
+    }
+    const a = artUrl(d.art); if ($('art').dataset.src !== a) { $('art').dataset.src = a; $('art').src = a; }
+    draw();
+  }
+  if (!Q.get('demo')) { const es = new EventSource(BASE + '/events'); es.addEventListener('media', (e) => load(JSON.parse(e.data))); es.addEventListener('audio', onAudio); es.addEventListener('viz', onViz); }
+  // the tag is a real spectrum: the desktop app listens to the PC's audio and posts 32 frequency bands. Without the app, the bars follow OBS's level on your music source instead.
+  const eq = $('eq'), eg = eq.getContext('2d'), NB = 12, eb = new Array(NB).fill(0), MUSIC = /music|spotify|itunes|apple|media|player|desktop|browser|chrome|song/i; let lvl = 0, lastAud = 0, bands = null, bandsAt = 0;
+  function onAudio(e) { try { const a = JSON.parse(e.data); if (!a.connected) { lastAud = 0; return; } const ins = (a.inputs || []).filter((i) => !i.muted), pick = ins.filter((i) => MUSIC.test(i.name)), pool = pick.length ? pick : ins; let pk = -100; for (const i of pool) pk = Math.max(pk, i.peak); lvl = Math.max(0, Math.min(1, (pk + 55) / 55)); lastAud = Date.now(); } catch (x) { /* ignore */ } }
+  function onViz(e) { try { const v = JSON.parse(e.data); if (v.b && v.b.length) { bands = v.b; bandsAt = Date.now(); } } catch (x) { /* ignore */ } }
+  const wantViz = () => { if (M && M.status === 'playing') fetch(BASE + '/api/viz').catch(() => {}); };   // tells the server to stream the spectrum (and the audio level for the fallback)
+  setInterval(wantViz, 10000); setTimeout(wantViz, 1500);
+  setInterval(() => { if (M && M.status === 'playing') fetch(BASE + '/api/audio').catch(() => {}); }, 10000);
+  function eqFrame(t) {
+    requestAnimationFrame(eqFrame); const w = eq.width, h = eq.height, on = M && M.status === 'playing', real = on && bands && Date.now() - bandsAt < 1200, sig = on && !real && Date.now() - lastAud < 2500 && lvl > .02, base = on ? (sig ? lvl : .3) : 0;
+    eg.clearRect(0, 0, w, h); const bw = w / NB;
+    for (let i = 0; i < NB; i++) {
+      let tg; if (real) { const a0 = Math.floor(i * bands.length / NB), a1 = Math.max(a0 + 1, Math.floor((i + 1) * bands.length / NB)); let sum = 0; for (let k = a0; k < a1; k++) sum += bands[k] || 0; tg = Math.min(1, sum / (a1 - a0) / 100 * 1.25); } else { const n = Math.abs(Math.sin(t / 1000 * (2.2 + (i % 9) * .4) + i * 1.7)) * .7 + Math.abs(Math.sin(t / 1000 * (1 + (i % 5) * .3) + i)) * .3; tg = base * (.2 + .8 * n); }
+      eb[i] += (tg - eb[i]) * (tg > eb[i] ? .6 : .2); const bh = Math.max(4, eb[i] * h); eg.fillStyle = !on ? '#4a5453' : eb[i] > .72 ? '#EC4624' : eb[i] > .42 ? '#F39120' : '#4FBBBC'; eg.fillRect(Math.round(i * bw) + 4, h - bh, Math.round(bw) - 8, bh);
+    }
+  }
+  requestAnimationFrame(eqFrame);
+  setInterval(draw, 250);
+  if (Q.get('demo')) load({ now: Date.now(), status: Q.get('state') || 'playing', title: 'Midnight City (Extended Remix With A Really Long Name)', artist: 'M83', album: "Hurry Up, We're Dreaming", art: '', durationMs: 243000, positionMs: 61000, positionAt: Date.now() });
+})();
+</script>
+</body></html>

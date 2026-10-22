@@ -1,0 +1,8 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="w.css"><script src="/ui-theme.js"></script></head><body>
+<div style="display:flex;gap:10px;align-items:center"><img id="a" style="width:64px;height:64px;object-fit:cover;display:none"><div style="min-width:0"><div id="ti" style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">-</div><div class="muted" id="ar"></div></div></div>
+<div class="row" style="margin-top:10px"><button class="v" data-a="previous">&#9198;</button><button class="v" data-a="toggle">&#9199;</button><button class="v" data-a="next">&#9197;</button></div><div class="muted" id="m" style="margin-top:6px"></div>
+<script src="w.js"></script><script>
+function draw(m) { $('ti').textContent = m.title || (m.error ? '' : 'Nothing playing'); $('ar').textContent = [m.artist, m.album].filter(Boolean).join(' - '); $('m').textContent = m.error || ''; $('a').style.display = m.art ? '' : 'none'; if (m.art) $('a').src = m.art; }
+get('/api/media').then(draw); live({ media: draw });
+document.querySelectorAll('[data-a]').forEach((b) => (b.onclick = () => act(b, () => post('/api/media/' + b.dataset.a))));
+</script></body></html>

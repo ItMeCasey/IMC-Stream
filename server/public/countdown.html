@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Timer</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 980px; margin: 0 auto; padding: 18px 24px 50px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 13px; padding: 9px 15px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); }
+  button:hover { filter: brightness(1.12); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.alt { background: var(--aqua); } button.red { background: var(--drust); color: var(--cream); }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; }
+  .fld input, .fld select { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; } .fld input[type=checkbox] { width: 22px; height: 22px; }
+  .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin: 8px 0; } .row > .fld { flex: 1; min-width: 130px; }
+  .big { font-size: 84px; font-weight: 700; letter-spacing: 4px; font-variant-numeric: tabular-nums; line-height: 1; } .state { display: inline-block; padding: 2px 12px; font-weight: 700; letter-spacing: 3px; background: #46504f; transform: skewX(-12deg); margin-left: 12px; font-size: 14px; vertical-align: middle; }
+  .state.running { background: #6fcf6f; color: var(--iron); } .state.paused { background: var(--heat); color: var(--iron); } .state.done { background: var(--rust); }
+  .muted { color: #9aa39f; font-size: 13px; } code { background: #151b1b; padding: 1px 5px; } #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; } #toast.bad { background: var(--rust); color: var(--cream); }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>START COUNTDOWN</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section>
+    <h2>START SCREEN COUNTDOWN</h2>
+    <div class="big" id="big">00:00</div><span class="state" id="state">IDLE</span><span class="muted" id="vis"></span>
+    <div class="row"><span class="muted" style="align-self:center">Start:</span>
+      <button data-start="60">1 min</button><button data-start="300">5 min</button><button data-start="600">10 min</button><button data-start="900">15 min</button><button data-start="1800">30 min</button><button data-start="3600">1 hour</button>
+      <label class="fld" style="max-width:120px">Custom (min)<input id="cm" type="number" min="1" value="20"></label><button class="alt" id="cStart">Start</button></div>
+    <div class="row"><button class="ghost" data-do="pause">Pause</button><button class="ghost" data-do="resume">Resume</button><button class="ghost" data-do="reset">Reset</button>
+      <span class="muted" style="align-self:center">Adjust:</span><button class="ghost" data-add="-300">-5m</button><button class="ghost" data-add="-60">-1m</button><button class="ghost" data-add="60">+1m</button><button class="ghost" data-add="300">+5m</button><button class="ghost" data-add="900">+15m</button>
+      <button class="ghost" id="hide">Hide on stream</button></div>
+    <div class="row"><label class="fld" style="max-width:150px">Set time left (mm:ss)<input id="setT" placeholder="12:30"></label><button class="ghost" id="setBtn">Set</button></div>
+    <div class="muted">Chat (mods): <code>!countdown 10</code> start 10 minutes &middot; <code>!countdown +5</code> / <code>-30s</code> &middot; <code>pause</code> <code>resume</code> <code>reset</code> <code>hide</code> <code>show</code>. Everyone: <code>!timeleft</code>. A reward hook can add time too.</div>
+  </section>
+
+  <section class="h">
+    <h2>TEXT AND WHEN IT HITS ZERO</h2>
+    <div class="row"><label class="fld">Label above the clock<input id="label" maxlength="60"></label><label class="fld">Message at zero<input id="doneMsg" maxlength="60"></label></div>
+    <div class="row"><label class="fld">Switch OBS to this scene (optional)<input id="doneScene" list="scenes" placeholder="Gameplay"></label><label class="fld">Say in chat (optional)<input id="doneChat" maxlength="300"></label><button class="ghost" id="scenesBtn">Load my scenes</button></div>
+    <datalist id="scenes"></datalist>
+    <div class="row"><button id="saveAll">Save</button></div>
+    <p class="muted">Scene switching uses the OBS connection from the Reward hooks page.</p>
+  </section>
+
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (p, b) => fetch('/api/countdown/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 2800); }
+const fmt = (ms) => { const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(s % 60).padStart(2, '0'); };
+let D = null, skew = 0, filled = false;
+function tick() { if (!D) return; const rem = D.mode === 'running' ? Math.max(0, D.endsAt - (Date.now() + skew)) : D.remainingMs; $('big').textContent = fmt(rem); }
+function paint(d) {
+  D = d; skew = d.now - Date.now(); $('state').textContent = d.mode.toUpperCase(); $('state').className = 'state ' + d.mode; $('hide').textContent = d.visible ? 'Hide on stream' : 'Show on stream'; $('vis').textContent = d.visible ? '' : '  (hidden on stream)';
+  if (!filled) { filled = true; $('label').value = d.label; $('doneMsg').value = d.doneMessage; $('doneScene').value = d.doneScene; $('doneChat').value = d.doneChat;
+  }
+  tick();
+}
+async function act(p, b, msg) { const r = await post(p, b); if (r.error) toast(r.error, true); else { if (msg) toast(msg); paint(r); } }
+document.querySelectorAll('[data-start]').forEach((b) => b.onclick = () => act('start', { seconds: +b.dataset.start }, 'Started'));
+$('cStart').onclick = () => act('start', { minutes: +$('cm').value }, 'Started');
+document.querySelectorAll('[data-do]').forEach((b) => b.onclick = () => act(b.dataset.do));
+document.querySelectorAll('[data-add]').forEach((b) => b.onclick = () => act('add', { seconds: +b.dataset.add, why: 'you' }));
+$('hide').onclick = () => act('visible', { on: !D.visible });
+$('setBtn').onclick = () => { const m = /^(?:(\d+):)?(\d+)(?::(\d+))?$/.exec($('setT').value.trim()); if (!m) return toast('Use mm:ss, e.g. 12:30', true); const sec = m[3] != null ? (+m[1] * 3600 + +m[2] * 60 + +m[3]) : m[1] != null ? +m[1] * 60 + +m[2] : +m[2] * 60; act('set', { seconds: sec }, 'Set'); };
+$('saveAll').onclick = () => act('settings', { label: $('label').value, doneMessage: $('doneMsg').value, doneScene: $('doneScene').value, doneChat: $('doneChat').value }, 'Saved');
+$('scenesBtn').onclick = async () => { const r = await fetch('/api/hooks/obs/scenes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then((x) => x.json()); if (r.error) return toast(r.error, true); $('scenes').innerHTML = r.map((s) => `<option value="${s.replace(/"/g, '&quot;')}">`).join(''); toast('Loaded ' + r.length + ' scenes'); };
+const es = new EventSource('/events'); es.addEventListener('countdown', (e) => paint(JSON.parse(e.data)));
+fetch('/api/countdown').then((r) => r.json()).then(paint); setInterval(tick, 200);
+</script></body></html>

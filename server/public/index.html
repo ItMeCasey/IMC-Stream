@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Control</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 16px; padding: 18px 32px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:6px; background:
+    linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 44px; height: 44px; }
+  h1 { font-size: 26px; letter-spacing: 6px; font-weight: 700; }
+  main { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; padding: 24px 32px 40px; max-width: 1300px; margin: 0 auto; }
+  section { background: var(--iron-d); padding: 20px 22px 22px; border-top: 1px solid var(--line); }
+  section:nth-child(2) { border-color: var(--heat); } section:nth-child(3) { border-color: var(--rust); } section:nth-child(4) { border-color: var(--cream); }
+  h2 { font-size: 15px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 14px; font-weight: 700; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #666; display: inline-block; }
+  .dot.ok { background: #6fcf6f; } .dot.warn { background: var(--heat); } .dot.bad { background: var(--rust); }
+  button { font: inherit; font-weight: 700; letter-spacing: 2px; padding: 9px 16px; background: var(--heat); color: var(--iron); border: 0; cursor: pointer; text-transform: uppercase; font-size: 13px; }
+  button:hover { filter: brightness(1.12); } button.alt { background: var(--aqua); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; }
+  .tests { display: flex; flex-wrap: wrap; gap: 8px; }
+  .code { font-size: 44px; letter-spacing: 10px; font-weight: 700; color: var(--heat); margin: 6px 0; }
+  a { color: var(--aqua); } small, .muted { color: #9aa39f; font-size: 13px; }
+  #log { max-height: 340px; overflow: auto; font-size: 14px; }
+  #log div { padding: 5px 0; border-bottom: 1px solid #2f3938; }
+  #log b { color: var(--heat); letter-spacing: 1px; } #log .t { color: #7f8985; margin-right: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } td { padding: 4px 0; border-bottom: 1px solid #2f3938; } td:last-child { text-align: right; color: var(--aqua); }
+  .hide { display: none; }
+  section.wide { grid-column: 1 / -1; border-color: var(--aqua); }
+  #lblFilter { font: inherit; padding: 8px 12px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; max-width: 380px; margin-bottom: 12px; }
+  #lbl { max-height: 520px; overflow: auto; }
+  #lbl td { vertical-align: top; padding: 6px 10px 6px 0; } #lbl td:first-child { color: var(--heat); white-space: nowrap; font-size: 13px; }
+  #lbl td:nth-child(2) { color: var(--cream); text-align: left; white-space: pre-wrap; min-width: 160px; } #lbl td:last-child { color: #9aa39f; font-size: 13px; text-align: left; }
+  .warn { color: var(--heat); font-size: 14px; margin-top: 8px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; }
+  .fld input, .fld select { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 7px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; }
+  .fld input[type=checkbox] { width: 22px; height: 22px; }
+  .goal { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(260px, 2fr) auto; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line, #2f3938); }
+  .goal .gt { font-weight: 700; letter-spacing: 2px; text-transform: uppercase; } .goal .gm { font-size: 13px; color: #9aa39f; }
+  .gbar { height: 22px; background: var(--iron); position: relative; clip-path: polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%); }
+  .gbar > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c); transition: width .8s; overflow: hidden; }
+  .gbar > i::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--full, 400px); background: var(--c); }
+  .gbar.rainbow > i::before { background: linear-gradient(90deg,#4FBBBC 0 30%,#F39120 30% 55%,#EC4624 55% 75%,#B13A22 75% 90%,#E2DAC2 90%); }
+  .gbtns { display: flex; gap: 6px; flex-wrap: wrap; } .gbtns button { padding: 5px 9px; font-size: 12px; }
+  #aPrev { height: 150px; overflow: hidden; background: repeating-conic-gradient(#1c2222 0 25%, #202727 0 50%) 0 0 / 24px 24px; position: relative; }
+  #aFrame { width: 1000px; height: 300px; border: 0; background: transparent; transform-origin: 0 0; }
+  .arow { display: grid; grid-template-columns: auto minmax(160px, 1fr) minmax(200px, 2fr) auto; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid #2f3938; }
+  .arow.off { opacity: .45; } .arow .an { font-weight: 700; letter-spacing: 1px; } .arow .ac { font-size: 13px; color: #9aa39f; }
+  .sw { display: inline-block; width: 22px; height: 22px; cursor: pointer; border: 2px solid transparent; } .sw:hover { border-color: var(--cream); }
+  .chip { display: inline-block; background: #333f3e; padding: 2px 8px; margin: 2px 4px 2px 0; cursor: pointer; font-size: 13px; } .chip:hover { background: var(--heat); color: var(--iron); }
+  .tagpv { display: inline-block; padding: 1px 10px; font-size: 12px; font-weight: 700; letter-spacing: 2px; transform: skewX(-12deg); color: var(--iron); }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>ITMECASEY // CONTROL</h1><a href="/board" style="margin-left:auto;color:var(--heat);font-weight:700;letter-spacing:3px;text-decoration:none">BOARD &rarr;</a><a href="/countdown" style="margin-left:18px;color:var(--aqua);font-weight:700;letter-spacing:3px;text-decoration:none">TIMER &rarr;</a><a href="/tts" style="margin-left:18px;color:var(--aqua);font-weight:700;letter-spacing:3px;text-decoration:none">SPEECH &rarr;</a><a href="/music" style="margin-left:18px;color:var(--aqua);font-weight:700;letter-spacing:3px;text-decoration:none">MUSIC &rarr;</a><a href="/hooks" style="margin-left:18px;color:var(--aqua);font-weight:700;letter-spacing:3px;text-decoration:none">REWARD HOOKS &rarr;</a><a href="/ads" style="margin-left:18px;color:var(--aqua);font-weight:700;letter-spacing:3px;text-decoration:none">ADS &rarr;</a><a href="/stream" style="margin-left:18px;color:var(--aqua);font-weight:700;letter-spacing:3px;text-decoration:none">STREAM INFO &rarr;</a><a href="/polls" style="margin-left:18px;color:var(--aqua);font-weight:700;letter-spacing:3px;text-decoration:none">POLLS + PREDICTIONS &rarr;</a><a href="/bot" style="margin-left:18px;color:var(--aqua);font-weight:700;letter-spacing:3px;text-decoration:none">CHAT BOT &rarr;</a><a href="/dock" target="_blank" style="color:var(--aqua);font-weight:700;letter-spacing:3px;text-decoration:none;margin-left:18px">CHAT + MOD DOCK &rarr;</a><a href="/setup" style="margin-left:18px;color:var(--heat);font-weight:700;letter-spacing:3px;text-decoration:none">SETUP &rarr;</a></header>
+<main>
+  <section>
+    <h2>TWITCH CONNECTION</h2>
+    <div class="row"><span class="dot" id="dAuth"></span><span id="tAuth">…</span></div>
+    <div class="row"><span class="dot" id="dEs"></span><span id="tEs">Event feed: offline</span></div>
+    <div class="row"><span class="dot" id="dSt"></span><span id="tSt">Tips (Stripe): not set up</span></div>
+    <div id="deviceBox" class="hide">
+      <p class="muted">1. Open <a id="devLink" target="_blank" rel="noreferrer">the Twitch activation page</a><br>2. Enter this code and approve:</p>
+      <div class="code" id="devCode"></div>
+    </div>
+    <div class="row">
+      <button id="bConnect">Connect Twitch</button>
+      <button id="bLogout" class="ghost">Disconnect</button>
+    </div>
+    <p class="warn hide" id="scopeWarn"></p>
+    <p class="muted" id="needId" style="margin-top:10px">Needs your Twitch Client ID in <code>server/config.json</code> (see README, step 1).</p>
+  </section>
+
+  <section>
+    <h2>TEST ALERTS</h2>
+    <p class="muted" style="margin-bottom:10px">Shows the alert in OBS only. Counters and label files are not changed.</p>
+    <div class="tests" id="tests"></div>
+  </section>
+
+  <section>
+    <h2>THIS STREAM</h2>
+    <table id="stats"></table>
+    <div class="row" style="margin-top:14px"><button class="ghost" id="bReset">Reset session counters</button></div>
+    <p class="muted">Also resets automatically when the stream goes live.</p>
+  </section>
+
+  <section class="wide">
+    <h2>LIVE EVENT LOG</h2>
+    <div id="log"><span class="muted">Waiting for events…</span></div>
+  </section>
+
+  <section class="wide" data-open style="border-color:var(--rust)">
+    <h2>ALERTS</h2>
+    <div id="aPrev"><iframe id="aFrame" src="/overlays/alerts.html" allow="autoplay" title="alert preview"></iframe></div>
+    
+    <div class="row" id="aCtl" style="margin:0 0 6px">
+      <button class="ghost" id="cPause">Pause alerts</button><button class="ghost" data-ctl="skip">Skip current</button><button class="ghost" data-ctl="clear">Clear waiting</button><button class="ghost" id="cMute">Mute sounds</button>
+      <span class="muted" id="cStat"></span>
+    </div>
+    <details class="how"><summary>How alerts work</summary>
+      <p class="muted" style="margin:6px 0">Press <b>Test</b> on any alert to see and hear it in the preview (and in OBS). Alerts use the best matching enabled rule: a higher minimum wins, so "Bits &ge; 1000" can override plain "Bits".</p>
+      <p class="muted" style="margin:0 0 6px">While paused, new alerts wait in line and play when you resume. Mute silences alert sounds and voices but still shows the banner. Mods can use <code>!alerts pause|resume|skip|clear|mute|unmute</code>.</p></details>
+    <details style="margin-bottom:12px"><summary class="muted" style="cursor:pointer;letter-spacing:2px">RECENT ALERTS (REPLAY)</summary><div id="aHist" style="margin-top:6px"></div></details>
+    <div id="aList"></div>
+    <div class="row" style="margin-top:12px"><button id="aNew">+ New alert</button><button class="ghost" id="aReset">Reset to defaults</button></div>
+    <form id="aForm" style="margin-top:14px; display:none; gap:12px; flex-wrap:wrap; align-items:end">
+      <input type="hidden" id="aId">
+      <label class="fld">Event<select id="aEvent"></select></label>
+      <label class="fld">Name (just for you)<input id="aName" maxlength="40"></label>
+      <label class="fld" id="fMin">Min <span id="uMin"></span><input id="aMin" type="number" step="any" style="width:100px" placeholder="any"></label>
+      <label class="fld" id="fMax">Max <span id="uMax"></span><input id="aMax" type="number" step="any" style="width:100px" placeholder="any"></label>
+      <label class="fld" id="fMatch">Reward contains<input id="aMatch" placeholder="any reward" style="width:160px"></label>
+      <label class="fld" id="fKey">Trigger key<input id="aKey" placeholder="lurk" style="width:130px"></label>
+      <div style="flex-basis:100%"></div>
+      <label class="fld">Tag (small badge)<input id="aTag" maxlength="60" style="width:220px"></label>
+      <label class="fld">Title (big line)<input id="aTitle" maxlength="80" style="width:260px"></label>
+      <label class="fld">Message (sub line)<input id="aMsg" maxlength="140" style="width:320px"></label>
+      <div style="flex-basis:100%"><span class="muted">Insert: </span><span id="aVars"></span></div>
+      <label class="fld">Color<span class="row" style="margin:0"><span id="aSw"></span><input id="aColor" type="color" value="#4FBBBC" style="padding:0;width:44px;height:34px"></span></label>
+      <label class="fld">Sound<span class="row" style="margin:0"><select id="aSound"></select><button type="button" class="ghost" id="aPlay">▶</button></span></label>
+      <label class="fld">Upload sound<input id="aSoundUp" type="file" accept=".wav,.mp3,.ogg,audio/*"></label>
+      <label class="fld">Volume<input id="aVol" type="range" min="0" max="100" value="60"></label>
+      <label class="fld">Seconds on screen<input id="aSecs" type="number" min="2" max="30" value="6" style="width:80px"></label>
+      <label class="fld">Image<select id="aImage"></select></label>
+      <label class="fld">Video clip (optional)<select id="aVideo"></select></label>
+      <label class="fld">Upload video (.mp4 / .webm, up to 80 MB)<input id="aVideoUp" type="file" accept=".mp4,.webm,video/mp4,video/webm"></label>
+      <label class="fld">Upload image<input id="aImageUp" type="file" accept=".png,.gif,.webp,.jpg,.jpeg,image/*"></label>
+      <label class="fld"><span>Read it aloud</span><input id="aTts" type="checkbox"></label>
+      <label class="fld">Voice says<input id="aTtsText" maxlength="200" style="width:260px" placeholder="{name} says {message}"></label>
+      <label class="fld">Voice<select id="aTtsVoice"><option value="">Default voice</option></select></label>
+      <label class="fld"><span>Enabled</span><input id="aOn" type="checkbox" checked></label>
+      <div style="flex-basis:100%" class="row"><button type="submit">Save alert</button><button type="button" class="ghost" id="aCancel">Cancel</button><span class="muted" id="aErr"></span></div>
+    </form>
+    <p class="muted" style="margin-top:10px">Variables: {name} {amount} {months} {tier} {message} {total} {viewers} {reward} {level} ... (shown for each event). Custom alerts: create one with a trigger key, then fire it from a Stream Deck / bot: <code>POST /api/event {"event":"custom","key":"lurk","name":"Sam"}</code>.</p>
+  </section>
+
+
+  <section class="wide">
+    <h2>ALL LABELS <small id="lblCount"></small></h2>
+    <input id="lblFilter" placeholder="Filter (e.g. follower, session, chat)…">
+    <p class="muted" style="margin-bottom:8px">Each row is a text file in <code>data/labels/</code>. In OBS: add Text (GDI+) &gt; Read from file &gt; pick <code>name.txt</code>.</p>
+    <div id="lbl"></div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then(r => r.json());
+const TYPES = [['follow','Follow'],['sub','Sub'],['resub','Resub'],['giftsub','Gift subs'],['bits','Bits'],['raid','Raid'],['tip','Tip'],['redeem','Redeem'],['hype','Hype train'],['poll','Poll overlay'],['duel','Duel'],['prediction','Prediction overlay']];
+$('tests').innerHTML = TYPES.map(([t, l]) => `<button class="alt" data-t="${t}">${l}</button>`).join('');
+$('tests').onclick = e => { if (e.target.dataset.t) post('/api/test', { type: e.target.dataset.t }); };
+$('bConnect').onclick = async () => { const r = await post('/api/auth/start'); if (r.error) { alert(r.error.includes('Client ID') ? 'Add the Twitch Client ID first: open Setup.' : r.error); return; } if (r.verification_uri) window.open(r.verification_uri, '_blank'); refresh(); };   // opens the Twitch login page in your browser: log in and press Authorize
+$('bLogout').onclick = async () => { await post('/api/auth/logout'); refresh(); };
+$('bReset').onclick = async () => { await post('/api/session/reset'); refresh(); };
+const nz = v => (v == null || v === '') ? '—' : v;
+function render(s) {
+  const a = s.auth || {};
+  $('dAuth').className = 'dot ' + (a.status === 'ok' ? 'ok' : a.status === 'pending' ? 'warn' : a.status === 'error' ? 'bad' : '');
+  $('tAuth').textContent = a.message || '';
+  const es = s.eventsub;
+  $('dEs').className = 'dot ' + (es === 'connected' ? 'ok' : (es === 'connecting' || es === 'partial') ? 'warn' : es === 'error' ? 'bad' : '');
+  $('tEs').textContent = 'Event feed: ' + es + (es === 'partial' ? ' (some events unavailable, see console)' : '');
+  const sp = s.stripe || {};
+  $('dSt').className = 'dot ' + (!sp.enabled ? '' : sp.ok === false ? 'bad' : sp.ok ? 'ok' : 'warn');
+  $('tSt').textContent = 'Tips (Stripe): ' + (!sp.enabled ? 'not set up (see README)' : sp.ok === false ? 'error - ' + sp.error : sp.ok ? 'connected' : 'connecting…');
+  $('deviceBox').classList.toggle('hide', !s.device);
+  if (s.device) { $('devCode').textContent = s.device.user_code; $('devLink').href = s.device.verification_uri; $('devLink').textContent = s.device.verification_uri; }
+  $('needId').classList.toggle('hide', !!s.clientId);
+  const ms = s.missingScopes || [];
+  $('scopeWarn').classList.toggle('hide', !ms.length);
+  $('scopeWarn').textContent = ms.length ? 'Press Connect Twitch again to unlock more labels/events (new permissions: ' + ms.join(', ') + ')' : '';
+  const se = s.session || {}, t = s.totals || {}, l = s.latest || {};
+  const rows = [['Followers (total)', t.followers], ['Subscribers (total)', t.subs], ['New followers', se.followers],
+    ['New + gifted subs', (se.subs || 0) + (se.resubs || 0) + (se.giftSubs || 0)], ['Bits', se.bits], ['Raids', se.raids],
+    ['Latest follower', l.follower], ['Latest subscriber', l.subscriber], ['Latest cheer', l.cheer], ['Latest raider', l.raider]];
+  $('stats').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${nz(v)}</td></tr>`).join('');
+}
+const refresh = () => fetch('/api/status').then(r => r.json()).then(s => { render(s); if (s.recent) s.recent.slice().reverse().forEach(addLog); });
+let first = true;
+function addLog(a) {
+  if (first) { $('log').innerHTML = ''; first = false; }
+  const d = document.createElement('div');
+  const t = new Date(a.ts || Date.now()).toLocaleTimeString();
+  const esc = x => String(x == null ? '' : x).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  d.innerHTML = `<span class="t">${t}</span><b>${esc((a.tag || a.kind || '').toUpperCase())}</b> ${esc(a.name)} <small>${esc(a.msg)}</small>`;
+  $('log').prepend(d);
+}
+// ---------- alerts editor
+let A = { rules: [], events: {}, samples: {}, assets: { sounds: [], images: [] } }, lastField = null;
+const PRESET = ['#4FBBBC', '#F39120', '#EC4624', '#E2DAC2', '#B13A22'];
+const fitPreview = () => { const p = $('aPrev'), s = Math.min(1, Math.min(p.parentElement.clientWidth, 520) / 1000); p.style.width = Math.round(1000 * s) + 'px'; $('aFrame').style.transform = 'scale(' + s + ')'; p.style.height = Math.round(300 * s) + 'px'; };
+window.addEventListener('resize', fitPreview);
+function condText(r) {
+  const ev = A.events[r.event] || {}, bits = [];
+  if (r.min != null) bits.push('≥ ' + r.min); if (r.max != null) bits.push('≤ ' + r.max);
+  let t = bits.length ? (ev.numLabel || 'amount') + ' ' + bits.join(' and ') : 'always';
+  if (r.match) t = 'reward contains "' + r.match + '"'; if (r.key) t = 'key "' + r.key + '"';
+  return t;
+}
+function drawAlerts() {
+  const groups = Object.keys(A.events);
+  const rows = A.rules.slice().sort((a, b) => groups.indexOf(a.event) - groups.indexOf(b.event) || (a.min || 0) - (b.min || 0));
+  $('aList').innerHTML = rows.map((r) => `
+    <div class="arow ${r.enabled ? '' : 'off'}" data-id="${r.id}">
+      <input type="checkbox" data-a="toggle" ${r.enabled ? 'checked' : ''} title="Enabled">
+      <div><div class="an">${esc2(r.name)}</div><div class="ac">${esc2((A.events[r.event] || {}).label || r.event)} &middot; ${esc2(condText(r))}</div></div>
+      <div><span class="tagpv" style="background:${r.color}">${esc2(r.tag || '—')}</span> <span class="ac">${esc2(r.title)} ${r.msg ? '/ ' + esc2(r.msg) : ''} &middot; ${r.sound ? esc2(r.sound) : 'no sound'} &middot; ${r.seconds}s${r.tts && r.tts.on ? ' &middot; 🗣 voice' : ''}</span></div>
+      <div class="gbtns"><button class="alt" data-a="test">Test</button><button class="ghost" data-a="edit">Edit</button><button class="ghost" data-a="dup">Copy</button><button class="danger ghost" data-a="del">Delete</button></div>
+    </div>`).join('') || '<p class="muted">No alerts. Nothing will show on stream. Press “Reset to defaults” to bring the standard set back.</p>';
+}
+const loadAlerts = () => fetch('/api/alerts').then((r) => r.json()).then((j) => {
+  A = j;
+  if (!$('aEvent').options.length) $('aEvent').innerHTML = Object.entries(j.events).map(([k, v]) => `<option value="${k}">${esc2(v.label)}</option>`).join('');
+  fillAssets(); drawAlerts(); fitPreview();
+});
+function fillAssets(selSound, selImage, selVideo) {
+  const sv = selVideo !== undefined ? selVideo : ($('aVideo') ? $('aVideo').value : '');
+  $('aVideo').innerHTML = '<option value="">(no video)</option>' + (A.assets.videos || []).map((f) => `<option>${esc2(f)}</option>`).join(''); $('aVideo').value = sv || '';
+  const ss = selSound !== undefined ? selSound : $('aSound').value, si = selImage !== undefined ? selImage : $('aImage').value;
+  $('aSound').innerHTML = '<option value="">(no sound)</option>' + A.assets.sounds.map((f) => `<option>${esc2(f)}</option>`).join('');
+  $('aImage').innerHTML = '<option value="">Default (your logo)</option>' + A.assets.images.filter((f) => f !== 'logo.png').map((f) => `<option>${esc2(f)}</option>`).join('');
+  $('aSound').value = ss || ''; $('aImage').value = si || '';
+}
+function eventUi() {
+  const ev = A.events[$('aEvent').value] || { vars: [] };
+  $('fMin').style.display = $('fMax').style.display = ev.numLabel ? '' : 'none';
+  $('uMin').textContent = $('uMax').textContent = ev.numLabel ? '(' + ev.numLabel + ')' : '';
+  $('fMatch').style.display = ev.match ? '' : 'none'; $('fKey').style.display = ev.key ? '' : 'none';
+  $('aVars').innerHTML = ev.vars.map((v) => `<span class="chip" data-v="${v}">{${v}}</span>`).join('');
+}
+function setColor(c) { $('aColor').value = c; }
+function openAlertForm(r) {
+  r = r || { event: 'follow', name: '', enabled: true, min: null, max: null, match: '', key: '', tag: '', title: '{name}', msg: '', color: '#4FBBBC', sound: 'alert_follow.wav', image: '', volume: 60, seconds: 6 };
+  $('aForm').style.display = 'flex'; $('aErr').textContent = '';
+  $('aId').value = r.id || ''; $('aEvent').value = r.event; eventUi(); $('aName').value = r.name; $('aMin').value = r.min == null ? '' : r.min; $('aMax').value = r.max == null ? '' : r.max;
+  $('aMatch').value = r.match || ''; $('aKey').value = r.key || ''; $('aTag').value = r.tag; $('aTitle').value = r.title; $('aMsg').value = r.msg; setColor(r.color);
+  fillAssets(r.sound, r.image, r.video); $('aVol').value = r.volume; $('aSecs').value = r.seconds; $('aOn').checked = r.enabled;
+  const tt = r.tts || { on: false, text: '{name} says {message}', voice: '' }; $('aTts').checked = tt.on; $('aTtsText').value = tt.text; $('aTtsVoice').value = tt.voice || ''; $('aTag').focus();
+}
+$('aSw').innerHTML = PRESET.map((c) => `<span class="sw" data-c="${c}" style="background:${c}"></span>`).join('');
+$('aSw').onclick = (e) => { if (e.target.dataset.c) setColor(e.target.dataset.c); };
+$('aEvent').onchange = () => { eventUi(); if (!$('aId').value) { const ev = A.events[$('aEvent').value]; if (!$('aName').value) $('aName').value = ev.label; } };
+document.querySelectorAll('#aForm input[type=text], #aForm input:not([type])').forEach((i) => i.addEventListener('focus', () => { lastField = i; }));
+$('aVars').onclick = (e) => { const v = e.target.dataset.v; if (!v) return; const f = lastField && ['aTag', 'aTitle', 'aMsg'].includes(lastField.id) ? lastField : $('aMsg'); f.value += '{' + v + '}'; f.focus(); };
+$('aNew').onclick = () => openAlertForm(null);
+$('aCancel').onclick = () => { $('aForm').style.display = 'none'; };
+$('aPlay').onclick = () => { if ($('aSound').value) { const a = new Audio('/sounds/' + $('aSound').value); a.volume = $('aVol').value / 100; a.play(); } };
+async function upload(kind, file) {
+  const r = await fetch('/api/alerts/upload?kind=' + kind + '&name=' + encodeURIComponent(file.name), { method: 'POST', body: file }).then((x) => x.json());
+  if (r.error) { $('aErr').textContent = r.error; return null; }
+  await loadAlerts(); return r.path;
+}
+$('aSoundUp').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; const p = await upload('sound', f); if (p) $('aSound').value = p; e.target.value = ''; };
+$('aVideoUp').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; const p = await upload('video', f); if (p) $('aVideo').value = p; e.target.value = ''; };
+$('aImageUp').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; const p = await upload('image', f); if (p) $('aImage').value = p; e.target.value = ''; };
+$('aForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const r = await post('/api/alerts/save', { id: $('aId').value || undefined, event: $('aEvent').value, name: $('aName').value, min: $('aMin').value, max: $('aMax').value,
+    match: $('aMatch').value, key: $('aKey').value, tag: $('aTag').value, title: $('aTitle').value, msg: $('aMsg').value, color: $('aColor').value,
+    sound: $('aSound').value, image: $('aImage').value, video: $('aVideo').value, volume: $('aVol').value, seconds: $('aSecs').value, enabled: $('aOn').checked, tts: { on: $('aTts').checked, text: $('aTtsText').value, voice: $('aTtsVoice').value } });
+  if (r.error) { $('aErr').textContent = r.error; return; }
+  $('aForm').style.display = 'none'; await loadAlerts(); post('/api/alerts/test', { id: r.id });
+};
+$('aReset').onclick = async () => {
+  const b = $('aReset'); if (!b.dataset.arm) { b.dataset.arm = 1; b.textContent = 'Sure? (replaces all)'; setTimeout(() => { delete b.dataset.arm; b.textContent = 'Reset to defaults'; }, 3000); return; }
+  delete b.dataset.arm; b.textContent = 'Reset to defaults'; await post('/api/alerts/reset'); loadAlerts();
+};
+$('aList').onclick = async (e) => {
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  const r = A.rules.find((x) => x.id === b.closest('.arow').dataset.id), a = b.dataset.a;
+  if (a === 'test') return post('/api/alerts/test', { id: r.id });
+  if (a === 'edit') return openAlertForm(r);
+  if (a === 'dup') { const c = Object.assign({}, r, { id: undefined, name: r.name + ' copy' }); return openAlertForm(c); }
+  if (a === 'toggle') await post('/api/alerts/save', Object.assign({}, r, { enabled: b.checked }));
+  if (a === 'del') { if (!b.dataset.arm) { b.dataset.arm = 1; b.textContent = 'Sure?'; setTimeout(() => { delete b.dataset.arm; b.textContent = 'Delete'; }, 3000); return; } await post('/api/alerts/delete', { id: r.id }); }
+  loadAlerts();
+};
+loadAlerts();
+const ctlPaint = (c) => { $('cPause').textContent = c.paused ? 'Resume alerts' : 'Pause alerts'; $('cPause').className = c.paused ? '' : 'ghost'; $('cMute').textContent = c.muted ? 'Unmute sounds' : 'Mute sounds'; $('cMute').className = c.muted ? '' : 'ghost';
+  $('cStat').textContent = (c.paused ? '⏸ paused ' : '') + (c.muted ? '🔇 muted' : ''); };
+const ctlPost = (a) => fetch('/api/alerts/ctl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: a }) }).then((r) => r.json()).then((c) => { if (!c.error) ctlPaint(c); });
+let CTL = { paused: false, muted: false };
+$('cPause').onclick = () => ctlPost(CTL.paused ? 'resume' : 'pause'); $('cMute').onclick = () => ctlPost(CTL.muted ? 'unmute' : 'mute');
+document.querySelectorAll('[data-ctl]').forEach((b) => b.onclick = () => ctlPost(b.dataset.ctl));
+const histLoad = () => fetch('/api/alerts/history').then((r) => r.json()).then((h) => { $('aHist').innerHTML = h.map((a) => `<div class="arow" data-h="${a.id}" style="grid-template-columns:1fr auto"><div><span class="an">${esc2(a.tag || a.kind)}</span> <span class="ac">${esc2(a.name)} ${a.msg ? '&middot; ' + esc2(a.msg) : ''} &middot; ${new Date(a.ts).toLocaleTimeString()}${a.tts ? ' &middot; 🗣' : ''}</span></div><button class="alt" data-replay="${a.id}">Replay</button></div>`).join('') || '<p class="muted">Nothing yet.</p>'; });
+$('aHist').onclick = async (e) => { const b = e.target.closest('[data-replay]'); if (b) { await fetch('/api/alerts/replay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: +b.dataset.replay }) }); setTimeout(histLoad, 300); } };
+fetch('/api/alerts').then((r) => r.json()).then((j) => { CTL = j.ctl; ctlPaint(CTL); }); histLoad(); setInterval(histLoad, 6000);
+fetch('/api/tts').then((r) => r.json()).then((j) => { const g = (l, a) => a.length ? '<optgroup label="' + l + '">' + a.map((v) => `<option>${esc2(v.name)}</option>`).join('') + '</optgroup>' : ''; $('aTtsVoice').innerHTML = '<option value="">Default voice</option>' + g('Kokoro: realistic', (j.voices || []).filter((v) => v.engine === 'kokoro')) + g('Windows', (j.voices || []).filter((v) => v.engine !== 'kokoro')); }).catch(() => {});
+
+let labels = {};
+const esc2 = x => String(x == null ? '' : x).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+function drawLabels() {
+  const f = $('lblFilter').value.trim().toLowerCase();
+  const names = Object.keys(labels).filter(n => !f || n.includes(f) || (labels[n].description || '').toLowerCase().includes(f));
+  $('lblCount').textContent = '(' + names.length + ')';
+  $('lbl').innerHTML = '<table>' + names.map(n => `<tr><td>${n}.txt</td><td>${esc2(labels[n].value) || '<span class="muted">(empty)</span>'}</td><td>${esc2(labels[n].description)}</td></tr>`).join('') + '</table>';
+}
+const loadLabels = () => fetch('/api/labels').then(r => r.json()).then(l => { labels = l; drawLabels(); });
+$('lblFilter').oninput = drawLabels;
+loadLabels(); setInterval(loadLabels, 3000);
+refresh();
+const es = new EventSource('/events');
+es.addEventListener('status', e => render(JSON.parse(e.data)));
+es.addEventListener('log', e => addLog(JSON.parse(e.data)));
+es.addEventListener('alertctl', e => { const d = JSON.parse(e.data); CTL = { paused: d.paused, muted: d.muted }; ctlPaint(CTL); });
+</script></body></html>

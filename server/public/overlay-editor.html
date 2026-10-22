@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Overlay Editor</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 18px 20px 50px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 16px 20px; border-top: 1px solid var(--line); display: grid; grid-template-columns: minmax(260px, 340px) 1fr; gap: 20px; } section.h { border-color: var(--heat); }
+  h2 { grid-column: 1 / -1; font-size: 13px; letter-spacing: 5px; color: var(--aqua); } section.h h2 { color: var(--heat); }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; margin-bottom: 12px; }
+  select, input[type=number] { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; } input[type=range] { width: 100%; accent-color: var(--heat); }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 9px 14px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); margin: 0 6px 6px 0; } button.alt { background: var(--aqua); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; }
+  .muted { color: #9aa39f; font-size: 13px; line-height: 1.45; margin-bottom: 10px; }
+  .pv { position: relative; background: repeating-conic-gradient(#2a3433 0 25%, #202928 0 50%) 0 0 / 24px 24px; overflow: hidden; border: 2px solid #46504f; align-self: start; }
+  .pv iframe { position: absolute; left: 0; top: 0; border: 0; transform-origin: 0 0; background: transparent; }
+  .cap { grid-column: 2; font-size: 11px; letter-spacing: 3px; color: #707b78; margin-top: -10px; }
+  #saved { position: fixed; bottom: 18px; right: 20px; background: var(--aqua); color: var(--iron); padding: 6px 14px; font-weight: 700; opacity: 0; transition: opacity .3s; } #saved.on { opacity: 1; }
+  @media (max-width: 800px) { section { grid-template-columns: 1fr; } .cap { grid-column: 1; } }
+</style>
+<script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style>
+</head><body>
+<header><img src="/assets/logo.png" alt=""><h1>OVERLAY EDITOR</h1><a href="/">&larr; Home</a></header>
+<main>
+  <section>
+    <h2>ALERTS</h2>
+    <div>
+      <p class="muted">Where alerts appear and how loud they are. What each alert says, looks like and plays (text, colours, sounds, images, video, voice) is set per alert in the rules editor.</p>
+      <label class="fld">Position on screen<select id="aPos"><option value="top">Top</option><option value="middle">Middle</option><option value="bottom">Bottom</option></select></label>
+      <label class="fld">Volume (<span id="aVolV"></span>%)<input type="range" id="aVol" min="0" max="200" step="5"></label>
+      <div class="muted" style="margin-bottom:4px">Try it</div>
+      <div id="tests"></div>
+      <button class="alt" id="rules">Edit alert rules &rarr;</button>
+    </div>
+    <div class="pv" id="pvA"><iframe id="fA" src="/overlays/alerts.html?port=8420" width="1920" height="1080"></iframe></div>
+    <div class="cap">LIVE PREVIEW (1920 x 1080)</div>
+  </section>
+
+  <section class="h">
+    <h2>RECENT EVENTS</h2>
+    <div>
+      <label class="fld">Style<select id="eMode"><option value="list">List (stack of cards)</option><option value="ticker">Ticker (scrolls right to left)</option></select></label>
+      <div id="listOpts">
+        <label class="fld">Alignment<select id="eAlign"><option value="bottom">Bottom</option><option value="top">Top</option></select></label>
+        <label class="fld">Grow<select id="eGrow"><option value="up">Up (new events at the bottom, older ones pushed up)</option><option value="down">Down (new events at the top, older ones pushed down)</option></select></label>
+      </div>
+      <div id="incBox"><div class="muted" style="margin-bottom:4px">Show in the ticker</div><div id="incs" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-bottom:12px"></div></div>
+      <label class="fld">Events to keep<input type="number" id="eMax" min="1" max="30"></label>
+      <label class="fld" id="speedBox">Ticker speed (<span id="eSpV"></span> px/s)<input type="range" id="eSp" min="20" max="300" step="10"></label>
+      <p class="muted" id="srcHelp"></p>
+      <button class="alt" id="addEv">Add a test event</button>
+    </div>
+    <div class="pv" id="pvE"><iframe id="fE" width="520" height="440"></iframe></div>
+    <div class="cap" id="capE"></div>
+  </section>
+  <section>
+    <h2>EMOTE EXPLOSION</h2>
+    <div>
+      <p class="muted">A full-screen burst of your channel's emotes (BTTV, FFZ and 7TV too). Choose what sets it off.</p>
+      <div class="muted" style="margin-bottom:4px">Fire it when</div>
+      <div id="xTrig" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-bottom:12px"></div>
+      <label class="fld">Style<select id="xStyle"><option value="burst">Burst from the middle</option><option value="rain">Rain from the top</option></select></label>
+      <label class="fld">How many (<span id="xCV"></span>)<input type="range" id="xCount" min="20" max="200" step="10"></label>
+      <label class="fld">Lasts about (<span id="xSV"></span> s)<input type="range" id="xSec" min="3" max="12" step="1"></label>
+      <button class="alt" id="xTest">Test it</button>
+      <p class="muted">In OBS it is the <b>Emote Explosion</b> source, full screen on top of every scene (reinstall the OBS scenes on Setup if you don't see it).</p>
+    </div>
+    <div class="pv" id="pvX"><iframe id="fX" width="1920" height="1080"></iframe></div>
+    <div class="cap">LIVE PREVIEW (1920 x 1080)</div>
+  </section>
+</main>
+<div id="saved">Saved</div>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+let S = null, t = null, lastMode = '';
+function fitPreview(wrap, frame, w, h, maxW) { const k = Math.min(1, maxW / w); frame.style.width = w + 'px'; frame.style.height = h + 'px'; frame.style.transform = 'scale(' + k + ')'; wrap.style.width = w * k + 'px'; wrap.style.height = h * k + 'px'; }
+function draw() {
+  $('aPos').value = S.alerts.position; $('aVol').value = S.alerts.volume; $('aVolV').textContent = S.alerts.volume;
+  const e = S.events; $('eMode').value = e.mode; $('eAlign').value = e.align; $('eGrow').value = e.grow; $('eMax').value = e.max; $('eSp').value = e.speed; $('eSpV').textContent = e.speed;
+  const INC = [['follow', 'Follows'], ['sub', 'Subs & gifts'], ['bits', 'Bits'], ['raid', 'Raids'], ['tip', 'Tips & charity'], ['redeem', 'Point redeems'], ['hype', 'Hype trains'], ['goal', 'Goals reached'], ['custom', 'Custom alerts']];
+  if (!$('incs').children.length) { $('incs').innerHTML = INC.map(([k, l]) => '<label style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--cream)"><input type="checkbox" data-inc="' + k + '" style="width:18px;height:18px;accent-color:var(--heat)">' + l + '</label>').join(''); $('incs').onchange = save; }
+  $('incs').querySelectorAll('[data-inc]').forEach((c) => (c.checked = !!(e.include || {})[c.dataset.inc]));
+  const X = S.explosion || {}, XT = [['goal', 'A goal is reached'], ['raid', 'Someone raids'], ['hype', 'A hype train starts'], ['sub', 'New sub or resub'], ['giftsub', 'Gift subs'], ['bits', 'Bits']];
+  if (!$('xTrig').children.length) { $('xTrig').innerHTML = XT.map(([k, l]) => '<label style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--cream)"><input type="checkbox" data-x="' + k + '" style="width:18px;height:18px;accent-color:var(--heat)">' + l + '</label>').join(''); $('xTrig').onchange = save; }
+  $('xTrig').querySelectorAll('[data-x]').forEach((c) => (c.checked = !!X[c.dataset.x])); $('xStyle').value = X.style || 'burst'; $('xCount').value = X.count || 70; $('xCV').textContent = X.count || 70; $('xSec').value = X.seconds || 6; $('xSV').textContent = X.seconds || 6;
+  const tk = e.mode === 'ticker'; $('incBox').style.display = tk ? '' : 'none'; $('listOpts').style.display = tk ? 'none' : ''; $('speedBox').style.display = tk ? '' : 'none';
+  $('srcHelp').innerHTML = tk ? 'In OBS use the <b>Event Ticker</b> source (hidden at the bottom of Gameplay: switch its eye on). It is the page <code>/overlays/events.html?mode=ticker</code>, 1920 wide.' : 'In OBS this is the <b>Recent Events</b> source. Want both? Add <code>?mode=ticker</code> to a second browser source pointing at the same page.';
+  if (lastMode !== e.mode) { lastMode = e.mode; $('fE').src = '/overlays/events.html?demo=1&port=' + (location.port || 80) + (tk ? '&mode=ticker' : '&mode=list'); fitPreview($('pvE'), $('fE'), tk ? 1920 : 520, tk ? 62 : 440, tk ? 720 : 520); $('capE').textContent = tk ? 'LIVE PREVIEW (1920 x 62)' : 'LIVE PREVIEW (520 x 440)'; }
+}
+function collect() { return { explosion: Object.assign({ style: $('xStyle').value, count: +$('xCount').value, seconds: +$('xSec').value }, Object.fromEntries([...document.querySelectorAll('[data-x]')].map((c) => [c.dataset.x, c.checked]))), alerts: { position: $('aPos').value, volume: +$('aVol').value }, events: { mode: $('eMode').value, align: $('eAlign').value, grow: $('eGrow').value, max: +$('eMax').value, speed: +$('eSp').value, include: Object.fromEntries([...document.querySelectorAll('[data-inc]')].map((c) => [c.dataset.inc, c.checked])) } }; }
+function save() { clearTimeout(t); t = setTimeout(async () => { S = await post('/api/overlay-settings/save', collect()); draw(); $('saved').classList.add('on'); setTimeout(() => $('saved').classList.remove('on'), 900); }, 250); }
+['xStyle', 'xCount', 'xSec', 'aPos', 'aVol', 'eMode', 'eAlign', 'eGrow', 'eMax', 'eSp'].forEach((id) => ($(id).oninput = () => { if (id === 'aVol') $('aVolV').textContent = $(id).value; if (id === 'xCount') $('xCV').textContent = $(id).value; if (id === 'xSec') $('xSV').textContent = $(id).value; if (id === 'eSp') $('eSpV').textContent = $(id).value; save(); }));
+$('tests').innerHTML = [['follow', 'Follow'], ['sub', 'Sub'], ['bits', 'Bits'], ['raid', 'Raid'], ['tip', 'Tip']].map(([k, l]) => '<button class="ghost" data-t="' + k + '">' + l + '</button>').join('');
+$('tests').onclick = (e) => { if (e.target.dataset.t) post('/api/test', { type: e.target.dataset.t }); };
+$('xTest').onclick = () => post('/api/explosion/test', { reason: 'goal' });
+$('addEv').onclick = () => post('/api/test', { type: 'follow' });
+$('rules').onclick = () => { if (self !== top) top.location.hash = '#/m/dashboard'; else location.href = '/dashboard'; };
+$('fA').src = '/overlays/alerts.html?port=' + (location.port || 80); $('fX').src = '/overlays/explosion.html?scale=1&port=' + (location.port || 80); fitPreview($('pvX'), $('fX'), 1920, 1080, 560);
+(async () => { S = await fetch('/api/overlay-settings').then((r) => r.json()); fitPreview($('pvA'), $('fA'), 1920, 1080, 560); draw(); })();
+</script></body></html>

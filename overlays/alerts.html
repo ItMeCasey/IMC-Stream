@@ -1,0 +1,160 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Alerts</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  .vid { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 0; pointer-events: none; }
+  #stage { z-index: 1; position: absolute; left: 0; right: 0; top: 70px; display: flex; justify-content: center; pointer-events: none; }
+  .alert { position: relative; width: 980px; height: 230px; display: flex; align-items: stretch; opacity: 0;
+    filter: drop-shadow(0 14px 22px rgba(0,0,0,.55)); }
+  .alert.in  { animation: slideIn .7s cubic-bezier(.2,.9,.2,1) forwards; }
+  .alert.out { animation: slideOut .55s cubic-bezier(.6,0,.9,.4) forwards; }
+  @keyframes slideIn  { from { opacity: 0; transform: translateX(-140px) skewX(-8deg); clip-path: inset(0 100% 0 0); }
+                        to   { opacity: 1; transform: none; clip-path: inset(0 0 0 0); } }
+  @keyframes slideOut { from { opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+                        to   { opacity: 0; transform: translateX(160px) skewX(8deg); clip-path: inset(0 0 0 100%); } }
+  .badge { width: 230px; background: var(--iron-d); display: flex; align-items: center; justify-content: center;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 52px) 100%, 0 100%); position: relative; z-index: 3; }
+  .badge img { width: 180px; height: 180px; animation: spin 1.1s cubic-bezier(.2,.8,.2,1) .15s both; }
+  @keyframes spin { from { transform: rotate(-300deg) scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+  .body { flex: 1; margin-left: -52px; padding: 22px 40px 22px 90px; background: var(--iron); position: relative; z-index: 2;
+    clip-path: polygon(52px 0, 100% 0, calc(100% - 52px) 100%, 0 100%); display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+  .body::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 12px; background:
+    linear-gradient(90deg, var(--aqua) 0 30%, var(--heat) 30% 55%, var(--rust) 55% 75%, var(--drust) 75% 90%, var(--cream) 90%); }
+  .tag { align-self: flex-start; font-size: 26px; font-weight: 700; letter-spacing: 8px; padding: 2px 16px 0 12px;
+    color: var(--iron); background: var(--accent, var(--aqua)); transform: skewX(-12deg); margin-top: 8px; }
+  .tag span { display: inline-block; transform: skewX(12deg); }
+  .name { font-size: 78px; font-weight: 700; line-height: 1; font-stretch: 80%; text-transform: uppercase; letter-spacing: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 8px; }
+  .msg { font-size: 28px; color: var(--accent, var(--aqua)); letter-spacing: 3px; margin-top: 6px; text-transform: uppercase;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shine { position: absolute; top: 0; bottom: 0; width: 140px; left: -200px; z-index: 4;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,.22), transparent); transform: skewX(-20deg); }
+  .alert.in .shine { animation: shine 1.2s .5s ease-out forwards; }
+  @keyframes shine { to { left: 1100px; } }
+  .follow { --accent: var(--aqua); } .sub { --accent: var(--heat); } .bits { --accent: var(--heat); }
+  .raid { --accent: var(--rust); } .tip { --accent: var(--cream); }
+  .raid .tag, .raid .msg { color: var(--cream); } .raid .tag { background: var(--rust); }
+  .custom .tag { color: var(--tagfg, var(--iron)); background: var(--accent); } .custom .msg { color: var(--accent); }
+  .badge img { object-fit: contain; }
+  #debug { position: fixed; left: 8px; bottom: 8px; font-size: 14px; color: var(--cream); background: rgba(0,0,0,.6); padding: 4px 8px; display: none; }
+</style></head>
+<body>
+<div id="stage"></div>
+<div id="debug"></div>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {};
+  const Q = new URLSearchParams(location.search);
+  const SECS = +(Q.get("seconds") || C.alertSeconds || 6);
+  const VOL = +(Q.get("volume") || C.alertVolume || 0.6);
+  const stage = document.getElementById("stage");
+  const dbg = document.getElementById("debug");
+  const PORT = +(Q.get("port") || C.serverPort || 8420), BASE = icmBase("alerts", PORT);
+  let CFGV = { position: "top", volume: 100 };
+  function applyCfg(s) { if (!s || !s.alerts) return; CFGV = s.alerts; const st = stage.style; st.top = st.bottom = "auto"; if (CFGV.position === "bottom") st.bottom = "70px"; else if (CFGV.position === "middle") { st.top = "50%"; st.transform = "translateY(-50%)"; } else st.top = "70px"; if (CFGV.position !== "middle") st.transform = "none"; }
+  fetch(BASE + "/api/overlay-settings").then((r) => r.json()).then(applyCfg).catch(() => {});
+  const queue = []; let busy = false, paused = false, muted = false, cur = null;   // paused / muted / skip come from the dashboard
+
+  // ---- speech (text-to-speech clips), one at a time
+  const ttsQ = []; let ttsAudio = null;
+  function ttsNext() {
+    if (ttsAudio || !ttsQ.length || muted) return;
+    const t = ttsQ.shift(), a = new Audio(BASE + t.url); a.volume = Math.min(1, (t.volume != null ? t.volume : 80) / 100); ttsAudio = a;
+    const end = () => { if (ttsAudio === a) ttsAudio = null; ttsNext(); };
+    a.onended = end; a.onerror = end; a.play().catch(end);
+  }
+  function enqueueTts(t) { if (t && t.url) { ttsQ.push(t); ttsNext(); } }
+  function ttsSkip() { if (ttsAudio) { const a = ttsAudio; ttsAudio = null; try { a.pause(); } catch (e) {} ttsNext(); } }
+  function ttsClear() { ttsQ.length = 0; ttsSkip(); }
+  window.ttsSpeak = enqueueTts;
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  const KINDS = {
+    follow: { tag: "NEW FOLLOWER", snd: "alert_follow.wav" },
+    sub:    { tag: "NEW SUB",      snd: "alert_sub.wav" },
+    bits:   { tag: "BITS",         snd: "alert_bits.wav" },
+    raid:   { tag: "INCOMING RAID", snd: "alert_raid.wav" },
+    tip:    { tag: "DONATION",     snd: "alert_tip.wav" }
+  };
+
+  function show(a, done) {
+    const k = KINDS[a.kind] || KINDS.follow;
+    const base = BASE;
+    const el = document.createElement("div");
+    el.className = "alert " + (a.accent ? "custom" : a.kind);
+    if (a.accent) {   // rule-driven colour; pick readable tag text
+      const n = parseInt(a.accent.slice(1), 16), lum = (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
+      el.style.setProperty("--accent", a.accent);
+      el.style.setProperty("--tagfg", lum < 0.4 ? "var(--cream)" : "var(--iron)");
+    }
+    el.innerHTML =
+      '<div class="badge"><img src="' + esc(a.image ? base + a.image : "../assets/logo.png") + '" alt=""></div>' +
+      '<div class="body"><div class="tag"><span>' + esc(a.tag || k.tag) + '</span></div>' +
+      '<div class="name">' + esc(a.name) + '</div>' +
+      (a.msg ? '<div class="msg">' + esc(a.msg) + '</div>' : '') + '</div><div class="shine"></div>';
+    stage.appendChild(el);
+    el.classList.add("in");
+    const snd = a.sound !== undefined ? (a.sound ? base + a.sound : "") : "../sounds/" + k.snd;
+    let spoke = false;
+    const speak = () => { if (!spoke && a.tts && !muted) { spoke = true; enqueueTts(a.tts); } };   // the voice follows the alert sound
+    if (snd && !muted) {
+      try { const s = new Audio(snd); s.volume = Math.min(1, VOL * (CFGV.volume / 100) * (a.volume != null ? a.volume / 100 : 1)); s.onended = speak; s.onerror = speak; s.play().catch(speak); setTimeout(speak, 4500); } catch (e) { speak(); }
+    } else speak();
+    let vid = null, hold = (a.seconds || SECS) * 1000;
+    if (a.video) {   // a video clip plays full-frame behind the card (use a transparent .webm or a full-screen clip)
+      vid = document.createElement("video"); vid.className = "vid"; vid.src = base + a.video; vid.playsInline = true; vid.muted = muted;
+      vid.volume = Math.min(1, VOL * (a.volume != null ? a.volume / 100 : 1)); document.body.insertBefore(vid, stage);
+      vid.addEventListener("loadedmetadata", () => { if (cur && cur.el === el && isFinite(vid.duration)) { clearTimeout(cur.timer); cur.timer = setTimeout(finishCur, Math.min(30, Math.max(hold / 1000, vid.duration + 0.5)) * 1000); } });
+      vid.play().catch(() => {});
+    }
+    cur = { el, done, vid, timer: setTimeout(finishCur, hold) };
+  }
+  function finishCur() {
+    if (!cur) return; const c = cur; cur = null; clearTimeout(c.timer);
+    if (c.vid) { try { c.vid.pause(); } catch (e) {} c.vid.remove(); }
+    c.el.classList.remove("in"); c.el.classList.add("out");
+    setTimeout(() => { c.el.remove(); c.done(); }, 650);
+  }
+  function pump() {
+    if (busy || paused || !queue.length) return;
+    busy = true;
+    show(queue.shift(), () => { busy = false; setTimeout(pump, 400); });
+  }
+  function push(a) { queue.push(a); pump(); }
+  window.pushAlert = push;
+
+  // ---- local server feed (server/server.js) -> alerts
+  function connect() {
+    const note = t => { dbg.style.display = "block"; dbg.textContent = t; setTimeout(() => dbg.style.display = "none", 6000); };
+    const es = new EventSource(BASE + "/events");
+    es.onmessage = ev => { try { const a = JSON.parse(ev.data); if (KINDS[a.kind]) push(a); } catch (e) {} };
+    es.addEventListener("overlaycfg", ev => { try { applyCfg(JSON.parse(ev.data)); } catch (e) {} });
+    es.addEventListener("alertctl", ev => {
+      try {
+        const d = JSON.parse(ev.data); paused = !!d.paused; muted = !!d.muted; if (muted) ttsClear();
+        if (d.action === "skip") { finishCur(); ttsClear(); } else if (d.action === "clear") queue.length = 0;
+        if (!paused) pump();
+      } catch (e) {}
+    });
+    es.addEventListener("tts", ev => { try { enqueueTts(JSON.parse(ev.data)); } catch (e) {} });
+    es.addEventListener("ttsctl", ev => { try { const d = JSON.parse(ev.data); if (d.action === "skip") ttsSkip(); else if (d.action === "clear") ttsClear(); } catch (e) {} });
+    es.addEventListener("status", ev => { try { const s = JSON.parse(ev.data); note(s.eventsub === "connected" ? "Twitch alerts connected" : "Local server connected - Twitch: " + s.eventsub); } catch (e) {} });
+    es.onerror = () => note("Waiting for local server (start-server.bat)...");
+  }
+  if (!Q.get("offline")) connect();
+
+  // ---- demo mode: ?demo=1 cycles every alert type; or call pushAlert({...}) from the console
+  if (Q.get("demo")) {
+    const demo = [
+      { kind: "follow", name: "ItMeCasey Fan", msg: "Thanks for the follow!" },
+      { kind: "sub", name: "RetroRider", msg: "Welcome to the crew // Tier 1" },
+      { kind: "bits", tag: "500 BITS", name: "BitBaron", msg: "Take my bits!" },
+      { kind: "raid", name: "FriendlyStreamer", msg: "42 raiders incoming" },
+      { kind: "tip", tag: "$10 TIP", name: "GenerousGamer", msg: "Keep up the great work" }
+    ];
+    demo.forEach(push);
+  }
+})();
+</script>
+</body></html>

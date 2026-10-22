@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Chat + Mod</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body { background: var(--chatbg, #0f1515); color: var(--cream); font: 15px/1.4 "Bahnschrift","Segoe UI",sans-serif; display: flex; flex-direction: column; }
+  #top { background: var(--iron-d); padding: 6px 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; position: relative; }
+  #top::after { content:""; position:absolute; left:0; right:0; bottom:0; height:3px; background:
+    linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  button { font: inherit; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 4px 9px; border: 0; cursor: pointer; background: #333f3e; color: var(--cream); }
+  button:hover { filter: brightness(1.25); }
+  button.on { background: var(--heat); color: var(--iron); }
+  button.danger { background: var(--drust); } button.danger.arm { background: var(--rust); animation: pulse .5s infinite alternate; }
+  @keyframes pulse { to { filter: brightness(1.4); } }
+  #dot { width: 10px; height: 10px; border-radius: 50%; background: #666; margin-left: auto; } #dot.ok { background: #6fcf6f; } #dot.bad { background: var(--rust); }
+  #banner { background: var(--drust); padding: 6px 10px; font-size: 13px; display: none; } #banner a { color: var(--cream); }
+  #chip { display: none; background: var(--aqua); color: var(--iron); padding: 3px 10px; font-weight: 700; font-size: 13px; }
+  #held { display: none; background: #3a2616; border-bottom: 3px solid var(--heat); max-height: 38%; overflow-y: auto; }
+  #held .h { padding: 6px 10px; border-top: 1px solid #4a3622; font-size: 14px; } #held .h b { color: var(--heat); } #held .h .why { color: #b9a58a; font-size: 12px; } #held .h .t { margin: 2px 0 5px; word-wrap: break-word; }
+  #held button { margin-right: 6px; } #held button.ok { background: var(--aqua); color: var(--iron); }
+  #list { background: var(--chatbg, #0f1515); flex: 1; overflow-y: auto; padding: 4px 0; }
+  .m { position: relative; padding: 3px 10px 4px 10px; border-left: 4px solid transparent; word-wrap: break-word; }
+  .m:hover { background: rgba(255,255,255,.05); }
+  .m.me { background: rgba(243,145,32,.14); border-left-color: var(--heat); }
+  .m.gone .t { text-decoration: line-through; opacity: .45; } .m.gone .u { opacity: .5; }
+  .m.hide { display: none; }
+  .time { color: #707b78; font-size: 11px; margin-right: 6px; }
+  .u { font-weight: 700; cursor: pointer; } .u:hover { text-decoration: underline; }
+  .reply { color: #8d9894; font-size: 12px; margin-left: 4px; }
+  .tools { display: none; position: absolute; right: 6px; top: 2px; gap: 3px; background: var(--iron-d); padding: 2px; box-shadow: 0 2px 8px rgba(0,0,0,.5); z-index: 2; }
+  .m:hover .tools { display: flex; }
+  .tools button { font-size: 11px; padding: 3px 7px; }
+  #bar { background: var(--iron-d); padding: 6px; display: flex; gap: 6px; }
+  #msg { flex: 1; font: inherit; background: var(--iron); color: var(--cream); border: 2px solid #46504f; padding: 6px 8px; min-width: 0; }
+  #msg:focus { outline: none; border-color: var(--aqua); }
+  #toast { position: fixed; left: 50%; bottom: 56px; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 6px 14px; font-weight: 700; display: none; z-index: 9; max-width: 90%; }
+  #toast.bad { background: var(--rust); color: var(--cream); }
+  #more { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); background: var(--heat); color: var(--iron); padding: 4px 12px; font-weight: 700; font-size: 12px; cursor: pointer; display: none; }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<div id="top">
+  <button data-set="slow" title="Slow mode (30s)">Slow</button>
+  <button data-set="followers" title="Followers-only (10 min)">Followers</button>
+  <button data-set="subs" title="Subscribers only">Subs</button>
+  <button data-set="emote" title="Emote-only">Emotes</button>
+  <button data-set="unique" title="Unique messages only">Unique</button>
+  <button class="danger" id="clear" title="Clear chat">Clear</button>
+  <span id="chip"></span>
+  <span id="dot" title="connection"></span>
+</div>
+<div id="banner"></div>
+<div id="held"></div>
+<div id="list"></div>
+<div id="more">New messages ↓</div>
+<div id="bar"><input id="msg" placeholder="Send as you…  (/timeout name 600, /ban name, /unban name, /slow 30, /slowoff, /clear)" autocomplete="off"><button id="send">Send</button></div>
+<div id="toast"></div>
+<script>{ const c = new URLSearchParams(location.search).get('bg'); if (/^[0-9a-f]{6}$/i.test(c || '')) document.documentElement.style.setProperty('--chatbg', '#' + c); }</script>
+<script src="/overlays/chat-render.js"></script>
+<script>
+const $ = (id) => document.getElementById(id), R = window.ChatRender;
+const list = $('list'); let me = '', filterUid = '', stick = true, settings = {};
+const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3500); }
+async function act(kind, body, okText) {
+  const r = await post('/api/mod/' + kind, body);
+  if (r.error) toast(r.error, true); else { toast(okText || 'Done'); if (r.settings) { settings = r.settings; paintSettings(); } }
+  return r;
+}
+
+// ---------- rendering
+const PAL = ['#4FBBBC', '#F39120', '#EC4624', '#E2DAC2'];
+function addMsg(m, quiet) {
+  const el = document.createElement('div');
+  el.className = 'm' + (me && m.text && m.text.toLowerCase().includes('@' + me) ? ' me' : '') + (m.gone ? ' gone' : '');
+  el.dataset.id = m.id; el.dataset.uid = m.uid;
+  const col = m.color && m.color.toLowerCase() !== '#000000' ? m.color : PAL[(m.name || '').length % 4];
+  const t = new Date(m.ts || Date.now()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  el.innerHTML =
+    '<div class="tools">' +
+      '<button data-a="delete">Del</button><button data-a="timeout" data-s="10">10s</button><button data-a="timeout" data-s="600">10m</button>' +
+      '<button data-a="timeout" data-s="3600">1h</button><button class="danger" data-a="ban">Ban</button></div>' +
+    (m.reply ? '<div class="reply">↪ ' + R.esc(m.reply.name) + ': ' + R.esc(m.reply.text) + '</div>' : '') +
+    '<span class="time">' + t + '</span>' + R.badgeHTML(m) + '<b class="u" style="color:' + R.esc(col) + '">' + R.esc(m.name) + '</b>: <span class="t">' + R.body(m) + '</span>';
+  el._m = m;
+  if (filterUid && m.uid !== filterUid) el.classList.add('hide');
+  list.appendChild(el);
+  while (list.children.length > 300) list.removeChild(list.firstChild);
+  if (!quiet) { if (stick) list.scrollTop = list.scrollHeight; else $('more').style.display = 'block'; }
+}
+list.addEventListener('scroll', () => { stick = list.scrollTop + list.clientHeight >= list.scrollHeight - 30; if (stick) $('more').style.display = 'none'; });
+$('more').onclick = () => { list.scrollTop = list.scrollHeight; };
+
+list.addEventListener('click', (e) => {
+  const row = e.target.closest('.m'); if (!row) return;
+  const m = row._m;
+  if (e.target.classList.contains('u')) { setFilter(filterUid === m.uid ? '' : m.uid, m.name); return; }
+  const b = e.target.closest('button[data-a]'); if (!b) return;
+  const a = b.dataset.a;
+  if (a === 'ban' && !b.classList.contains('arm')) {            // two-click confirm (OBS docks block confirm())
+    b.classList.add('arm'); b.textContent = 'Sure?'; setTimeout(() => { b.classList.remove('arm'); b.textContent = 'Ban'; }, 3000); return;
+  }
+  if (a === 'delete') act('delete', { messageId: m.id }, 'Message deleted');
+  else if (a === 'timeout') act('timeout', { userId: m.uid, seconds: +b.dataset.s }, m.name + ' timed out ' + (b.dataset.s >= 60 ? b.dataset.s / 60 + 'm' : b.dataset.s + 's'));
+  else if (a === 'ban') act('ban', { userId: m.uid }, m.name + ' banned');
+});
+function setFilter(uid, name) {
+  filterUid = uid; $('chip').style.display = uid ? 'inline-block' : 'none'; $('chip').textContent = uid ? 'Only ' + name + '  ✕' : '';
+  [...list.children].forEach((el) => el.classList.toggle('hide', !!uid && el.dataset.uid !== uid));
+  list.scrollTop = list.scrollHeight;
+}
+$('chip').onclick = () => setFilter('');
+
+// ---------- chat settings + clear
+function paintSettings() {
+  document.querySelectorAll('[data-set]').forEach((b) => b.classList.toggle('on', !!settings[b.dataset.set]));
+  const sl = document.querySelector('[data-set=slow]'); sl.textContent = settings.slow ? 'Slow ' + settings.slow + 's' : 'Slow';
+}
+document.querySelectorAll('[data-set]').forEach((b) => b.onclick = () => { const k = b.dataset.set; act('settings', { [k]: settings[k] ? false : 1 }, 'Chat settings updated'); });
+$('clear').onclick = () => {
+  const b = $('clear'); if (!b.classList.contains('arm')) { b.classList.add('arm'); b.textContent = 'Sure?'; setTimeout(() => { b.classList.remove('arm'); b.textContent = 'Clear'; }, 3000); return; }
+  b.classList.remove('arm'); b.textContent = 'Clear'; act('clear', {}, 'Chat cleared');
+};
+const loadSettings = () => fetch('/api/chat/settings').then((r) => r.json()).then((s) => { settings = s; paintSettings(); }).catch(() => {});
+
+// ---------- input + slash commands
+async function submit() {
+  const v = $('msg').value.trim(); if (!v) return; $('msg').value = '';
+  if (!v.startsWith('/')) { const r = await post('/api/chat/send', { message: v }); if (r.error) toast(r.error, true); return; }
+  const [cmd, rawName, ...rest] = v.slice(1).split(/\s+/), name = String(rawName || '').replace(/^@+/, '').replace(/[,.:;!?]+$/, ''), arg = rest.join(' ');
+  switch (cmd.toLowerCase()) {
+    case 'timeout': case 'to': return act('timeout', { login: name, seconds: +rest[0] || 600, reason: rest.slice(1).join(' ') }, name + ' timed out');
+    case 'ban': return act('ban', { login: name, reason: arg }, name + ' banned');
+    case 'unban': case 'untimeout': return act('unban', { login: name }, name + ' unbanned');
+    case 'clear': return act('clear', {}, 'Chat cleared');
+    case 'slow': return act('settings', { slow: +name || 1 }, 'Slow mode on');
+    case 'slowoff': return act('settings', { slow: false }, 'Slow mode off');
+    case 'followers': return act('settings', { followers: +name || 1 }, 'Followers-only on');
+    case 'followersoff': return act('settings', { followers: false }, 'Followers-only off');
+    case 'subs': return act('settings', { subs: true }, 'Subs-only on');
+    case 'subsoff': return act('settings', { subs: false }, 'Subs-only off');
+    case 'emoteonly': return act('settings', { emote: true }, 'Emote-only on');
+    case 'emoteonlyoff': return act('settings', { emote: false }, 'Emote-only off');
+    default: toast('Unknown command /' + cmd, true);
+  }
+}
+$('send').onclick = submit; $('msg').onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+
+// ---------- live feed
+function status(s) {
+  me = (s.login || '').toLowerCase();
+  const ok = s.eventsub === 'connected';
+  $('dot').className = ok ? 'ok' : 'bad'; $('dot').title = 'Twitch: ' + s.eventsub;
+  const miss = (s.missingScopes || []).filter((x) => /chat|moderator|user:/.test(x));
+  const b = $('banner');
+  if (!s.auth || s.auth.status !== 'ok') { b.style.display = 'block'; b.innerHTML = 'Not connected to Twitch. Open the <a href="/" target="_blank">dashboard</a> and press Connect Twitch.'; }
+  else if (miss.length) { b.style.display = 'block'; b.innerHTML = 'Chat/moderation permissions missing. Open the <a href="/" target="_blank">dashboard</a> and press Connect Twitch again.'; }
+  else b.style.display = 'none';
+}
+(async () => {
+  await R.load('');
+  const recent = await fetch('/api/chat/recent').then((r) => r.json()).catch(() => []);
+  recent.forEach((m) => addMsg(m, true)); list.scrollTop = list.scrollHeight;
+  loadSettings(); setInterval(loadSettings, 20000);
+  setInterval(() => R.load(''), 30 * 60 * 1000);
+  const es = (window.parent !== window && window.parent.__icmBus) ? { addEventListener: (t, f) => window.parent.__icmBus.on(window, t, f), set onerror(f) { /* shared connection */ } } : new EventSource('/events');
+  es.addEventListener('status', (e) => { const s = JSON.parse(e.data); status(s); if (s.eventsub === 'connected' && !Object.keys(R.emotes).length) R.load(''); });
+  es.addEventListener('chat', (e) => addMsg(JSON.parse(e.data)));
+  es.addEventListener('chatmod', (e) => {
+    const ev = JSON.parse(e.data);
+    [...list.children].forEach((el) => { if (ev.type === 'clear' || (ev.type === 'delete' && el.dataset.id === ev.id) || (ev.type === 'clearUser' && el.dataset.uid === ev.uid)) el.classList.add('gone'); });
+  });
+  const drawHeld = (l) => { const h = $('held'); h.style.display = l.length ? 'block' : 'none'; h.innerHTML = l.map((m) => '<div class="h" data-id="' + m.id + '"><b>' + R.esc(m.name) + '</b> <span class="why">held: ' + R.esc(m.why) + '</span><div class="t">' + R.esc(m.text) + '</div><button class="ok" data-a="1">Allow</button><button class="danger" data-a="0">Deny</button></div>').join(''); };
+  $('held').addEventListener('click', async (e) => { const a = e.target.dataset.a; if (a == null) return; const r = await post('/api/mod/automod', { messageId: e.target.closest('.h').dataset.id, allow: a === '1' }); if (r.error) toast(r.error, true); });
+  es.addEventListener('automod', (e) => drawHeld(JSON.parse(e.data)));
+  es.onerror = () => { $('dot').className = 'bad'; };
+})();
+</script></body></html>

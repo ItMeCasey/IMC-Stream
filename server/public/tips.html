@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Tips</title>
+<script src="/ui-theme.js"></script>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 900px; margin: 0 auto; padding: 18px 20px 50px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 16px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); }
+  h2 { font-size: 13px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 10px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
+  .muted { color: #9aa39f; font-size: 13px; line-height: 1.5; margin-bottom: 10px; } ol { margin: 0 0 12px 20px; line-height: 1.6; font-size: 14px; }
+  .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin: 8px 0; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; } .fld input, .fld select { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; }
+  button, .btn { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 9px 14px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); text-decoration: none; display: inline-block; } button.alt, .btn.alt { background: var(--aqua); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.danger { background: var(--drust); color: var(--cream); }
+  code, .box { background: #11171a; padding: 2px 7px; font-size: 13px; } .box { display: block; padding: 10px 12px; margin: 8px 0; word-break: break-all; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; } td { padding: 5px 4px; border-bottom: 1px solid var(--line); }
+  #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 16px; font-weight: 700; display: none; z-index: 9; } #toast.bad { background: var(--rust); color: var(--cream); }
+</style>
+<script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style>
+</head><body>
+<header><img src="/assets/logo.png" alt=""><h1>TIPS</h1><a href="/">&larr; Home</a></header>
+<main>
+  <section>
+    <h2>1. YOUR PAYPAL.ME LINK</h2>
+    <p class="muted">PayPal.Me is a free page where anyone can send you money without seeing your address or email. You never enter keys or passwords here.</p>
+    <ol>
+      <li><a class="btn alt" href="https://www.paypal.com/paypalme/" target="_blank">Open PayPal.Me</a> and log in to your PayPal account.</li>
+      <li>Pick a name (for example <b>ItMeCasey</b>), so your link is <code>paypal.me/ItMeCasey</code>.</li>
+      <li>Type that name below.</li>
+    </ol>
+    <div class="row"><label class="fld">PayPal.Me name<input id="me" placeholder="ItMeCasey" style="width:210px"></label>
+      <label class="fld">Currency<select id="cur"><option>USD</option><option>CAD</option><option>EUR</option><option>GBP</option><option>AUD</option></select></label>
+      <label class="fld">Suggested amounts<input id="sug" placeholder="5, 10, 20" style="width:140px"></label><button id="save">Save</button></div>
+    <div id="links"></div>
+  </section>
+
+  <section class="h">
+    <h2>2. CHAT COMMAND</h2>
+    <p class="muted">Viewers type <code>!tip</code> or <code>!paypal</code> and the bot answers with your link (once every 30 seconds so it can't be spammed). You can also put the link in a timer message on the Chat Bot page.</p>
+    <div class="muted">The bot will say:</div><div class="box" id="say"></div>
+  </section>
+
+  <section class="h">
+    <h2>3. ALERT FOR A TIP</h2>
+    <p class="muted">When a tip arrives, log it here and the on-stream tip alert plays (and it counts toward your session tip total). PayPal can't push tips to a desktop app by itself, so this is the instant way.</p>
+    <div class="row"><label class="fld">Name<input id="tn" placeholder="Generous Gamer" style="width:190px"></label><label class="fld">Amount<input id="ta" type="number" min="0" step="any" style="width:100px"></label><label class="fld" style="flex:1;min-width:200px">Message<input id="tm" maxlength="200"></label><button id="tip">Show tip alert</button></div>
+    <table id="recent"></table>
+  </section>
+
+  <section class="r">
+    <h2>4. AUTOMATIC DETECTION (OPTIONAL)</h2>
+    <p class="muted">The app can check your PayPal account for new payments by itself. <b>PayPal reports payments with a delay</b> (usually minutes, sometimes a few hours), so an alert may come late. It needs a free PayPal developer app that only you can see, and the keys stay on this PC.</p>
+    <ol>
+      <li>Go to <a href="https://developer.paypal.com/dashboard/applications/live" target="_blank" style="color:var(--aqua)">developer.paypal.com &rarr; Apps &amp; Credentials &rarr; Live</a> and press <b>Create App</b>.</li>
+      <li>Under <b>Features</b>, tick <b>Transaction Search</b>, save.</li>
+      <li>Copy the <b>Client ID</b> and <b>Secret</b> here.</li>
+    </ol>
+    <div class="row"><label class="fld">Client ID<input id="cid" style="width:300px" autocomplete="off"></label><label class="fld">Secret<input id="sec" type="password" style="width:260px" autocomplete="off"></label><button id="keys">Save keys</button><button id="clear" class="ghost">Remove keys</button></div>
+    <div class="muted" id="apistat"></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3800); }
+let V = null;
+function draw() {
+  $('me').value = V.me; $('cur').value = V.currency; $('sug').value = V.suggest.join(', ');
+  $('links').innerHTML = V.link ? '<div class="muted">Your link:</div><div class="box"><a href="' + esc(V.link) + '" target="_blank" style="color:var(--aqua)">' + esc(V.link) + '</a> <button class="ghost" id="cp" style="margin-left:10px">Copy</button></div>' + (V.links.length ? '<div class="muted">With amounts filled in: ' + V.links.map((l) => '<a href="' + esc(l.url) + '" target="_blank" style="color:var(--aqua)">' + l.amount + ' ' + esc(V.currency) + '</a>').join(' &middot; ') + '</div>' : '') : '<p class="muted">No link yet.</p>';
+  if ($('cp')) $('cp').onclick = async () => { try { await navigator.clipboard.writeText(V.link); toast('Copied'); } catch (e) { prompt('Copy your link:', V.link); } };
+  $('say').textContent = V.link ? 'Thank you for thinking of the stream! You can leave a tip here: ' + V.link : 'Tips are not set up yet.';
+  $('recent').innerHTML = V.recent.length ? V.recent.map((t) => '<tr><td>' + new Date(t.at).toLocaleString() + '</td><td>' + esc(t.name) + '</td><td>' + esc(t.amount) + ' ' + esc(t.currency || '') + '</td><td>' + esc(t.msg || '') + '</td><td class="muted">' + (t.manual ? 'logged' : 'PayPal') + '</td></tr>').join('') : '';
+  const a = V.api, s = a.status;
+  $('apistat').textContent = !a.configured ? 'Not set up (that is fine: sections 1 to 3 work without it).' : 'Keys saved (' + a.clientIdHint + '). ' + (s.ok === true ? 'Last check OK' + (s.lastPoll ? ' at ' + new Date(s.lastPoll).toLocaleTimeString() : '') + ', ' + s.tips + ' tip(s) found.' : s.ok === false ? 'Problem: ' + s.error : 'Checking…');
+}
+async function load() { V = await fetch('/api/paypal').then((r) => r.json()); draw(); }
+$('save').onclick = async () => { const r = await post('/api/paypal/save', { me: $('me').value, currency: $('cur').value, suggest: $('sug').value }); if (r.error) return toast(r.error, true); V = r; draw(); toast('Saved'); };
+$('tip').onclick = async () => { const r = await post('/api/paypal/log', { name: $('tn').value, amount: $('ta').value, msg: $('tm').value }); if (r.error) return toast(r.error, true); $('tn').value = $('ta').value = $('tm').value = ''; toast('Tip alert sent'); setTimeout(load, 400); };
+$('keys').onclick = async () => { const r = await post('/api/paypal/creds', { clientId: $('cid').value, secret: $('sec').value }); if (r.error) return toast(r.error, true); $('cid').value = $('sec').value = ''; V = r; draw(); toast('Keys saved'); setTimeout(load, 3000); };
+$('clear').onclick = async () => { if (!confirm('Remove the saved PayPal keys from this PC?')) return; V = await post('/api/paypal/creds', { clear: true }); draw(); };
+load(); setInterval(load, 15000);
+</script></body></html>

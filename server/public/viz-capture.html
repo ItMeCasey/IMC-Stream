@@ -1,0 +1,36 @@
+<!doctype html><html><head><meta charset="utf-8"><title>viz</title></head><body><script>
+// Hidden helper page inside the desktop app: listens to what the PC is playing (system loopback), turns it into 32 frequency bands and posts them to the local server.
+(async () => {
+  const NB = 32; let want = false, ctx, an, bins, edges, an2, fl, edges2;
+  const post = (b, r) => fetch('/api/viz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ b, r, ts: Date.now(), src: document.title.replace('viz: ', '') }) }).then((r) => r.json()).then((j) => { want = !!j.want; }).catch(() => {});
+  try {
+    // Prefer the music bus (Voicemeeter Out B2, a recording device): with Voicemeeter, music no longer goes through the default output, so listening to "the desktop" misses it.
+    let tracks = [], src = 'desktop';
+    try {
+      const probe = await navigator.mediaDevices.getUserMedia({ audio: true }); probe.getTracks().forEach((t) => t.stop());   // only to unlock the device names
+      const dev = (await navigator.mediaDevices.enumerateDevices()).find((d) => d.kind === 'audioinput' && /voicemeeter out b2/i.test(d.label));
+      if (dev) { const s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: dev.deviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); tracks = s.getAudioTracks(); src = 'music'; }
+    } catch (e) { /* no music bus: fall back below */ }
+    if (!tracks.length) {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      stream.getVideoTracks().forEach((t) => t.stop()); tracks = stream.getAudioTracks(); if (!tracks.length) throw new Error('no audio track');
+    }
+    document.title = 'viz: ' + src;
+    ctx = new AudioContext(); an = ctx.createAnalyser(); an.fftSize = 1024; an.smoothingTimeConstant = 0.55; an.minDecibels = -85; an.maxDecibels = -25;
+    const srcNode = ctx.createMediaStreamSource(new MediaStream(tracks)); srcNode.connect(an); bins = new Uint8Array(an.frequencyBinCount);
+    // second analyser for the beat engine: almost no smoothing, so kicks arrive as sharp rises
+    an2 = ctx.createAnalyser(); an2.fftSize = 2048; an2.smoothingTimeConstant = 0.1; an2.minDecibels = -90; an2.maxDecibels = -30; srcNode.connect(an2); fl = new Float32Array(an2.frequencyBinCount);
+    const hz2 = ctx.sampleRate / an2.fftSize; edges2 = Array.from({ length: NB + 1 }, (_, i) => 40 * Math.pow(12000 / 40, i / NB) / hz2);
+    const hz = ctx.sampleRate / an.fftSize; edges = Array.from({ length: NB + 1 }, (_, i) => Math.max(1, Math.round(60 * Math.pow(14000 / 60, i / NB) / hz)));   // log-spaced 60 Hz to 14 kHz
+  } catch (e) { post([]); document.title = 'viz: ' + e.message; return; }
+  let last = 0;
+  setInterval(() => {
+    const t = Date.now(); if (!want && t - last < 2000) return; last = t;
+    an2.getFloatFrequencyData(fl); const r = [];
+    for (let i = 0; i < NB; i++) { const lo = Math.floor(edges2[i]), hi = Math.max(lo + 1, Math.ceil(edges2[i + 1])); let m = -200; for (let k = lo; k < hi && k < fl.length; k++) m = Math.max(m, fl[k]); r.push(Math.max(0, Math.min(100, Math.round((m + 90) / 60 * 100)))); }
+    an.getByteFrequencyData(bins); const b = [];
+    for (let i = 0; i < NB; i++) { let lo = edges[i], hi = Math.max(lo + 1, edges[i + 1]), m = 0; for (let k = lo; k < hi && k < bins.length; k++) m = Math.max(m, bins[k]); b.push(Math.round(m / 255 * 100 * (1 + i / NB * 0.5))); }   // a little lift on the highs, they are quieter
+    post(b.map((v) => Math.min(100, v)), r);
+  }, 25);
+})();
+</script></body></html>

@@ -1,0 +1,111 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="w.css"><script src="/ui-theme.js"></script>
+<style>
+  #top { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; } #top select { font: inherit; font-size: 12px; padding: 5px 7px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; flex: 1; min-width: 0; }
+  #rows { display: grid; gap: 10px; } body.full #rows { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .r { background: var(--iron); padding: 8px 10px; } .r .n { display: flex; align-items: center; gap: 8px; } .r .n b { flex: 1; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .r .n span { font-size: 11px; color: #9aa39f; font-variant-numeric: tabular-nums; min-width: 52px; text-align: right; }
+  .mm { display: flex; flex-direction: column; gap: 2px; margin: 6px 0 4px; } .m { height: 6px; background: #11171a; position: relative; overflow: hidden; }
+  .m i { position: absolute; left: 0; top: 0; bottom: 0; width: var(--p, 0%); background: linear-gradient(90deg, #4FBBBC 0 66.6%, #F39120 66.6% 85%, #EC4624 85%); background-size: var(--w, 300px) 100%; }
+  .m u { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--cream); left: calc(var(--k, 0%) - 2px); opacity: .8; }
+  /* vertical faders: one column per source */
+  body.vert { height: 100vh; display: flex; flex-direction: column; } body.vert #rows { flex: 1; min-height: 0; display: flex; gap: 8px; overflow-x: auto; }
+  body.vert .r { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 86px; width: 86px; padding: 8px 6px; }
+  body.vert .r .n { display: contents; } body.vert .r .n b { order: 3; flex: none; width: 100%; text-align: center; font-size: 11px; } body.vert .r .n span { order: 2; text-align: center; min-width: 0; } body.vert .r .n .mt { order: 1; }
+  body.vert .mm { flex-direction: row; margin: 0; width: 16px; height: 100%; } body.vert .m { flex: 1; width: auto; height: 100%; margin: 0; } body.vert .ctl { flex: none; height: 100%; width: 24px; display: flex; justify-content: center; } body.vert .bars { order: 4; }
+  body.vert .m i { left: 0; right: 0; top: auto; bottom: 0; width: auto; height: var(--p, 0%); background: linear-gradient(0deg, #4FBBBC 0 66.6%, #F39120 66.6% 85%, #EC4624 85%); background-size: 100% var(--h, 200px); background-position: 0 100%; }
+  body.vert .m u { left: 0; right: 0; top: auto; width: auto; height: 2px; bottom: calc(var(--k, 0%) - 2px); }
+  body.vert .ctl input[type=range] { writing-mode: vertical-lr; direction: rtl; width: 22px; height: 100%; flex: none; }
+  body.vert .bars { display: flex; flex: 1; gap: 8px; min-height: 0; width: 100%; justify-content: center; }
+  body.vert .mt { min-width: 0; width: 100%; }
+  .ctl { display: flex; align-items: center; gap: 8px; } .ctl input[type=range] { flex: 1; accent-color: var(--heat); min-width: 0; }
+  .mt { padding: 4px 9px; min-width: 62px; } .mt.on { background: var(--rust); color: var(--cream); }
+  .r.muted .m i { filter: grayscale(1) brightness(.5); } .r.muted .n b { opacity: .5; text-decoration: line-through; }
+  #vol { display: none; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .vg { --gc: #4FBBBC; flex: 1 1 auto; background: var(--iron); border-top: 4px solid var(--gc); padding: 6px 8px 8px; } .vg.bcast { --gc: #EC4624; }
+  .vgh { display: flex; align-items: baseline; gap: 8px; font-size: 11px; letter-spacing: 3px; font-weight: 700; color: var(--gc); text-transform: uppercase; margin-bottom: 4px; } .vgh small { color: #9aa39f; letter-spacing: 1px; font-weight: 400; text-transform: none; }
+  .vf { display: flex; gap: 8px; flex-wrap: wrap; } .v { flex: 1; min-width: 130px; } .v b { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; font-weight: 700; } .v input { width: 100%; accent-color: var(--gc); margin-top: 4px; }
+  body.vert #main { flex: 1; min-height: 0; display: flex; gap: 10px; } body.vert #vol { flex: none; flex-wrap: nowrap; margin: 0; height: 100%; } body.vert #rows { flex: 1; min-width: 0; height: 100%; }
+  body.vert .vg { display: flex; flex-direction: column; height: 100%; min-width: 0; } body.vert .vf { flex: 1; min-height: 0; flex-wrap: nowrap; }
+  body.vert .v { display: flex; flex-direction: column; align-items: center; flex: none; width: 74px; min-width: 0; padding: 6px 2px; background: var(--iron-d); }
+  body.vert .v b { order: 2; flex-direction: column; align-items: center; text-align: center; gap: 2px; font-size: 10px; letter-spacing: 1px; width: 100%; } body.vert .v input { writing-mode: vertical-lr; direction: rtl; width: 22px; flex: 1; min-height: 0; margin: 2px 0 6px; }
+  #msg { color: var(--heat); font-size: 12px; margin-bottom: 6px; }
+  html[data-theme="light"] .m { background: #D9D1B8; }
+</style></head><body>
+<div id="top"><select id="sc" title="Which scene's audio to show"></select><button id="or" class="g" title="Switch between rows and vertical faders"></button></div>
+<div id="msg"></div>
+<div id="main"><div id="vol"></div><div id="rows"></div></div>
+<script src="w.js"></script><script>
+if (/[?&]full=1/.test(location.search)) document.body.classList.add('full');
+let vert = false; try { vert = localStorage.getItem('icm.mixer.vert') === '1'; } catch (e) { /* storage blocked */ }
+function applyOrient() { document.body.classList.toggle('vert', vert); $('or').textContent = vert ? 'Rows' : 'Vertical'; document.querySelectorAll('.m').forEach((m) => { m.style.setProperty('--w', m.clientWidth + 'px'); m.style.setProperty('--h', m.clientHeight + 'px'); }); }
+$('or').onclick = () => { vert = !vert; try { localStorage.setItem('icm.mixer.vert', vert ? '1' : '0'); } catch (e) { /* ignore */ } applyOrient(); };
+window.addEventListener('resize', applyOrient); window.addEventListener('storage', () => { try { vert = localStorage.getItem('icm.mixer.vert') === '1'; } catch (e) { /* ignore */ } applyOrient(); });
+let A = null, names = null, scenes = [], sel = '', lastKey = '', drag = '';
+const pct = (db) => Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+const rowEls = {};
+function build() {
+  const list = (names || []).map((n) => A.inputs.find((i) => i.name === n)).filter(Boolean), key = list.map((i) => i.name).join('|');
+  if (key === lastKey) return; lastKey = key;
+  $('rows').innerHTML = ''; for (const k of Object.keys(rowEls)) delete rowEls[k];
+  for (const i of list) {
+    const el = document.createElement('div'); el.className = 'r';
+    el.innerHTML = '<div class="n"><b></b><span class="db"></span><button class="mt g">Mute</button></div><div class="bars"><div class="mm"><div class="m"><i></i><u></u></div><div class="m"><i></i><u></u></div></div><div class="ctl"><input type="range" min="-60" max="6" step="1"></div></div>';
+    el.querySelector('b').textContent = i.name; el.querySelector('b').title = i.name;
+    el.querySelector('.mt').onclick = (e) => act(e.target, () => post('/api/audio/mute', { name: i.name, toggle: true }));
+    const rg = el.querySelector('input'); rg.oninput = () => { drag = i.name; el.querySelector('.db').textContent = rg.value + ' dB'; post('/api/audio/volume', { name: i.name, db: +rg.value }); }; rg.onchange = () => { drag = ''; };
+    $('rows').appendChild(el); rowEls[i.name] = el;
+  }
+  applyOrient();
+  if (!list.length) $('rows').innerHTML = '<div class="muted">No audio sources in this scene.</div>';
+}
+function paint() {
+  if (!A) return;
+  for (const i of A.inputs) {
+    const el = rowEls[i.name]; if (!el) continue;
+    el.classList.toggle('muted', i.muted); const b = el.querySelector('.mt'); b.textContent = i.muted ? 'Muted' : 'Mute'; b.classList.toggle('on', i.muted);
+    el._t = i.muted ? [0, 0] : (i.peaks || [i.peak, i.peak]).map(pct);
+    if (drag !== i.name) { el.querySelector('input').value = Math.round(i.db); el.querySelector('.db').textContent = (i.db <= -99 ? '-inf' : i.db.toFixed(1)) + ' dB'; }
+  }
+}
+// meters: jump up instantly, fall back quickly (like a real meter), with a peak marker that holds a moment
+let lastT = performance.now();
+function meterLoop(t) {
+  requestAnimationFrame(meterLoop); const dt = Math.min(0.1, (t - lastT) / 1000); lastT = t;
+  for (const n in rowEls) {
+    const el = rowEls[n], ms = el.querySelectorAll('.m'), tg = el._t || [0, 0]; el._d = el._d || [0, 0]; el._k = el._k || [0, 0]; el._h = el._h || [0, 0];
+    ms.forEach((m, c) => {
+      if (m._w !== m.clientWidth || m._ht !== m.clientHeight) { m._w = m.clientWidth; m._ht = m.clientHeight; m.style.setProperty('--w', m._w + 'px'); m.style.setProperty('--h', m._ht + 'px'); }   // keep the colour zones lined up with the real bar size
+      let d = el._d[c], k = el._k[c], hold = el._h[c]; const tgt = tg[c] || 0;
+      d = tgt >= d ? tgt : Math.max(tgt, d - 160 * dt);
+      if (d >= k) { k = d; hold = t + 700; } else if (t > hold) k = Math.max(d, k - 45 * dt);
+      el._d[c] = d; el._k[c] = k; el._h[c] = hold; m.style.setProperty('--p', d.toFixed(1) + '%'); m.style.setProperty('--k', k.toFixed(1) + '%');
+    });
+  }
+}
+requestAnimationFrame(meterLoop);
+// one master fader for your headphones (Voicemeeter's A1 output); the faders for each source below are OBS's own volumes (what the stream hears)
+let volDrag = false, volT = null;
+async function loadVol() {
+  if (volDrag) return; let v; try { v = await get('/api/vm/volumes'); } catch (e) { return; }
+  const box = $('vol'); if (!v.ok || v.local == null) { box.style.display = 'none'; return; } box.style.display = 'flex';
+  if (!box.firstChild) {
+    box.innerHTML = '<div class="vg local"><div class="vgh">Headphones</div><div class="vf"><div class="v"><b><span>Master</span><span class="vd"></span></b><input type="range" min="-60" max="12" step="1"></div></div></div>';
+    box.oninput = (e) => { volDrag = true; box.querySelector('.vd').textContent = e.target.value + ' dB'; clearTimeout(volT); volT = setTimeout(() => post('/api/vm/volume', { which: 'local', db: +e.target.value }), 60); };
+    box.onchange = () => { setTimeout(() => { volDrag = false; loadVol(); }, 500); };
+  }
+  box.querySelector('input').value = Math.round(v.local); box.querySelector('.vd').textContent = (Math.round(v.local * 10) / 10) + ' dB';
+}
+async function loadScene() {
+  try { const r = await get('/api/audio/scene?name=' + encodeURIComponent(sel)); if (r.error) throw new Error(r.error); names = r.inputs; $('msg').textContent = ''; }
+  catch (e) { names = []; $('msg').textContent = 'OBS: ' + e.message; }
+  lastKey = ''; if (A) { build(); paint(); }
+}
+async function poll() {   // also tells the server that a mixer is open, so it keeps the OBS connection going
+  try { A = await get('/api/audio'); if (A.error && !A.connected) $('msg').textContent = 'OBS: ' + A.error; } catch (e) { return; }
+  if (!scenes.length && A.connected) { try { scenes = await post('/api/hooks/obs/scenes'); } catch (e) { scenes = []; } if (!Array.isArray(scenes)) scenes = []; drawSel(); }
+  if (A.connected && names === null) await loadScene(); else if (A.connected) { build(); paint(); }
+}
+function drawSel() { $('sc').innerHTML = '<option value="">Current scene (follows OBS)</option>' + scenes.map((s) => '<option>' + esc(s) + '</option>').join(''); $('sc').value = sel; }
+$('sc').onchange = () => { sel = $('sc').value; loadScene(); };
+live({ audio: (a) => { const progChanged = A && a.program !== A.program; A = a; if (!a.connected) { names = null; $('msg').textContent = a.error ? 'OBS: ' + a.error : ''; return; } if (names === null || (progChanged && !sel)) { loadScene(); return; } build(); paint(); } });
+applyOrient(); poll(); setInterval(poll, 5000); loadVol(); setInterval(loadVol, 6000);
+</script></body></html>

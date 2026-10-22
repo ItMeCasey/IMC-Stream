@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Polls + Predictions</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 18px; padding: 18px 24px 40px; max-width: 1300px; margin: 0 auto; }
+  section { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.p { border-color: var(--heat); }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.p h2 { color: var(--heat); } h3 { font-size: 13px; letter-spacing: 3px; color: #9aa39f; margin: 16px 0 8px; }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 7px 13px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); }
+  button:hover { filter: brightness(1.12); } button.alt { background: var(--aqua); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.red { background: var(--drust); color: var(--cream); } button.arm { background: var(--rust); color: var(--cream); animation: pulse .5s infinite alternate; }
+  @keyframes pulse { to { filter: brightness(1.4); } }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; margin-bottom: 10px; }
+  .fld input, .fld select, .fld textarea { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 7px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; } .row .fld { margin: 0; flex: 1; min-width: 120px; }
+  .muted { color: #9aa39f; font-size: 13px; } .err { color: var(--heat); font-size: 14px; margin: 6px 0; }
+  .badge { display: inline-block; padding: 2px 10px; font-size: 12px; font-weight: 700; letter-spacing: 2px; background: #46504f; transform: skewX(-12deg); } .badge.ACTIVE { background: #6fcf6f; color: var(--iron); } .badge.LOCKED { background: var(--heat); color: var(--iron); } .badge.RESOLVED, .badge.COMPLETED { background: var(--aqua); color: var(--iron); } .badge.CANCELED, .badge.TERMINATED, .badge.ARCHIVED { background: var(--drust); }
+  .q { font-size: 22px; font-weight: 700; letter-spacing: 1px; margin: 6px 0 12px; }
+  .opt { margin: 8px 0; } .opt .top { display: flex; justify-content: space-between; gap: 10px; font-size: 15px; } .opt .bar { height: 18px; background: var(--iron); margin-top: 4px; clip-path: polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%); } .opt .bar i { display: block; height: 100%; background: var(--c, var(--aqua)); transition: width .6s; }
+  .opt.win .top b::after { content: ' \2714  WINNER'; color: var(--heat); }
+  .preset { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); } .preset span { flex: 1; font-size: 14px; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; } #toast.bad { background: var(--rust); color: var(--cream); }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>POLLS + PREDICTIONS</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section id="pollSec">
+    <h2>POLL</h2>
+    <div id="pollErr" class="err"></div>
+    <div id="pollCur"></div>
+    <h3>START A POLL</h3>
+    <label class="fld">Question (60 max)<input id="pTitle" maxlength="60"></label>
+    <label class="fld">Choices (2-5, one per line, 25 chars max each)<textarea id="pChoices" rows="4"></textarea></label>
+    <div class="row">
+      <label class="fld">Length<select id="pDur"><option value="30">30 seconds</option><option value="60" selected>1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="1800">30 minutes</option></select></label>
+      <label class="fld">Channel point votes<select id="pPts"><option value="0">Off</option><option value="1">On</option></select></label>
+      <label class="fld">Points per vote<input id="pPpv" type="number" min="1" value="100"></label>
+    </div>
+    <div class="row"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="pSay" checked style="width:18px;height:18px"> Announce in chat</label></div>
+    <div class="row"><button id="pStart">Start poll</button><button class="ghost" id="pSave">Save as preset</button></div>
+    <h3>PRESETS</h3><div id="pPresets"></div>
+  </section>
+
+  <section class="p" id="predSec">
+    <h2>PREDICTION</h2>
+    <div id="predErr" class="err"></div>
+    <div id="predCur"></div>
+    <h3>START A PREDICTION</h3>
+    <label class="fld">Question (45 max)<input id="qTitle" maxlength="45" placeholder="Will I beat this boss?"></label>
+    <label class="fld">Outcomes (2-10, one per line, 25 chars max each)<textarea id="qOutcomes" rows="3" placeholder="Yes&#10;No"></textarea></label>
+    <div class="row">
+      <label class="fld">Voting window<select id="qWin"><option value="30">30 seconds</option><option value="60">1 minute</option><option value="120" selected>2 minutes</option><option value="300">5 minutes</option><option value="600">10 minutes</option><option value="1800">30 minutes</option></select></label>
+    </div>
+    <div class="row"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="qSay" checked style="width:18px;height:18px"> Announce in chat</label></div>
+    <div class="row"><button id="qStart">Start prediction</button><button class="ghost" id="qSave">Save as preset</button></div>
+    <h3>PRESETS</h3><div id="qPresets"></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (p, b) => fetch('/api/polls/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3000); }
+async function act(p, b, ok) { const r = await post(p, b); if (r.error) { toast(r.error, true); return null; } if (ok) toast(ok); await refresh(); return r; }
+function arm(btn, fn) { if (btn.classList.contains('arm')) { fn(); return; } const old = btn.textContent; btn.classList.add('arm'); btn.textContent = 'Sure?'; setTimeout(() => { btn.classList.remove('arm'); btn.textContent = old; }, 3000); }
+const COLORS = ['#4FBBBC', '#F39120', '#EC4624', '#E2DAC2', '#B13A22', '#6fcf6f', '#9b8cff', '#ff8fb3', '#5aa9ff', '#c9a227'];
+let S = null, ticking = null;
+const left = (iso, secs) => Math.max(0, Math.round((Date.parse(iso) + secs * 1000 - Date.now()) / 1000));
+const mmss = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+
+function drawPoll() {
+  const p = S.poll; $('pollErr').textContent = S.pollError ? S.pollError + (/scope|auth|403|401/i.test(S.pollError) ? ' (press Connect Twitch again on the dashboard)' : '') : '';
+  if (!p) { $('pollCur').innerHTML = '<p class="muted">No polls yet.</p>'; return; }
+  const total = p.choices.reduce((a, c) => a + (c.votes || 0), 0), max = Math.max(...p.choices.map((c) => c.votes || 0)), active = p.status === 'ACTIVE';
+  $('pollCur').innerHTML = `<span class="badge ${p.status}">${p.status}</span> <span class="muted" id="pClock"></span>
+    <div class="q">${esc(p.title)}</div>
+    ${p.choices.map((c, i) => `<div class="opt ${!active && c.votes === max && total ? 'win' : ''}"><div class="top"><b>${esc(c.title)}</b><span>${c.votes || 0} (${total ? Math.round((c.votes || 0) / total * 100) : 0}%)</span></div><div class="bar" style="--c:${COLORS[i % COLORS.length]}"><i style="width:${total ? (c.votes || 0) / total * 100 : 0}%"></i></div></div>`).join('')}
+    <div class="muted">${total} total votes</div>
+    ${active ? '<div class="row"><button class="alt" data-a="pend">End poll (show results)</button><button class="ghost" data-a="parch">Delete / archive</button></div>' : ''}`;
+}
+function drawPred() {
+  const p = S.prediction; $('predErr').textContent = S.predictionError ? S.predictionError + (/scope|auth|403|401/i.test(S.predictionError) ? ' (press Connect Twitch again on the dashboard)' : '') : '';
+  if (!p) { $('predCur').innerHTML = '<p class="muted">No predictions yet.</p>'; return; }
+  const total = p.outcomes.reduce((a, o) => a + (o.channel_points || 0), 0), open = p.status === 'ACTIVE' || p.status === 'LOCKED';
+  $('predCur').innerHTML = `<span class="badge ${p.status}">${p.status}</span> <span class="muted" id="qClock"></span>
+    <div class="q">${esc(p.title)}</div>
+    ${p.outcomes.map((o, i) => `<div class="opt ${p.winning_outcome_id === o.id ? 'win' : ''}"><div class="top"><b>${esc(o.title)}</b><span>${(o.channel_points || 0).toLocaleString()} pts &middot; ${o.users || 0} people</span></div><div class="bar" style="--c:${COLORS[i % COLORS.length]}"><i style="width:${total ? (o.channel_points || 0) / total * 100 : 0}%"></i></div>
+      ${open ? `<div class="row" style="margin:4px 0 0"><button class="ghost" data-a="qwin" data-o="${o.id}" data-n="${esc(o.title)}">${p.status === 'ACTIVE' ? 'Lock &amp; ' : ''}Winner: ${esc(o.title)}</button></div>` : ''}</div>`).join('')}
+    ${open ? `<div class="row">${p.status === 'ACTIVE' ? '<button class="alt" data-a="qlock">Lock predictions now</button>' : ''}<button class="red" data-a="qcancel">Cancel (refund everyone)</button></div>` : ''}`;
+}
+function drawPresets() {
+  $('pPresets').innerHTML = S.presets.polls.map((x) => `<div class="preset"><span><b>${esc(x.title)}</b> <span class="muted">${esc(x.options.join(' / '))} &middot; ${x.seconds}s</span></span><button class="alt" data-a="plaunch" data-id="${x.id}">Launch</button><button class="ghost" data-a="pdel" data-id="${x.id}">x</button></div>`).join('') || '<p class="muted">None saved. Fill in the form and press “Save as preset”.</p>';
+  $('qPresets').innerHTML = S.presets.predictions.map((x) => `<div class="preset"><span><b>${esc(x.title)}</b> <span class="muted">${esc(x.options.join(' / '))} &middot; ${x.seconds}s</span></span><button class="alt" data-a="qlaunch" data-id="${x.id}">Launch</button><button class="ghost" data-a="pdel" data-id="${x.id}">x</button></div>`).join('') || '<p class="muted">None saved.</p>';
+}
+function clocks() {
+  const p = S && S.poll, q = S && S.prediction;
+  if (p && p.status === 'ACTIVE' && $('pClock')) $('pClock').textContent = mmss(left(p.started_at, p.duration)) + ' left';
+  if (q && q.status === 'ACTIVE' && $('qClock')) $('qClock').textContent = 'voting closes in ' + mmss(left(q.created_at, q.prediction_window));
+}
+async function refresh() {
+  const r = await fetch('/api/polls').then((x) => x.json());
+  if (r.error) { S = { poll: null, prediction: null, pollError: r.error, predictionError: r.error, presets: r.presets }; } else S = r;
+  if (!document.querySelector('.arm')) { drawPoll(); drawPred(); }   // don't wipe a pending two-click confirm
+  drawPresets(); clocks();
+}
+const lines = (id) => $(id).value.split('\n').map((x) => x.trim()).filter(Boolean);
+$('pStart').onclick = () => { const choices = lines('pChoices'); act('poll/create', { title: $('pTitle').value, choices, duration: $('pDur').value, points: $('pPts').value === '1', pointsPerVote: $('pPpv').value,
+  say: $('pSay').checked ? '📊 POLL: ' + $('pTitle').value + ' - ' + choices.join(' | ') : '' }, 'Poll started'); };
+$('pSave').onclick = () => act('preset/save', { kind: 'poll', title: $('pTitle').value, options: lines('pChoices'), seconds: $('pDur').value }, 'Preset saved');
+$('qStart').onclick = () => { const outcomes = lines('qOutcomes'); act('prediction/create', { title: $('qTitle').value, outcomes, window: $('qWin').value,
+  say: $('qSay').checked ? '🔮 PREDICTION: ' + $('qTitle').value + ' - ' + outcomes.join(' | ') + ' - place your bets!' : '' }, 'Prediction started'); };
+$('qSave').onclick = () => act('preset/save', { kind: 'prediction', title: $('qTitle').value, options: lines('qOutcomes'), seconds: $('qWin').value }, 'Preset saved');
+document.body.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-a]'); if (!b) return; const a = b.dataset.a;
+  if (a === 'pend') return act('poll/end', { id: S.poll.id }, 'Poll ended');
+  if (a === 'parch') return arm(b, () => act('poll/end', { id: S.poll.id, archive: true }, 'Poll archived'));
+  if (a === 'qlock') return act('prediction/lock', { id: S.prediction.id }, 'Predictions locked');
+  if (a === 'qwin') return arm(b, async () => { if (S.prediction.status === 'ACTIVE') await post('prediction/lock', { id: S.prediction.id }); act('prediction/resolve', { id: S.prediction.id, outcomeId: b.dataset.o, say: $('qSay').checked ? '🔮 Prediction result: ' + b.dataset.n + ' wins!' : '' }, 'Resolved - points paid out'); });
+  if (a === 'qcancel') return arm(b, () => act('prediction/cancel', { id: S.prediction.id }, 'Cancelled - everyone refunded'));
+  if (a === 'pdel') return act('preset/delete', { id: b.dataset.id }, 'Deleted');
+  if (a === 'plaunch' || a === 'qlaunch') {
+    const x = (a === 'plaunch' ? S.presets.polls : S.presets.predictions).find((y) => y.id === b.dataset.id);
+    if (a === 'plaunch') act('poll/create', { title: x.title, choices: x.options, duration: x.seconds, say: $('pSay').checked ? '📊 POLL: ' + x.title + ' - ' + x.options.join(' | ') : '' }, 'Poll started');
+    else act('prediction/create', { title: x.title, outcomes: x.options, window: x.seconds, say: $('qSay').checked ? '🔮 PREDICTION: ' + x.title + ' - ' + x.options.join(' | ') + ' - place your bets!' : '' }, 'Prediction started');
+  }
+});
+refresh(); setInterval(refresh, 3000); setInterval(clocks, 1000);
+</script></body></html>

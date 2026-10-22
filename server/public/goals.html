@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Goals</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 18px 20px 50px; }
+  section { background: var(--iron-d); padding: 18px 22px 22px; border-top: 1px solid var(--line); }
+  h2 { font-size: 13px; letter-spacing: 5px; color: var(--heat); margin-bottom: 12px; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; } .muted { color: #9aa39f; font-size: 13px; }
+  button { font: inherit; font-weight: 700; letter-spacing: 2px; padding: 9px 16px; background: var(--heat); color: var(--iron); border: 0; cursor: pointer; text-transform: uppercase; font-size: 13px; } button:hover { filter: brightness(1.12); } button.alt { background: var(--aqua); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.danger { background: var(--drust); color: var(--cream); }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; }
+  .fld input, .fld select { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 7px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; } .fld input[type=checkbox] { width: 22px; height: 22px; }
+  .goal { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(260px, 2fr) auto; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .goal .gt { font-weight: 700; letter-spacing: 2px; text-transform: uppercase; } .goal .gm { font-size: 13px; color: #9aa39f; } .gbtns { display: flex; gap: 6px; flex-wrap: wrap; } .gbtns button { padding: 7px 10px; font-size: 12px; letter-spacing: 1px; }
+  .gbar { height: 22px; background: var(--iron); position: relative; clip-path: polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%); }
+  .gbar > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c); transition: width .8s; overflow: hidden; }
+  .gbar > i::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--full, 400px); background: var(--c); }
+  .gbar.rainbow > i::before { background: linear-gradient(90deg,#4FBBBC 0 30%,#F39120 30% 55%,#EC4624 55% 75%,#B13A22 75% 90%,#E2DAC2 90%); }
+  #gForm { display: none; gap: 10px; flex-wrap: wrap; align-items: end; margin-top: 12px; }
+  @media (max-width: 800px) { .goal { grid-template-columns: 1fr; } }
+</style>
+<script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style>
+</head><body>
+<header><img src="/assets/logo.png" alt=""><h1>GOALS</h1><a href="/">&larr; Home</a></header>
+<main>
+  <section>
+    <h2>MY GOALS</h2>
+    <div id="goals"></div>
+    <div class="row" style="margin-top:12px"><button id="gNew">+ New goal</button></div>
+    <form id="gForm">
+      <input type="hidden" id="gId">
+      <label class="fld">Title<input id="gTitle" placeholder="Road to 500 followers" maxlength="60"></label>
+      <label class="fld">Counts<select id="gMetric"></select></label>
+      <label class="fld">Target<input id="gTarget" type="number" min="1" step="any" style="width:110px"></label>
+      <label class="fld">Start at<input id="gStart" type="number" min="0" step="any" value="0" style="width:90px"></label>
+      <label class="fld">Color<select id="gColor"></select></label>
+      <label class="fld">Style<select id="gStyle"><option value="bar">Bar</option><option value="slim">Slim</option></select></label>
+      <label class="fld"><span>Alert when reached</span><input id="gCel" type="checkbox" checked></label>
+      <button type="submit">Save goal</button><button type="button" class="ghost" id="gCancel">Cancel</button>
+    </form>
+    <p class="muted" style="margin-top:12px">In OBS: <b>Add &gt; Browser</b>, paste the goal's address (use <b>Copy OBS URL</b>), size <b>1000 x 140</b> (Slim: 1000 x 100). Move and resize it per scene like any source. Each goal also writes <code>goal_&lt;name&gt;.txt</code> label files. A small progress widget for Home is in <b>+ Add widget</b>.</p>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+const esc2 = (x) => String(x == null ? '' : x).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+let goals = [], goalMeta = { metrics: {}, colors: [] };
+const COLORS = { aqua: '#4FBBBC', heat: '#F39120', rust: '#EC4624', cream: '#E2DAC2', rainbow: '#4FBBBC' };
+const gfmt = (g, n) => (g.money ? '$' + Number(n).toFixed(2) : Number(n).toLocaleString());
+function drawGoals() {
+  $('goals').innerHTML = goals.length ? goals.map((g) => `
+    <div class="goal" data-id="${g.id}">
+      <div><div class="gt">${esc2(g.title)}${g.done ? ' ✔' : ''}</div><div class="gm">${esc2(goalMeta.metrics[g.metric] || g.metric)} &middot; ${gfmt(g, g.value)} / ${gfmt(g, g.target)} (${Math.floor(g.percent)}%)</div></div>
+      <div class="gbar ${g.color === 'rainbow' ? 'rainbow' : ''}" style="--c:${COLORS[g.color] || '#4FBBBC'}"><i style="width:${g.percent}%"></i></div>
+      <div class="gbtns">
+        ${g.metric === 'manual' ? '<button data-g="adj" data-d="-1">-1</button><button data-g="adj" data-d="1">+1</button><button data-g="adj" data-d="10">+10</button><button data-g="set">Set…</button>' : ''}
+        <button class="alt" data-g="copy">Copy OBS URL</button><button class="ghost" data-g="edit">Edit</button><button class="danger" data-g="del">Delete</button>
+      </div>
+    </div>`).join('') : '<p class="muted">No goals yet. Press “+ New goal”.</p>';
+  document.querySelectorAll('.gbar').forEach((b) => b.style.setProperty('--full', b.clientWidth + 'px'));
+}
+const goalUrl = (g) => location.origin + '/overlays/goal.html?id=' + g.id;
+const loadGoals = () => fetch('/api/goals').then((r) => r.json()).then((j) => {
+  goalMeta = j; goals = j.goals;
+  if (!$('gMetric').options.length) { $('gMetric').innerHTML = Object.entries(j.metrics).map(([k, v]) => `<option value="${k}">${esc2(v)}</option>`).join(''); $('gColor').innerHTML = j.colors.map((c) => `<option value="${c}">${c}</option>`).join(''); }
+  drawGoals();
+});
+function openForm(g) {
+  $('gForm').style.display = 'flex';
+  $('gId').value = g ? g.id : ''; $('gTitle').value = g ? g.title : ''; $('gMetric').value = g ? g.metric : 'followers_total';
+  $('gTarget').value = g ? g.target : ''; $('gStart').value = g ? g.start : 0; $('gColor').value = g ? g.color : 'rainbow';
+  $('gStyle').value = g ? g.style : 'bar'; $('gCel').checked = g ? g.celebrate : true; $('gTitle').focus();
+}
+$('gNew').onclick = () => openForm(null);
+$('gCancel').onclick = () => { $('gForm').style.display = 'none'; };
+$('gForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const r = await post('/api/goals/save', { id: $('gId').value || undefined, title: $('gTitle').value, metric: $('gMetric').value, target: $('gTarget').value, start: $('gStart').value, color: $('gColor').value, style: $('gStyle').value, celebrate: $('gCel').checked });
+  if (r.error) return alert(r.error);
+  $('gForm').style.display = 'none'; loadGoals();
+};
+$('goals').onclick = async (e) => {
+  const b = e.target.closest('button[data-g]'); if (!b) return;
+  const g = goals.find((x) => x.id === b.closest('.goal').dataset.id), a = b.dataset.g;
+  if (a === 'adj') await post('/api/goals/adjust', { id: g.id, delta: +b.dataset.d });
+  else if (a === 'set') { const v = prompt('Set current value for "' + g.title + '"', g.value); if (v !== null) await post('/api/goals/adjust', { id: g.id, set: +v }); }
+  else if (a === 'edit') return openForm(g);
+  else if (a === 'copy') { try { await navigator.clipboard.writeText(goalUrl(g)); b.textContent = 'Copied!'; } catch (x) { prompt('Copy this URL into an OBS Browser source:', goalUrl(g)); } setTimeout(() => { b.textContent = 'Copy OBS URL'; }, 1500); return; }
+  else if (a === 'del') { if (b.dataset.arm) { await post('/api/goals/delete', { id: g.id }); } else { b.dataset.arm = 1; b.textContent = 'Sure?'; setTimeout(() => { delete b.dataset.arm; b.textContent = 'Delete'; }, 3000); return; } }
+  loadGoals();
+};
+loadGoals();
+const es = (window.parent !== window && window.parent.__icmBus) ? { addEventListener: (t, f) => window.parent.__icmBus.on(window, t, f) } : new EventSource('/events');
+es.addEventListener('goals', (e) => { if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('#gForm')) { goals = JSON.parse(e.data); drawGoals(); } });
+</script></body></html>

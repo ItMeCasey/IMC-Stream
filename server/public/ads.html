@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Ads</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 1000px; margin: 0 auto; padding: 18px 24px 40px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+  section { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); } section.w { grid-column: 1 / -1; }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 13px; padding: 10px 16px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); }
+  button:hover { filter: brightness(1.12); } button:disabled { opacity: .35; cursor: not-allowed; } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.alt { background: var(--aqua); } button.arm { background: var(--rust); color: var(--cream); animation: pulse .5s infinite alternate; }
+  @keyframes pulse { to { filter: brightness(1.4); } }
+  .big { font-size: 64px; font-weight: 700; letter-spacing: 3px; font-variant-numeric: tabular-nums; line-height: 1; } .big.run { color: var(--rust); animation: pulse 1s infinite alternate; }
+  .lbl { font-size: 12px; letter-spacing: 3px; color: #9aa39f; text-transform: uppercase; margin-bottom: 4px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-top: 16px; } .stats b { font-size: 22px; display: block; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+  .muted { color: #9aa39f; font-size: 13px; } .err { color: var(--heat); margin: 8px 0; min-height: 18px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; margin-bottom: 12px; }
+  .fld input, .fld select { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; } .row label { display: flex; gap: 8px; align-items: center; } .row input[type=checkbox] { width: 18px; height: 18px; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; } #toast.bad { background: var(--rust); color: var(--cream); }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>ADS</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section class="w">
+    <h2>AD BREAKS</h2>
+    <div class="lbl" id="bigLbl">Next ad break in</div>
+    <div class="big" id="big">--:--</div>
+    <div class="stats">
+      <div><div class="lbl">Last ad</div><b id="last">--</b></div>
+      <div><div class="lbl">Snoozes left</div><b id="snz">--</b><span class="muted" id="snzRef"></span></div>
+      <div><div class="lbl">Ad-free time earned</div><b id="free">--</b></div>
+      <div><div class="lbl">Stream</div><b id="live">--</b></div>
+    </div>
+    <div class="err" id="err"></div>
+  </section>
+
+  <section class="r">
+    <h2>RUN AN AD NOW</h2>
+    <p class="muted">Starts a commercial immediately (you must be live, and Affiliate or Partner). Twitch limits how often you can run them. Click twice to confirm.</p>
+    <div class="btns" id="lens"></div>
+    <div class="row"><label><input type="checkbox" id="say" checked> Tell chat first</label></div>
+    <p class="muted" style="margin-top:8px">Posts: "Ad break starting now (60s). Thanks for sticking around!"</p>
+  </section>
+
+  <section class="h">
+    <h2>SNOOZE</h2>
+    <p class="muted">Pushes the next automatic ad back about 5 minutes. Twitch gives you a few snoozes that refill over time.</p>
+    <div class="btns"><button id="snooze">Snooze next ad</button></div>
+    <p class="muted">From chat (mods): <code>!ad 60</code> runs an ad, <code>!snooze</code> snoozes. Everyone: <code>!nextad</code>.</p>
+  </section>
+
+  <section class="w">
+    <h2>CHAT MESSAGES AROUND ADS</h2>
+    <p class="muted" style="margin-bottom:10px">Sent by the chat bot. Pick <b>Announcement</b> for the highlighted, colored banner in chat (the look of Fossabot's "Twitch is rolling a quick ad break" message).</p>
+    <div class="row">
+      <label class="fld" style="min-width:230px"><span>When an ad starts</span><input id="startOn" type="checkbox" style="width:22px;height:22px"></label>
+      <label class="fld" style="flex:1;min-width:280px">Message ({duration} = seconds)<input id="startMsg" maxlength="300"></label>
+      <label class="fld" style="min-width:210px">Style<select id="startColor"></select></label>
+    </div>
+    <div class="row">
+      <label class="fld" style="min-width:230px">Warn before the automatic ad<select id="warn"><option value="0">Off</option><option value="15">15 seconds before</option><option value="30">30 seconds before</option><option value="60">1 minute before</option><option value="120">2 minutes before</option><option value="300">5 minutes before</option></select></label>
+      <label class="fld" style="flex:1;min-width:280px">Message ({seconds} = time left)<input id="warnMsg" maxlength="200"></label>
+      <label class="fld" style="min-width:210px">Style<select id="warnColor"></select></label>
+    </div>
+    <div class="row">
+      <label class="fld" style="min-width:230px"><span>When the ad ends</span><input id="afterOn" type="checkbox" style="width:22px;height:22px"></label>
+      <label class="fld" style="flex:1;min-width:280px">Message<input id="afterMsg" maxlength="200"></label>
+      <label class="fld" style="min-width:210px">Style<select id="afterColor"></select></label>
+    </div>
+    <button class="alt" id="saveSet">Save</button> <span class="muted">Announcements need the "announcements" permission: press Connect Twitch again once.</span>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (p, b) => fetch('/api/ads/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3200); }
+const mmss = (s) => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const ago = (ms) => { const m = Math.round(ms / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm ago'; };
+let A = null, skew = 0, filled = false;
+function tick() {
+  if (!A) return; const now = Date.now() + skew;
+  if (A.running) { $('bigLbl').textContent = 'Ad break running'; $('big').textContent = mmss((A.endsAt - now) / 1000); $('big').className = 'big run'; }
+  else if (A.nextAt && A.nextAt > now) { $('bigLbl').textContent = 'Next ad break in'; $('big').textContent = mmss((A.nextAt - now) / 1000); $('big').className = 'big'; }
+  else { $('bigLbl').textContent = 'Next ad break'; $('big').textContent = A.live ? 'none scheduled' : 'offline'; $('big').className = 'big'; $('big').style.fontSize = '36px'; return; }
+  $('big').style.fontSize = '';
+}
+function paint() {
+  $('last').textContent = A.lastAt ? ago(Date.now() + skew - A.lastAt) + (A.lastDuration ? ' (' + A.lastDuration + 's)' : '') : '--';
+  $('snz').textContent = A.snoozes == null ? '--' : A.snoozes; $('snzRef').textContent = A.snoozeRefreshAt && A.snoozeRefreshAt > Date.now() ? ' next refill in ' + mmss((A.snoozeRefreshAt - Date.now() - skew) / 1000) : '';
+  $('free').textContent = A.prerollFree ? Math.round(A.prerollFree / 60) + ' min' : '--'; $('live').textContent = A.live ? 'LIVE' : 'OFFLINE';
+  $('snooze').disabled = A.snoozes === 0;
+  if (!$('lens').children.length) $('lens').innerHTML = A.lengths.map((l) => `<button data-l="${l}">${l} sec</button>`).join('');
+  if (!filled || document.activeElement.closest && !document.activeElement.closest('.fld')) {
+    if (!filled) { const so = (v) => '<option value="">Normal chat message</option>' + ['primary', 'blue', 'green', 'orange', 'purple'].map((c) => `<option value="${c}">Announcement (${c === 'primary' ? 'channel color' : c})</option>`).join('');
+      ['startColor', 'warnColor', 'afterColor'].forEach((id) => { $(id).innerHTML = so(); $(id).value = A.settings[id] || ''; });
+      $('startOn').checked = A.settings.startOn; $('startMsg').value = A.settings.startMsg; $('warn').value = A.settings.warnSeconds; $('warnMsg').value = A.settings.warnMsg; $('afterOn').checked = A.settings.afterOn; $('afterMsg').value = A.settings.afterMsg; filled = true; }
+  }
+  tick();
+}
+async function load() { try { A = await fetch('/api/ads').then((r) => r.json()); skew = A.now - Date.now(); paint(); } catch (e) { /* server restarting */ } }
+$('lens').onclick = async (e) => {
+  const b = e.target.closest('button[data-l]'); if (!b) return;
+  if (!b.classList.contains('arm')) { const t = b.textContent; b.classList.add('arm'); b.textContent = 'Sure? ' + t; setTimeout(() => { b.classList.remove('arm'); b.textContent = t; }, 3000); return; }
+  const len = +b.dataset.l, r = await post('run', { length: len, say: $('say').checked ? 'Ad break starting now (' + len + 's). Thanks for sticking around!' : '' });
+  $('err').textContent = r.error || ''; if (r.error) toast(r.error, true); else toast('Running a ' + len + 's ad'); load();
+};
+$('snooze').onclick = async () => { const r = await post('snooze'); $('err').textContent = r.error || ''; if (r.error) toast(r.error, true); else toast('Ad snoozed'); load(); };
+$('saveSet').onclick = async () => { const r = await post('settings', { warnSeconds: $('warn').value, warnMsg: $('warnMsg').value, afterOn: $('afterOn').checked, afterMsg: $('afterMsg').value, startOn: $('startOn').checked, startMsg: $('startMsg').value, startColor: $('startColor').value, warnColor: $('warnColor').value, afterColor: $('afterColor').value }); if (r.error) toast(r.error, true); else toast('Saved'); };
+load(); setInterval(load, 5000); setInterval(tick, 1000);
+</script></body></html>

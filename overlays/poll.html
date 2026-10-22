@@ -1,0 +1,83 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Poll</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* OBS Browser Source: http://localhost:8420/overlays/poll.html   (suggested size 620 x 560)
+     Add ?hold=20 to keep the final results on screen for 20 seconds (default 15). */
+  .wrap { position: absolute; left: 20px; top: 20px; width: 560px; filter: drop-shadow(0 10px 18px rgba(0,0,0,.55)); transform: translateX(-700px); opacity: 0; transition: transform .7s cubic-bezier(.2,.9,.2,1), opacity .5s; }
+  .wrap.show { transform: none; opacity: 1; }
+  .card { background: var(--iron); padding: 0 0 16px; clip-path: polygon(0 0, 100% 0, calc(100% - 28px) 100%, 0 100%); position: relative; }
+  .card::before { content: ""; display: block; height: 10px; background: linear-gradient(90deg, var(--aqua) 0 30%, var(--heat) 30% 55%, var(--rust) 55% 75%, var(--drust) 75% 90%, var(--cream) 90%); }
+  .head { display: flex; align-items: center; gap: 14px; padding: 14px 40px 0 22px; }
+  .tag { background: var(--aqua); color: var(--iron); font-weight: 700; letter-spacing: 6px; font-size: 20px; padding: 2px 14px 0 10px; transform: skewX(-12deg); white-space: nowrap; }
+  .tag span { display: inline-block; transform: skewX(12deg); }
+  .clock { margin-left: auto; font-size: 30px; font-weight: 700; letter-spacing: 2px; color: var(--heat); font-variant-numeric: tabular-nums; }
+  .q { padding: 8px 40px 8px 22px; font-size: 32px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; line-height: 1.1; font-stretch: 85%; }
+  .rows { padding: 4px 40px 0 22px; }
+  .opt { margin: 10px 0; transition: opacity .4s; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; font-size: 24px; letter-spacing: 1px; text-transform: uppercase; gap: 10px; }
+  .top b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .top span { color: var(--cream); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bar { height: 22px; margin-top: 4px; background: var(--iron-d); clip-path: polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--c); transition: width 1s cubic-bezier(.2,.8,.2,1); position: relative; }
+  .bar i::after { content: ""; position: absolute; top: 0; bottom: 0; width: 60px; left: -80px; background: linear-gradient(100deg, transparent, rgba(255,255,255,.3), transparent); animation: shine 3s 1s infinite; }
+  @keyframes shine { 0% { left: -80px; } 60%, 100% { left: 110%; } }
+  .opt.lead .top b { color: var(--heat); } .opt.dim { opacity: .45; }
+  .opt.win .top b::after { content: "  \2605 WINNER"; color: var(--heat); }
+  .foot { margin: 12px 40px 0 22px; height: 8px; background: var(--iron-d); } .foot i { display: block; height: 100%; width: 100%; background: var(--aqua); }
+  .total { padding: 6px 40px 0 22px; font-size: 16px; letter-spacing: 3px; color: #9aa39f; text-transform: uppercase; }
+</style></head>
+<body>
+<div class="wrap" id="wrap"><div class="card">
+  <div class="head"><div class="tag"><span id="tag">POLL</span></div><div class="clock" id="clock"></div></div>
+  <div class="q" id="q"></div>
+  <div class="rows" id="rows"></div>
+  <div class="total" id="total"></div>
+  <div class="foot" id="foot"><i id="footBar"></i></div>
+</div></div>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search);
+  const BASE = icmBase('poll', +(Q.get('port') || C.serverPort || 8420)), HOLD = +(Q.get('hold') || C.pollResultSeconds || 15);
+  const COLORS = ['#4FBBBC', '#F39120', '#EC4624', '#E2DAC2', '#B13A22'];
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let P = null, skew = 0, key = '', rows = [];
+  const now = () => Date.now() + skew;
+  const live = (p) => p && p.status === 'ACTIVE';
+  const showing = (p) => p && p.status && (live(p) || (['COMPLETED', 'TERMINATED'].includes(p.status) && p.endedAt && now() - p.endedAt < HOLD * 1000));
+  const mmss = (s) => Math.floor(s / 60) + ':' + String(Math.max(0, s % 60)).padStart(2, '0');
+
+  function build(p) {
+    $('rows').innerHTML = p.choices.map((c, i) => '<div class="opt"><div class="top"><b>' + esc(c.title) + '</b><span></span></div><div class="bar"><i style="background:' + COLORS[i % 5] + '"></i></div></div>').join('');
+    rows = [...$('rows').children];
+  }
+  function paint() {
+    const p = P, on = showing(p);
+    $('wrap').classList.toggle('show', !!on);
+    if (!p || !p.choices || !p.choices.length) return;
+    const k = (p.id || '') + '|' + p.title + '|' + p.choices.map((c) => c.title).join('|');
+    if (k !== key) { key = k; build(p); }
+    const total = p.choices.reduce((a, c) => a + (c.votes || 0), 0), max = Math.max(...p.choices.map((c) => c.votes || 0)), done = !live(p);
+    $('tag').textContent = done ? 'RESULTS' : 'POLL'; $('q').textContent = p.title;
+    p.choices.forEach((c, i) => {
+      const pct = total ? (c.votes || 0) / total * 100 : 0, r = rows[i];
+      r.querySelector('span').textContent = Math.round(pct) + '%  ' + (c.votes || 0);
+      r.querySelector('i').style.width = pct + '%';
+      r.classList.toggle('lead', !!total && c.votes === max && !done); r.classList.toggle('win', done && !!total && c.votes === max); r.classList.toggle('dim', done && !!total && c.votes !== max);
+    });
+    $('total').textContent = total + (total === 1 ? ' vote' : ' votes');
+    if (live(p) && p.endsAt) {
+      const left = Math.max(0, Math.round((p.endsAt - now()) / 1000)), span = Math.max(1, (p.endsAt - (p.startedAt || p.endsAt - 60000)) / 1000);
+      $('clock').textContent = mmss(left); $('footBar').style.width = Math.min(100, left / span * 100) + '%'; $('foot').style.display = '';
+    } else { $('clock').textContent = ''; $('foot').style.display = 'none'; }
+  }
+  const es = new EventSource(BASE + '/events');
+  es.addEventListener('polls', (e) => { const d = JSON.parse(e.data); skew = d.now - Date.now(); P = d.poll; paint(); });
+  setInterval(paint, 500);
+  if (Q.get('demo')) {   // preview without the server: ?demo=1
+    const t0 = Date.now(); P = { id: 'd', title: 'What should we play next?', status: 'ACTIVE', startedAt: t0, endsAt: t0 + 90000, choices: [{ title: 'Doom', votes: 14 }, { title: 'Tetris', votes: 22 }, { title: 'Celeste', votes: 9 }] }; paint();
+  }
+})();
+</script>
+</body></html>

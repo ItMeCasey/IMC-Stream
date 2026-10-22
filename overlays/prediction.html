@@ -1,0 +1,93 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Prediction</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* OBS Browser Source: http://localhost:8420/overlays/prediction.html   (suggested size 620 x 620)
+     Add ?hold=20 to keep the result on screen for 20 seconds (default 15). */
+  .wrap { position: absolute; left: 20px; top: 20px; width: 560px; filter: drop-shadow(0 10px 18px rgba(0,0,0,.55)); transform: translateX(-700px); opacity: 0; transition: transform .7s cubic-bezier(.2,.9,.2,1), opacity .5s; }
+  .wrap.show { transform: none; opacity: 1; }
+  .card { background: var(--iron); padding: 0 0 16px; clip-path: polygon(0 0, 100% 0, calc(100% - 28px) 100%, 0 100%); position: relative; }
+  .card::before { content: ""; display: block; height: 10px; background: linear-gradient(90deg, var(--heat) 0 30%, var(--rust) 30% 55%, var(--drust) 55% 75%, var(--cream) 75% 90%, var(--aqua) 90%); }
+  .head { display: flex; align-items: center; gap: 14px; padding: 14px 40px 0 22px; }
+  .tag { background: var(--heat); color: var(--iron); font-weight: 700; letter-spacing: 5px; font-size: 20px; padding: 2px 14px 0 10px; transform: skewX(-12deg); white-space: nowrap; }
+  .tag span { display: inline-block; transform: skewX(12deg); }
+  .locked .tag { background: var(--rust); color: var(--cream); } .done .tag { background: var(--aqua); } .canceled .tag { background: var(--drust); color: var(--cream); }
+  .clock { margin-left: auto; font-size: 30px; font-weight: 700; letter-spacing: 2px; color: var(--heat); font-variant-numeric: tabular-nums; }
+  .q { padding: 8px 40px 4px 22px; font-size: 32px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; line-height: 1.1; font-stretch: 85%; }
+  .sub { padding: 0 40px 4px 22px; font-size: 17px; letter-spacing: 3px; color: var(--aqua); text-transform: uppercase; min-height: 22px; }
+  .rows { padding: 4px 40px 0 22px; }
+  .opt { margin: 10px 0; transition: opacity .4s; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; font-size: 24px; letter-spacing: 1px; text-transform: uppercase; gap: 10px; }
+  .top b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .top span { color: var(--cream); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .meta { display: flex; justify-content: space-between; font-size: 15px; letter-spacing: 2px; color: #9aa39f; text-transform: uppercase; margin-top: 2px; }
+  .bar { height: 22px; margin-top: 4px; background: var(--iron-d); clip-path: polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--c); transition: width 1s cubic-bezier(.2,.8,.2,1); position: relative; }
+  .bar i::after { content: ""; position: absolute; top: 0; bottom: 0; width: 60px; left: -80px; background: linear-gradient(100deg, transparent, rgba(255,255,255,.3), transparent); animation: shine 3s 1s infinite; }
+  @keyframes shine { 0% { left: -80px; } 60%, 100% { left: 110%; } }
+  .opt.dim { opacity: .4; } .opt.win .top b::after { content: "  \2605 WINNER"; color: var(--heat); } .opt.win .bar { outline: 3px solid var(--heat); outline-offset: -3px; animation: glow 1s infinite alternate; }
+  @keyframes glow { to { filter: brightness(1.35); } }
+  .foot { margin: 12px 40px 0 22px; height: 8px; background: var(--iron-d); } .foot i { display: block; height: 100%; width: 100%; background: var(--heat); }
+  .total { padding: 6px 40px 0 22px; font-size: 16px; letter-spacing: 3px; color: #9aa39f; text-transform: uppercase; }
+</style></head>
+<body>
+<div class="wrap" id="wrap"><div class="card" id="card">
+  <div class="head"><div class="tag"><span id="tag">PREDICTION</span></div><div class="clock" id="clock"></div></div>
+  <div class="q" id="q"></div>
+  <div class="sub" id="sub"></div>
+  <div class="rows" id="rows"></div>
+  <div class="total" id="total"></div>
+  <div class="foot" id="foot"><i id="footBar"></i></div>
+</div></div>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search);
+  const BASE = icmBase('prediction', +(Q.get('port') || C.serverPort || 8420)), HOLD = +(Q.get('hold') || C.pollResultSeconds || 15);
+  const COLORS = ['#4FBBBC', '#EC4624', '#F39120', '#E2DAC2', '#B13A22'];
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const nf = new Intl.NumberFormat('en-US');
+  let P = null, skew = 0, key = '', rows = [];
+  const now = () => Date.now() + skew;
+  const showing = (p) => p && p.status && (['OPEN', 'LOCKED'].includes(p.status) || (['RESOLVED', 'CANCELED'].includes(p.status) && p.endedAt && now() - p.endedAt < HOLD * 1000));
+  const mmss = (s) => Math.floor(s / 60) + ':' + String(Math.max(0, s % 60)).padStart(2, '0');
+
+  function build(p) {
+    $('rows').innerHTML = p.outcomes.map((o, i) => '<div class="opt"><div class="top"><b>' + esc(o.title) + '</b><span></span></div><div class="bar"><i style="background:' + COLORS[i % 5] + '"></i></div><div class="meta"><em></em><em></em></div></div>').join('');
+    rows = [...$('rows').children];
+  }
+  function paint() {
+    const p = P, on = showing(p);
+    $('wrap').classList.toggle('show', !!on);
+    if (!p || !p.outcomes || !p.outcomes.length) return;
+    const k = (p.id || '') + '|' + p.title + '|' + p.outcomes.map((o) => o.title).join('|');
+    if (k !== key) { key = k; build(p); }
+    const open = p.status === 'OPEN', locked = p.status === 'LOCKED', resolved = p.status === 'RESOLVED', canceled = p.status === 'CANCELED';
+    $('card').className = 'card' + (locked ? ' locked' : '') + (resolved ? ' done' : '') + (canceled ? ' canceled' : '');
+    $('tag').textContent = open ? 'PREDICTION' : locked ? 'LOCKED' : resolved ? 'RESULT' : 'REFUNDED';
+    $('q').textContent = p.title;
+    $('sub').textContent = open ? 'Place your channel points!' : locked ? 'Bets are in. Waiting for the result…' : resolved ? 'Points paid out' : 'Everyone gets their points back';
+    const total = p.outcomes.reduce((a, o) => a + (o.points || 0), 0), people = p.outcomes.reduce((a, o) => a + (o.users || 0), 0);
+    p.outcomes.forEach((o, i) => {
+      const share = total ? (o.points || 0) / total * 100 : 0, r = rows[i], mult = o.points ? total / o.points : 0;
+      r.querySelector('span').textContent = nf.format(o.points || 0) + ' pts';
+      r.querySelector('i').style.width = share + '%';
+      const m = r.querySelectorAll('.meta em'); m[0].textContent = (o.users || 0) + (o.users === 1 ? ' person' : ' people'); m[1].textContent = mult ? '1 : ' + mult.toFixed(2) + ' payout' : '';
+      r.classList.toggle('win', resolved && o.id === p.winner); r.classList.toggle('dim', resolved && o.id !== p.winner);
+    });
+    $('total').textContent = nf.format(total) + ' pts from ' + people + (people === 1 ? ' person' : ' people');
+    if (open && p.locksAt) {
+      const left = Math.max(0, Math.round((p.locksAt - now()) / 1000)), span = Math.max(1, (p.locksAt - (p.startedAt || p.locksAt - 120000)) / 1000);
+      $('clock').textContent = mmss(left); $('footBar').style.width = Math.min(100, left / span * 100) + '%'; $('foot').style.display = '';
+    } else { $('clock').textContent = ''; $('foot').style.display = 'none'; }
+  }
+  const es = new EventSource(BASE + '/events');
+  es.addEventListener('polls', (e) => { const d = JSON.parse(e.data); skew = d.now - Date.now(); P = d.prediction; paint(); });
+  setInterval(paint, 500);
+  if (Q.get('demo')) {
+    const t0 = Date.now(); P = { id: 'd', title: 'Will I beat this boss?', status: Q.get('state') || 'OPEN', startedAt: t0, locksAt: t0 + 90000, endedAt: t0, winner: 'a',
+      outcomes: [{ id: 'a', title: 'Yes', points: 12400, users: 31 }, { id: 'b', title: 'No', points: 5200, users: 12 }] }; paint();
+  }
+})();
+</script>
+</body></html>

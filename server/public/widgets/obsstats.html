@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="w.css"><script src="/ui-theme.js"></script>
+<style>
+  #g { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+  .t { background: var(--iron); padding: 5px 8px; border-left: 4px solid var(--aqua); min-width: 0; min-height: 56px; } .t.warn { border-color: var(--heat); } .t.bad { border-color: var(--rust); }
+  .t span { display: block; font-size: 9px; letter-spacing: 1px; color: #9aa39f; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .t b { font-size: 18px; font-variant-numeric: tabular-nums; white-space: nowrap; } .t small { font-size: 11px; color: #9aa39f; margin-left: 3px; } .t em { display: block; font-style: normal; font-size: 10px; color: #9aa39f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+  #msg { color: var(--heat); font-size: 12px; margin-bottom: 6px; }
+</style></head><body>
+<div id="msg"></div><div id="g"></div>
+<script src="w.js"></script><script>
+const nf = new Intl.NumberFormat('en-US');
+const lvl = (v, warn, bad) => (v >= bad ? 'bad' : v >= warn ? 'warn' : '');
+function tile(label, val, unit, cls, detail) { return '<div class="t ' + (cls || '') + '"><span>' + label + '</span><b>' + val + '</b>' + (unit ? '<small>' + unit + '</small>' : '') + (detail ? '<em title="' + detail + '">' + detail + '</em>' : '') + '</div>'; }
+function draw(S) {
+  const budget = S.fps ? 1000 / S.fps : 16.7, drop = S.outTotal ? S.outSkipped / S.outTotal * 100 : 0, rskip = S.renderTotal ? S.renderSkipped / S.renderTotal * 100 : 0;
+  const t = [tile('CPU', S.cpu, '%', lvl(S.cpu, 70, 90), nf.format(S.memMb) + ' MB memory'), tile('FPS', S.fps, '', lvl(S.frameMs / budget * 100, 70, 95), 'render ' + S.frameMs + ' ms'),
+    tile('Dropped', S.streaming ? drop.toFixed(1) : '-', S.streaming ? '%' : '', S.streaming ? lvl(drop, 1, 5) : '', S.streaming ? nf.format(S.outSkipped) + ' of ' + nf.format(S.outTotal) + ' frames' : 'not streaming'),
+    tile('Skipped', rskip.toFixed(1), '%', lvl(rskip, 1, 5), nf.format(S.renderSkipped) + ' of ' + nf.format(S.renderTotal) + ' frames'),
+    S.streaming ? tile('Bitrate', S.kbps == null ? '...' : nf.format(S.kbps), 'kbps', S.reconnecting ? 'bad' : S.congestion == null ? '' : lvl(S.congestion, 10, 40), S.reconnecting ? 'reconnecting' : 'congestion ' + (S.congestion == null ? '-' : S.congestion) + '%') : tile('Bitrate', '-', '', '', 'not streaming'),
+    tile('Disk free', nf.format(S.diskGb), 'GB', lvl(S.diskGb < 10 ? 100 : S.diskGb < 30 ? 50 : 0, 50, 100))];
+  $('g').innerHTML = t.join('');
+}
+async function load() { try { const S = await get('/api/obs/stats'); if (S.error) throw new Error(S.error); $('msg').textContent = ''; draw(S); } catch (e) { $('msg').textContent = 'OBS: ' + e.message; } }
+load(); setInterval(load, 2000);
+</script></body></html>

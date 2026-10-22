@@ -1,0 +1,71 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Emote Explosion</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* OBS Browser Source: http://localhost:8420/overlays/explosion.html?scale=1   (full canvas 1920 x 1080, put it on top of every scene)
+     A burst of your emotes flies across the whole screen when a goal is reached (and for any other event you tick in the Overlay Editor).
+     ?demo=1 fires one every few seconds so you can see it. */
+  #stage { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .p { position: absolute; left: 0; top: 0; will-change: transform, opacity; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); user-select: none; }
+  #banner { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font-size: 110px; font-weight: 700; letter-spacing: 14px; text-transform: uppercase; font-stretch: 80%; color: var(--cream); text-shadow: 0 8px 0 var(--drust), 0 0 40px rgba(0,0,0,.6); opacity: 0; transform: scale(.4); }
+  #banner small { display: block; font-size: 44px; letter-spacing: 8px; color: var(--heat); margin-top: 6px; }
+  #banner.go { animation: pop var(--dur, 6s) ease-out forwards; }
+  @keyframes pop { 0% { opacity: 0; transform: scale(.4); } 8% { opacity: 1; transform: scale(1.12); } 14% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(1.05); } }
+</style></head>
+<body>
+<div id="stage"></div><div id="banner"></div>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search), BASE = icmBase('explosion', +(Q.get('port') || C.serverPort || 8420));
+  const stage = document.getElementById('stage'), banner = document.getElementById('banner');
+  let emotes = [], loading = null;
+  const FALLBACK = ['⭐', '🎉', '🔥', '💖', '✨'];   // if no emotes are available yet, use emoji
+  async function loadEmotes() {
+    try {
+      const j = await fetch(BASE + '/api/emotes').then((r) => r.json()), all = Object.entries(j.emotes || {}).filter(([, e]) => !e.z && e.u).map(([n, e]) => ({ n, u: e.u, c: !!e.c }));
+      const chan = all.filter((e) => e.c), pool = chan.length >= 6 ? chan.concat(all.slice(0, 20)) : all;   // your channel's emotes first
+      emotes = pool;
+    } catch (e) { emotes = []; }
+  }
+  const rnd = (a, b) => a + Math.random() * (b - a), pick = (l) => l[Math.floor(Math.random() * l.length)];
+  const live = new Set(); let raf = 0, last = 0;
+
+  function spawn(src, style, W, H, big) {
+    const el = document.createElement(src.u ? 'img' : 'div'); el.className = 'p';
+    const size = big ? rnd(150, 230) : rnd(54, 120);
+    if (src.u) { el.src = src.u; el.style.width = size + 'px'; el.style.height = size + 'px'; el.style.objectFit = 'contain'; } else { el.textContent = src.t; el.style.fontSize = size * 0.8 + 'px'; }
+    stage.appendChild(el);
+    let x, y, vx, vy;
+    if (style === 'rain') { x = rnd(0, W); y = rnd(-300, -60); vx = rnd(-80, 80); vy = rnd(250, 700); }
+    else { const a = rnd(0, Math.PI * 2), sp = big ? rnd(200, 700) : rnd(500, 1700); x = W / 2; y = H * 0.52; vx = Math.cos(a) * sp; vy = Math.sin(a) * sp - rnd(100, 500); }
+    live.add({ el, x, y, vx, vy, rot: rnd(0, 360), vr: rnd(-420, 420), age: 0, life: rnd(2.6, 4.6), size, g: style === 'rain' ? 120 : 1100 });
+  }
+  function frame(t) {
+    const dt = last ? Math.min(0.05, (t - last) / 1000) : 0.016; last = t; const W = window.innerWidth / (1), H = window.innerHeight;
+    for (const p of live) {
+      p.age += dt; p.vy += p.g * dt; p.vx *= (1 - 0.35 * dt); p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+      const fade = p.age > p.life * 0.7 ? Math.max(0, 1 - (p.age - p.life * 0.7) / (p.life * 0.3)) : 1;
+      p.el.style.transform = 'translate(' + (p.x - p.size / 2) + 'px,' + (p.y - p.size / 2) + 'px) rotate(' + p.rot + 'deg)'; p.el.style.opacity = fade;
+      if (p.age >= p.life || p.y > H + 300 || p.x < -400 || p.x > W + 400) { p.el.remove(); live.delete(p); }
+    }
+    if (live.size) raf = requestAnimationFrame(frame); else { raf = 0; last = 0; }
+  }
+  async function explode(o) {
+    if (!emotes.length) await loadEmotes();
+    const W = window.innerWidth, H = window.innerHeight, n = Math.max(10, Math.min(200, +o.count || 70)), style = o.style === 'rain' ? 'rain' : 'burst', secs = Math.max(2, Math.min(15, +o.seconds || 6));
+    const set = []; const pool = emotes.length ? emotes : []; const kinds = Math.min(10, Math.max(4, pool.length));
+    for (let i = 0; i < kinds; i++) set.push(pool.length ? pick(pool) : { t: pick(FALLBACK) });
+    if (o.title) { banner.innerHTML = String(o.title).replace(/[<>&]/g, '') + (o.sub ? '<small>' + String(o.sub).replace(/[<>&]/g, '') + '</small>' : ''); banner.style.setProperty('--dur', secs * 0.8 + 's'); banner.classList.remove('go'); void banner.offsetWidth; banner.classList.add('go'); }
+    for (let i = 0; i < 6; i++) spawn(pick(set), style, W, H, true);   // a few huge ones first
+    let spawned = 0; const total = n, wave = Math.ceil(total / 6);
+    const timer = setInterval(() => { for (let i = 0; i < wave && spawned < total; i++, spawned++) spawn(pick(set), style, W, H, false); if (spawned >= total) clearInterval(timer); }, style === 'rain' ? secs * 1000 / 10 : 90);
+    if (!raf) raf = requestAnimationFrame(frame);
+  }
+  window.explode = explode;
+  const es = new EventSource(BASE + '/events');
+  es.addEventListener('explosion', (e) => { try { explode(JSON.parse(e.data)); } catch (x) { /* ignore */ } });
+  loadEmotes(); setInterval(loadEmotes, 30 * 60000);
+  if (Q.get('demo')) { setTimeout(() => explode({ count: 80, title: 'Goal reached!', sub: 'Road to 500' }), 800); setInterval(() => explode({ count: 80, title: 'Goal reached!', sub: 'Road to 500', style: Math.random() < .3 ? 'rain' : 'burst' }), 9000); }
+})();
+</script></body></html>

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Stream Info</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 18px 24px 40px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 8px 14px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); }
+  button:hover { filter: brightness(1.12); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.alt { background: var(--aqua); }
+  input { font: inherit; font-size: 16px; padding: 9px 12px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; } input:focus { outline: none; border-color: var(--aqua); }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; margin-bottom: 12px; }
+  .now { display: flex; gap: 16px; align-items: center; } .now img, .art { width: 72px; height: 96px; object-fit: cover; background: #151b1b; }
+  .now .t { font-size: 22px; font-weight: 700; letter-spacing: 1px; } .muted { color: #9aa39f; font-size: 13px; }
+  .count { text-align: right; } .count.over { color: var(--rust); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 12px; margin-top: 12px; }
+  .cat { cursor: pointer; text-align: center; padding: 6px; border: 3px solid transparent; background: #1f2626; } .cat:hover { border-color: var(--aqua); } .cat.sel { border-color: var(--heat); background: #2d3434; }
+  .cat img { width: 100%; aspect-ratio: 3/4; object-fit: cover; background: #151b1b; } .cat b { display: block; font-size: 13px; margin-top: 6px; line-height: 1.2; word-break: break-word; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; } .chip { background: #333f3e; padding: 4px 10px; cursor: pointer; font-size: 13px; } .chip:hover { background: var(--heat); color: var(--iron); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+  .preset { display: flex; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); } .preset .art { width: 36px; height: 48px; } .preset .p { flex: 1; min-width: 0; } .preset .p b { display: block; } .preset .p span { font-size: 13px; color: #9aa39f; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .err { color: var(--heat); margin: 8px 0; } #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; } #toast.bad { background: var(--rust); color: var(--cream); }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>STREAM INFO</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section>
+    <h2>ON TWITCH RIGHT NOW</h2>
+    <div class="err" id="err"></div>
+    <div class="now"><img id="nowArt" alt=""><div><div class="t" id="nowTitle">…</div><div class="muted">Category: <b id="nowGame"></b></div></div></div>
+  </section>
+
+  <section class="h">
+    <h2>CHANGE TITLE + CATEGORY</h2>
+    <label class="fld">Title <input id="title" maxlength="140" placeholder="Stream title"></label>
+    <div class="muted count" id="cnt"></div>
+    <label class="fld">Search categories <input id="q" placeholder="Type a game name… (e.g. Tetris, Just Chatting)" autocomplete="off"></label>
+    <div class="muted" id="sel" style="margin-bottom:6px">No category change selected.</div>
+    <div class="chips" id="recents"></div>
+    <div class="grid" id="results"></div>
+    <div class="row"><button id="apply">Update stream info</button><button class="ghost" id="clearSel">Keep current category</button><button class="ghost" id="clearGame" title="Remove the category">Clear category</button></div>
+    <div class="row"><button class="alt" id="clipBtn">Create a clip now</button><span class="muted" id="clipOut">Clips the last ~30 seconds while you are live (also: <code>!clip</code> in chat).</span></div>
+    <div class="row"><input id="pname" placeholder="Preset name (optional)" style="max-width:260px"><button class="alt" id="savePreset">Save as preset</button></div>
+  </section>
+
+  <section>
+    <h2>PRESETS</h2>
+    <div id="presets"></div>
+  </section>
+
+  <section>
+    <h2>FROM CHAT</h2>
+    <p class="muted">Mods can type <code>!title New title</code> and <code>!game Tetris</code> (or <code>!settitle</code> / <code>!setgame</code>). The bot picks the exact match, or the first result that starts with or contains what was typed; if it can't tell, it lists the closest names. <code>!gamesearch name</code> lists categories without changing anything. Everyone can type <code>!title</code> or <code>!game</code> to see the current ones.</p>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const post = (p, b) => fetch('/api/channel/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3000); }
+let info = null, picked = null, results = [], dirtyTitle = false;
+const NOART = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="72" height="96"><rect width="72" height="96" fill="#151b1b"/></svg>');
+
+function paintNow() {
+  $('err').textContent = info.error || '';
+  $('nowTitle').textContent = info.title || (info.error ? '' : '(no title)'); $('nowGame').textContent = info.gameName || '(none)'; $('nowArt').src = info.art || NOART;
+  if (!dirtyTitle && document.activeElement !== $('title')) { $('title').value = info.title || ''; count(); }
+  $('recents').innerHTML = (info.recents || []).length ? '<span class="muted">Recent:</span>' + info.recents.map((c, i) => `<span class="chip" data-i="${i}">${esc(c.name)}</span>`).join('') : '';
+  $('presets').innerHTML = (info.presets || []).map((p) => `<div class="preset"><img class="art" src="${esc(p.art || NOART)}" alt=""><div class="p"><b>${esc(p.name)}</b><span>${esc(p.title)}${p.gameName ? ' &middot; ' + esc(p.gameName) : ''}</span></div><button data-a="apply" data-id="${p.id}">Apply</button><button class="ghost" data-a="del" data-id="${p.id}">Delete</button></div>`).join('') || '<p class="muted">No presets. Set a title and category above, then “Save as preset” for one-click go-live setups.</p>';
+}
+function paintSel() {
+  $('sel').innerHTML = picked ? 'New category: <b>' + esc(picked.name) + '</b>' : 'No category change selected.';
+  document.querySelectorAll('.cat').forEach((c) => c.classList.toggle('sel', !!picked && c.dataset.id === picked.id));
+}
+function count() { const n = $('title').value.length; $('cnt').textContent = n + ' / 140'; $('cnt').className = 'muted count' + (n > 140 ? ' over' : ''); }
+function paintResults() {
+  $('results').innerHTML = results.map((c) => `<div class="cat" data-id="${c.id}"><img src="${esc(c.art || NOART)}" alt="" loading="lazy"><b>${esc(c.name)}</b></div>`).join('');
+  paintSel();
+}
+async function load() { info = await fetch('/api/channel').then((r) => r.json()); paintNow(); }
+let qT; $('q').oninput = () => { clearTimeout(qT); qT = setTimeout(async () => {
+  const q = $('q').value.trim(); if (!q) { results = []; paintResults(); return; }
+  const r = await fetch('/api/categories?q=' + encodeURIComponent(q)).then((x) => x.json());
+  if (r.error) $('err').textContent = r.error; results = r.results || []; paintResults(); }, 300); };
+$('title').oninput = () => { dirtyTitle = true; count(); };
+$('results').onclick = (e) => { const c = e.target.closest('.cat'); if (c) { picked = results.find((x) => x.id === c.dataset.id); paintSel(); } };
+$('recents').onclick = (e) => { const c = e.target.closest('.chip'); if (c) { picked = info.recents[+c.dataset.i]; paintSel(); } };
+$('clearSel').onclick = () => { picked = null; paintSel(); };
+$('clearGame').onclick = () => { picked = { id: '0', name: '(no category)', art: '' }; paintSel(); };
+$('apply').onclick = async () => {
+  const body = {}; const t = $('title').value.trim();
+  if (t && t !== (info.title || '')) body.title = t;
+  if (picked) { body.gameId = picked.id; body.gameName = picked.id === '0' ? '' : picked.name; body.art = picked.art; }
+  if (!Object.keys(body).length) return toast('Nothing changed');
+  const r = await post('update', body); if (r.error) return toast(r.error, true);
+  toast('Updated on Twitch'); picked = null; dirtyTitle = false; $('q').value = ''; results = []; paintResults(); await load();
+};
+$('savePreset').onclick = async () => {
+  const t = $('title').value.trim(); const g = picked || (info.gameId ? { id: info.gameId, name: info.gameName, art: info.art } : null);
+  const r = await post('preset/save', { name: $('pname').value, title: t, gameId: g ? g.id : '', gameName: g ? g.name : '', art: g ? g.art : '' });
+  if (r.error) return toast(r.error, true); $('pname').value = ''; toast('Preset saved'); load();
+};
+$('presets').onclick = async (e) => {
+  const b = e.target.closest('[data-a]'); if (!b) return; const p = info.presets.find((x) => x.id === b.dataset.id);
+  if (b.dataset.a === 'del') { await post('preset/delete', { id: p.id }); return load(); }
+  const r = await post('update', { title: p.title || undefined, gameId: p.gameId || undefined, gameName: p.gameName, art: p.art }); if (r.error) return toast(r.error, true);
+  dirtyTitle = false; toast('Preset applied: ' + p.name); load();
+};
+$('clipBtn').onclick = async () => { const r = await post('clip'); if (r.error) { toast(r.error, true); return; } $('clipOut').innerHTML = 'Clip: <a style="color:var(--aqua)" target="_blank" href="' + r.url + '">' + r.url + '</a>'; toast('Clip created'); };
+load(); setInterval(() => { if (!dirtyTitle) load(); }, 15000);
+</script></body></html>

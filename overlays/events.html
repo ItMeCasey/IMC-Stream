@@ -1,0 +1,89 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Recent Events</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* OBS Browser Source:  http://localhost:8420/overlays/events.html   (list, suggested size 520 x 440)
+                          http://localhost:8420/overlays/events.html?mode=ticker   (strip scrolling right to left, suggested size 1920 x 62)
+     Settings (alignment, grow direction, how many to keep, ticker speed) are edited in the app: Overlay Editor.  ?demo=1 to preview. */
+  #list { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding: 10px; overflow: hidden; }
+  #list.top { justify-content: flex-start; }
+  .row { display: flex; align-items: stretch; height: 62px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.5)); animation: in .6s cubic-bezier(.2,.9,.2,1); flex: none; }
+  @keyframes in { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: none; } }
+  .bar { width: 16px; background: var(--accent, var(--aqua)); clip-path: polygon(0 0, 100% 0, 60% 100%, 0 100%); flex: none; }
+  .body { flex: 1; min-width: 0; background: var(--iron); margin-left: -6px; padding: 6px 22px 6px 20px; clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%); display: flex; flex-direction: column; justify-content: center; }
+  .tag { font-size: 14px; letter-spacing: 4px; font-weight: 700; color: var(--accent, var(--aqua)); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .name { font-size: 28px; font-weight: 700; text-transform: uppercase; font-stretch: 80%; letter-spacing: 1px; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .follow { --accent: var(--aqua); } .sub { --accent: var(--heat); } .bits { --accent: var(--heat); } .raid { --accent: var(--rust); } .tip { --accent: var(--cream); }
+  /* ticker: one line along the bottom, moving right to left */
+  #ticker { position: absolute; left: 0; right: 0; bottom: 0; height: 62px; overflow: hidden; display: none; background: var(--iron-d); }
+  #ticker::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: linear-gradient(90deg, var(--aqua) 0 30%, var(--heat) 30% 55%, var(--rust) 55% 75%, var(--drust) 75% 90%, var(--cream) 90%); z-index: 2; }
+  #track { position: absolute; top: 0; bottom: 0; left: 0; display: flex; align-items: center; white-space: nowrap; will-change: transform; }
+  .set { display: flex; align-items: center; flex: none; } .tk { margin-right: 56px; }
+  .tk { display: flex; align-items: baseline; gap: 12px; } .tk b { font-size: 14px; letter-spacing: 4px; color: var(--accent, var(--aqua)); text-transform: uppercase; } .tk span { font-size: 28px; font-weight: 700; text-transform: uppercase; font-stretch: 80%; letter-spacing: 1px; }
+  .tk::after { content: "\25C6"; color: #46504f; margin-left: 56px; font-size: 14px; }
+  body.ticker #list { display: none; } body.ticker #ticker { display: block; }
+</style></head>
+<body>
+<div id="list"></div>
+<div id="ticker"><div id="track"></div></div>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search), BASE = icmBase('events', +(Q.get('port') || C.serverPort || 8420));
+  const list = document.getElementById('list'), track = document.getElementById('track'), esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // settings come from the app (Overlay Editor); the address can still override: ?max=6 ?mode=ticker ?align=top ?grow=down ?speed=80
+  let S = { align: 'bottom', grow: 'up', max: 6, mode: 'list', speed: 80 };
+  const cfg = () => ({ align: Q.get('align') || S.align, grow: Q.get('grow') || S.grow, max: Math.min(30, Math.max(1, +(Q.get('max') || S.max))), mode: Q.get('mode') || S.mode, speed: Math.min(400, Math.max(10, +(Q.get('speed') || S.speed))) });
+  const GROUP = { follow: 'follow', sub: 'sub', resub: 'sub', giftsub: 'sub', bits: 'bits', raid: 'raid', tip: 'tip', charity: 'tip', redeem: 'redeem', hype_start: 'hype', hype_end: 'hype', goal: 'goal', custom: 'custom' };
+  const wanted = (a) => { if (cfg().mode !== 'ticker') return true; const inc = S.include || {}; const g = GROUP[a.event] || a.kind; return inc[g] !== false; };   // the include checkboxes are for the ticker
+  let events = [];   // newest first
+  function render(animate) {
+    events = events.slice(0, 40);
+    const c = cfg(); document.body.classList.toggle('ticker', c.mode === 'ticker'); list.classList.toggle('top', c.align === 'top');
+    if (c.mode === 'ticker') {
+      const one = events.filter(wanted).slice(0, c.max).reverse().map((a) => '<div class="tk" style="--accent:' + esc(a.accent || '') + '"><b>' + esc(a.tag || a.kind) + '</b><span>' + esc(a.name) + '</span></div>').join('');
+      if (one !== setHtml) { setHtml = one; rebuild(); }
+      return;
+    }
+    events = events.slice(0, 40); const shown = events.slice(0, c.max);
+    // newest enters at the bottom when growing up (older ones are pushed up) and at the top when growing down
+    const ordered = c.grow === 'down' ? shown : shown.slice().reverse();
+    const had = new Set([...list.children].map((e) => e.dataset.k));
+    list.innerHTML = ordered.map((a) => '<div class="row ' + esc(a.kind || 'follow') + '" data-k="' + a.k + '"' + (a.accent ? ' style="--accent:' + esc(a.accent) + '"' : '') + (had.has(String(a.k)) || !animate ? ' data-old="1"' : '') + '><div class="bar"></div><div class="body"><div class="tag">' + esc(a.tag || a.kind) + '</div><div class="name">' + esc(a.name) + '</div></div></div>').join('');
+    list.querySelectorAll('[data-old]').forEach((e) => (e.style.animation = 'none'));
+  }
+  let seq = 0; const add = (a, quiet) => { a.k = ++seq; events.unshift(a); render(!quiet); };
+
+  // ---- ticker motion: one endless belt. The set of events is repeated until it is wider than the screen, and the belt jumps back
+  // by exactly one set when that set has gone past, so there is never a gap (new events join the next lap).
+  let setHtml = '', setW = 0, x = 0, last = 0;
+  function rebuild() {
+    setW = 0; if (!setHtml) { track.innerHTML = ''; return; }
+    const box = document.getElementById('ticker');
+    track.innerHTML = '<div class="set">' + setHtml + '</div>';
+    setW = track.firstElementChild.offsetWidth;   // layout pixels (not affected by the overlay scale)
+    if (!(setW > 0)) { setW = 0; return; }   // not laid out yet (hidden page): try again on the next change
+    const copies = Math.min(60, Math.max(2, Math.ceil(box.clientWidth / setW) + 1));
+    track.innerHTML = Array(copies).fill('<div class="set">' + setHtml + '</div>').join('');
+    if (x === 0) x = box.clientWidth;
+  }
+  function frame(t) {
+    const c = cfg(), box = document.getElementById('ticker');
+    if (c.mode === 'ticker' && setW) {
+      const dt = last ? Math.min(0.1, (t - last) / 1000) : 0; x -= c.speed * dt;
+      while (x <= -setW) x += setW;                                      // seamless wrap
+      track.style.transform = 'translateX(' + x + 'px)';
+    }
+    last = t; requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  const applySettings = (s) => { if (s && s.events) { S = Object.assign(S, s.events); render(false); } };
+  fetch(BASE + '/api/overlay-settings').then((r) => r.json()).then(applySettings).catch(() => {});
+  if (Q.get('demo')) { [['follow', 'NEW FOLLOWER', 'RetroRider'], ['sub', 'NEW SUB', 'VinylVince'], ['bits', '500 BITS', 'BitBaron'], ['raid', 'RAID - 42', 'FriendlyStreamer'], ['follow', 'NEW FOLLOWER', 'TealTina'], ['tip', '$10 TIP', 'GenerousGamer']].forEach((d, i) => setTimeout(() => add({ kind: d[0], tag: d[1], name: d[2] }), i * 500)); }
+  else fetch(BASE + '/api/alerts/history').then((r) => r.json()).then((h) => { h.slice(0, 30).reverse().forEach((a) => add(a, true)); }).catch(() => {});
+  const es = new EventSource(BASE + '/events');
+  es.addEventListener('overlaycfg', (e) => { try { applySettings(JSON.parse(e.data)); } catch (x) { /* ignore */ } });
+  es.onmessage = (ev) => { try { const a = JSON.parse(ev.data); if (a && a.kind && !a.replay && !a.test) add(a); } catch (e) { /* not an alert */ } };
+})();
+</script></body></html>

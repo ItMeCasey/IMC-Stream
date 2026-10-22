@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Panels</title>
+<script src="/ui-theme.js"></script>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 1000px; margin: 0 auto; padding: 18px 20px 50px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 16px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); }
+  h2 { font-size: 13px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 10px; } section.h h2 { color: var(--heat); }
+  .muted { color: #9aa39f; font-size: 13px; line-height: 1.5; margin-bottom: 8px; } ol { margin: 0 0 6px 20px; line-height: 1.6; font-size: 14px; }
+  .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin: 8px 0; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; } .fld input, .fld select, .fld textarea { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; }
+  button, .btn { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 9px 14px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); text-decoration: none; display: inline-block; } button.alt, .btn.alt { background: var(--aqua); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.danger { background: var(--drust); color: var(--cream); }
+  code { background: #11171a; padding: 2px 7px; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: 250px 1fr 350px; gap: 16px; align-items: start; } @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  #list .it { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-left: 4px solid var(--aqua); background: var(--iron); margin-bottom: 6px; cursor: pointer; } #list .it.sel { outline: 2px solid var(--heat); } #list .it b { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } #list .it .sy { font-size: 11px; color: var(--aqua); }
+  #prev { background: #0e1112; padding: 14px; display: flex; justify-content: center; } #prev canvas, #prev img { width: 320px; max-width: 100%; display: block; }
+  .sw { display: flex; gap: 6px; } .sw i { width: 26px; height: 26px; cursor: pointer; border: 2px solid transparent; } .sw i.on { border-color: var(--cream); }
+  #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 16px; font-weight: 700; display: none; z-index: 9; } #toast.bad { background: var(--rust); color: var(--cream); }
+</style>
+<script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style>
+</head><body>
+<header><img src="/assets/logo.png" alt=""><h1>PANELS</h1><a href="/">&larr; Home</a></header>
+<main>
+  <section class="h">
+    <h2>HOW PANELS WORK</h2>
+    <p class="muted">Panels are the boxes under your stream on your Twitch channel page. <b>Twitch has no way for apps to change them</b> (there is no panel API), so this page can't push them for you. Here you design them, download the images, and the app keeps them in sync with <b>chat commands</b>, so viewers get the same info in chat (<code>!discord</code>, <code>!rules</code>...).</p>
+    <ol><li>Make a panel on the left, pick its look, press <b>Download image</b>.</li><li>Press <b>Open my channel page</b>, switch on <b>Edit Panels</b>, add an <b>Image panel</b>, upload the image and paste the link.</li><li>Tick <b>Also answer in chat</b> and press <b>Save + sync to chat</b>.</li></ol>
+  </section>
+
+  <div class="grid">
+    <section><h2>PANELS</h2><div id="list"></div><div class="row"><button id="add">+ New panel</button></div></section>
+
+    <section id="edit" style="display:none"><h2>EDIT</h2>
+      <div class="row"><label class="fld" style="flex:1;min-width:180px">Title<input id="fTitle" maxlength="60" placeholder="DISCORD"></label><label class="fld" style="width:90px">Icon<input id="fIcon" maxlength="8" placeholder="🎮"></label></div>
+      <div class="row"><label class="fld" style="flex:1">Text<textarea id="fBody" rows="5" maxlength="600" placeholder="Join the community, chat with other viewers and see go-live pings."></textarea></label></div>
+      <div class="row"><label class="fld" style="flex:1">Link (shown on the panel and in chat)<input id="fLink" maxlength="300" placeholder="https://discord.gg/..."></label></div>
+      <div class="fld">Accent color</div><div class="sw" id="sw"></div>
+      <div class="row"><label class="fld">Own image instead of the generated card<input id="fImg" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="ghost" id="clrImg">Use generated card</button></div>
+      <div class="row"><label class="fld" style="width:200px">Chat command<input id="fCmd" maxlength="30" placeholder="discord"></label><label class="fld" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="fSync" style="width:18px;height:18px">Also answer in chat</label></div>
+      <div class="row"><button id="save">Save + sync to chat</button><button class="danger" id="del">Delete</button></div>
+    </section>
+
+    <section id="pv" style="display:none"><h2>PREVIEW (320 px wide, like Twitch)</h2><div id="prev"></div>
+      <div class="row"><button class="alt" id="dl">Download image</button><button class="ghost" id="cpl">Copy link</button><button class="ghost" id="cpt">Copy text</button></div>
+      <div class="row"><a class="btn ghost" id="open" target="_blank">Open my channel page</a></div>
+      <div class="muted" id="chatsay"></div>
+    </section>
+  </div>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3800); }
+const COLORS = ['#4FBBBC', '#F39120', '#EC4624', '#B13A22', '#E2DAC2'];
+let P = [], sel = null, login = '';
+
+// ---------------------------------------------------------------- the generated card (what you upload to Twitch)
+function wrap(g, text, w) { const out = []; for (const para of String(text || '').split('\n')) { let line = ''; for (const word of para.split(/\s+/).filter(Boolean)) { const t = line ? line + ' ' + word : word; if (g.measureText(t).width > w && line) { out.push(line); line = word; } else line = t; } out.push(line); } return out; }
+function card(p) {
+  const W = 320, c = document.createElement('canvas'), g = c.getContext('2d'); c.width = W; g.font = '16px Bahnschrift,"Segoe UI",sans-serif';
+  const body = wrap(g, p.body, W - 44), title = (p.title || 'Panel').toUpperCase(), hasLink = !!p.link;
+  const H = 24 + 66 + body.length * 24 + (hasLink ? 62 : 24) + 12; c.height = Math.max(150, H);
+  g.fillStyle = '#222A2A'; g.fillRect(0, 0, W, c.height);
+  const stripe = ['#4FBBBC', '#F39120', '#EC4624', '#B13A22', '#E2DAC2'], sw = [.3, .25, .2, .15, .1]; let x = 0; stripe.forEach((col, i) => { g.fillStyle = col; g.fillRect(x, 0, Math.ceil(W * sw[i]), 8); x += W * sw[i]; });
+  g.fillStyle = p.color; g.fillRect(0, 8, 6, c.height - 8);
+  g.textBaseline = 'alphabetic'; g.fillStyle = p.color; g.font = '700 28px Bahnschrift,"Segoe UI",sans-serif';
+  let tx = 24; if (p.icon) { g.font = '28px "Segoe UI Emoji","Apple Color Emoji",sans-serif'; g.fillStyle = '#E2DAC2'; g.fillText(p.icon, 24, 62); tx = 64; g.font = '700 28px Bahnschrift,"Segoe UI",sans-serif'; g.fillStyle = p.color; }
+  let size = 28; while (size > 14 && g.measureText(title).width > W - tx - 20) { size -= 2; g.font = '700 ' + size + 'px Bahnschrift,"Segoe UI",sans-serif'; }
+  g.fillText(title, tx, 62); g.fillStyle = '#B13A22'; g.fillRect(24, 74, 54, 4);
+  g.font = '16px Bahnschrift,"Segoe UI",sans-serif'; g.fillStyle = '#E2DAC2'; body.forEach((l, i) => g.fillText(l, 24, 106 + i * 24));
+  if (hasLink) { const y = 106 + body.length * 24 + 8, label = p.link.replace(/^https?:\/\//, '').replace(/\/$/, ''); g.font = '700 14px Bahnschrift,"Segoe UI",sans-serif'; let t = label; while (g.measureText(t).width > W - 68 && t.length > 8) t = t.slice(0, -2); if (t !== label) t += '…'; g.fillStyle = p.color; g.fillRect(24, y, W - 48, 34); g.fillStyle = '#222A2A'; g.textAlign = 'center'; g.fillText(t, W / 2, y + 22); g.textAlign = 'left'; }
+  return c;
+}
+
+// ---------------------------------------------------------------- list + editor
+const cur = () => P.find((x) => x.id === sel);
+const chatText = (p) => [p.title && p.title.toUpperCase() + ':', p.body.replace(/\s*\n\s*/g, ' '), p.link].filter(Boolean).join(' ').slice(0, 450);
+function drawList() {
+  $('list').innerHTML = P.length ? P.map((p) => '<div class="it' + (p.id === sel ? ' sel' : '') + '" data-id="' + p.id + '" style="border-color:' + p.color + '"><span>' + esc(p.icon || '▤') + '</span><b>' + esc(p.title || '(untitled)') + '</b>' + (p.synced && p.command ? '<span class="sy">!' + esc(p.command) + '</span>' : '') + '</div>').join('') : '<p class="muted">No panels yet. Press <b>+ New panel</b>.</p>';
+  const p = cur(); $('edit').style.display = $('pv').style.display = p ? '' : 'none'; if (!p) return;
+  $('fTitle').value = p.title; $('fIcon').value = p.icon; $('fBody').value = p.body; $('fLink').value = p.link; $('fCmd').value = p.command; $('fSync').checked = !!p.synced;
+  $('sw').innerHTML = COLORS.map((c) => '<i data-c="' + c + '" style="background:' + c + '" class="' + (p.color === c ? 'on' : '') + '"></i>').join('');
+  $('open').href = login ? 'https://www.twitch.tv/' + login + '/about' : 'https://www.twitch.tv/'; preview();
+}
+function preview() {
+  const p = cur(); if (!p) return; $('prev').innerHTML = '';
+  if (p.image) { const w = document.createElement('div'); w.style.cssText = 'width:320px;max-width:100%;background:#222A2A'; const i = new Image(); i.src = p.image; w.appendChild(i); if (p.body || p.link) { const t = document.createElement('div'); t.style.cssText = 'padding:12px 14px;font-size:14px;line-height:1.5;white-space:pre-wrap;color:#E2DAC2'; t.textContent = p.body + (p.link ? '\n' + p.link : ''); w.appendChild(t); } $('prev').appendChild(w); } else $('prev').appendChild(card(p));
+  $('chatsay').textContent = p.synced && p.command ? 'Chat will answer !' + p.command + ': ' + chatText(p) : 'Not answering in chat.';
+}
+function readForm() { const p = cur(); if (!p) return; p.title = $('fTitle').value; p.icon = $('fIcon').value; p.body = $('fBody').value; p.link = $('fLink').value; p.command = $('fCmd').value.toLowerCase().replace(/[^a-z0-9_]/g, ''); p.synced = $('fSync').checked; }
+['fTitle', 'fIcon', 'fBody', 'fLink', 'fCmd'].forEach((id) => { $(id).oninput = () => { readForm(); preview(); }; }); $('fSync').onchange = () => { readForm(); preview(); };
+$('list').onclick = (e) => { const it = e.target.closest('.it'); if (it) { sel = it.dataset.id; drawList(); } };
+$('sw').onclick = (e) => { const c = e.target.dataset.c; if (!c) return; cur().color = c; drawList(); };
+$('add').onclick = () => { if (P.length >= 30) return toast('30 panels is the limit', true); const p = { id: 'pn-' + Math.random().toString(36).slice(2, 7), title: '', body: '', link: '', icon: '', color: COLORS[P.length % 5], command: '', image: '', synced: false }; P.push(p); sel = p.id; drawList(); $('fTitle').focus(); };
+$('fImg').onchange = () => { const f = $('fImg').files[0]; if (!f) return; if (f.size > 1000000) { $('fImg').value = ''; return toast('That image is over 1 MB: make it smaller', true); } const r = new FileReader(), p = cur(); r.onload = async () => { const u = await post('/api/panels/image', { id: p.id, data: r.result }); if (u.error) return toast(u.error, true); p.image = u.url; preview(); }; r.readAsDataURL(f); };
+$('clrImg').onclick = () => { cur().image = ''; $('fImg').value = ''; preview(); };
+$('dl').onclick = () => { const p = cur(), a = document.createElement('a'); a.download = (p.title || 'panel').replace(/[^\w-]+/g, '_') + '.png'; a.href = p.image || card(p).toDataURL('image/png'); a.click(); };
+const copy = async (t, ok) => { try { await navigator.clipboard.writeText(t); toast(ok); } catch (e) { prompt('Copy:', t); } };
+$('cpl').onclick = () => copy(cur().link, 'Link copied'); $('cpt').onclick = () => copy(cur().body, 'Text copied');
+
+// ---------------------------------------------------------------- save + sync to chat commands
+async function persist() { const r = await post('/api/panels/save', { panels: P }); if (r.error) throw new Error(r.error); P = r.panels; }
+$('save').onclick = async () => {
+  readForm(); const p = cur(); if (!p.title) return toast('Give the panel a title', true);
+  try {
+    if (p.synced) {
+      if (!p.command) return toast('Pick a chat command name, for example discord', true);
+      const body = chatText(p), r = await post('/api/bot/command/save', { id: p.cmdId || undefined, name: p.command, response: body, desc: 'Panel: ' + p.title, cd: 30, userCd: 30 });
+      if (r.error) return toast(r.error, true); p.cmdId = r.id;
+    }
+    await persist(); drawList(); toast(p.synced ? 'Saved and synced to !' + p.command : 'Saved');
+  } catch (e) { toast(e.message, true); }
+};
+$('del').onclick = async () => { if (!$('del').dataset.arm) { $('del').dataset.arm = 1; $('del').textContent = 'Sure?'; setTimeout(() => { delete $('del').dataset.arm; $('del').textContent = 'Delete'; }, 3000); return; } P = P.filter((x) => x.id !== sel); sel = P[0] ? P[0].id : null; try { await persist(); } catch (e) { toast(e.message, true); } drawList(); toast('Deleted (its chat command stays on the Chat Bot page)'); };
+(async () => { const r = await fetch('/api/panels').then((x) => x.json()); P = r.panels || []; login = r.login || ''; sel = P[0] ? P[0].id : null; drawList(); })();
+</script></body></html>

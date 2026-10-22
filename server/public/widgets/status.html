@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="w.css"><script src="/ui-theme.js"></script>
+<style>
+  body { padding: 4px 8px; display: flex; flex-direction: column; justify-content: center; }
+  #bar { display: flex; align-items: center; gap: 4px 16px; flex-wrap: wrap; }
+  .st { display: flex; align-items: center; gap: 6px; font-weight: 700; letter-spacing: 2px; font-size: 13px; color: #9aa39f; } .st i { width: 9px; height: 9px; border-radius: 50%; background: #666; } .st.on { color: var(--rust); } .st.on i { background: var(--rust); animation: bl 1s steps(1) infinite; } @keyframes bl { 50% { opacity: .2; } }
+  .k { display: flex; align-items: baseline; gap: 5px; } .k b { font-size: 17px; font-variant-numeric: tabular-nums; } .k span { font-size: 9px; letter-spacing: 2px; color: #9aa39f; text-transform: uppercase; }
+  #ed { display: none; margin-top: 4px; } #ed input { width: 100%; font: inherit; font-size: 13px; padding: 5px 7px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; margin-bottom: 4px; } #ed .rw { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; } #sg button, #rc button { background: transparent; color: var(--cream); outline: 1px solid #46504f; font-size: 11px; padding: 4px 7px; letter-spacing: 0; text-transform: none; margin: 0 4px 4px 0; } #ed .g { font-size: 12px; color: var(--aqua); } #em { font-size: 11px; color: var(--rust); }
+  #pen { background: none; color: var(--aqua); font-size: 11px; padding: 0 4px; letter-spacing: 1px; } .ed body #bar, .ed body #ti, .ed #pen { display: none; } .ed #ed { display: block; }
+  #ti { font-size: 11px; color: #9aa39f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+</style></head><body>
+<div id="bar"><div class="st" id="st"><i></i><span id="stT">OFFLINE</span></div>
+  <div class="k"><b id="vw">-</b><span>viewers</span></div><div class="k"><b id="up">-</b><span>uptime</span></div><div class="k"><b id="fo">-</b><span>followers</span></div><div class="k"><b id="su">-</b><span>subs</span></div></div>
+<div style="display:flex;align-items:center;gap:6px;min-width:0"><div id="ti" style="min-width:0"></div><button id="pen" title="Change title / game">&#9998; EDIT</button></div>
+<div id="ed"><input id="eT" maxlength="140" placeholder="Stream title"><input id="eG" placeholder="Game / category (type to search)" autocomplete="off"><div class="g" id="eC"></div><div id="sg"></div><div id="rc"></div>
+  <div class="rw"><button id="eS">Save</button><button class="g" id="eX" style="background:transparent;outline:2px solid #46504f;color:var(--cream)">Cancel</button><span id="em"></span></div></div>
+<script src="w.js"></script><script>
+let S = null; const nf = new Intl.NumberFormat('en-US');
+function draw() {
+  if (!S) return; $('st').classList.toggle('on', !!S.live); $('stT').textContent = S.live ? 'LIVE' : 'OFFLINE';
+  $('vw').textContent = S.live ? nf.format(S.viewers) : '-'; $('up').textContent = S.live && S.startedAt ? mmss((Date.now() - Date.parse(S.startedAt)) / 1000) : '-';
+  $('fo').textContent = S.followers == null ? '-' : nf.format(S.followers); $('su').textContent = S.subs == null ? '-' : nf.format(S.subs); $('ti').textContent = [S.title, S.game].filter(Boolean).join(' - ');
+}
+let pick = null, st = null;   // pick: the category chosen in the box
+function setPick(c) { pick = c; $('eC').textContent = c ? 'Game: ' + c.name : ''; $('sg').innerHTML = ''; }
+$('pen').onclick = async () => {
+  const c = await get('/api/channel'); if (c.error) { $('ti').textContent = c.error; return; }
+  document.documentElement.classList.add('ed'); $('eT').value = c.title || ''; $('eG').value = ''; $('em').textContent = ''; setPick(c.gameId ? { id: c.gameId, name: c.gameName, art: c.art } : null);
+  $('rc').innerHTML = (c.recents || []).slice(0, 6).map((r, i) => '<button data-i="' + i + '">' + esc(r.name) + '</button>').join(''); st = c.recents || [];
+};
+$('rc').onclick = (e) => { const i = e.target.dataset.i; if (i != null) setPick(st[+i]); };
+$('eG').oninput = () => { clearTimeout($('eG').t); const q = $('eG').value.trim(); if (!q) { $('sg').innerHTML = ''; return; } $('eG').t = setTimeout(async () => { const r = await get('/api/categories?q=' + encodeURIComponent(q)); st2 = r.results || []; $('sg').innerHTML = st2.map((x, i) => '<button data-i="' + i + '">' + esc(x.name) + '</button>').join('') || '<span class="muted">No match</span>'; }, 250); };
+let st2 = []; $('sg').onclick = (e) => { const i = e.target.dataset.i; if (i != null) { setPick(st2[+i]); $('eG').value = ''; } };
+$('eX').onclick = () => document.documentElement.classList.remove('ed');
+$('eS').onclick = async () => {
+  const b = { title: $('eT').value.trim() }; if (pick) { b.gameId = pick.id; b.gameName = pick.name; b.art = pick.art; }
+  $('em').textContent = 'Saving...'; const r = await post('/api/channel/update', b);
+  if (r.error) { $('em').textContent = r.error; return; } document.documentElement.classList.remove('ed'); get('/api/stats').then((s) => { S = s; draw(); });
+};
+get('/api/stats').then((s) => { S = s; draw(); }); live({ stats: (s) => { S = s; draw(); } }); setInterval(draw, 1000);
+</script></body></html>

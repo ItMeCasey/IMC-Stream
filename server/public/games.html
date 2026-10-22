@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Chat Games</title>
+<script src="/ui-theme.js"></script>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 960px; margin: 0 auto; padding: 18px 20px 50px; display: grid; gap: 12px; }
+  section { background: var(--iron-d); padding: 16px 20px; border-top: 1px solid var(--line); }
+  h2 { font-size: 12px; letter-spacing: 3px; margin-bottom: 10px; }
+  .muted { color: #b5bdb9; font-size: 13px; line-height: 1.5; }
+  .row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin: 8px 0; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #b5bdb9; } .fld input, .fld select, .fld textarea { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 7px 9px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 8px 13px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); } button:hover { filter: brightness(1.12); } button.alt { background: var(--aqua); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.danger { background: transparent; color: var(--rust); outline: 1px solid var(--rust); }
+    .game { --gc: #4FBBBC; display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; align-items: center; padding: 12px 16px; margin-bottom: 14px; background: var(--iron); border-left: 6px solid var(--gc); } .game:last-child { margin-bottom: 0; }
+  .game:nth-child(5n+2) { --gc: #F39120; } .game:nth-child(5n+3) { --gc: #EC4624; } .game:nth-child(5n+4) { --gc: #E2DAC2; } .game:nth-child(5n+5) { --gc: #B13A22; }
+  .game > div:first-child b { font-size: 16px; letter-spacing: 3px; text-transform: uppercase; color: var(--gc); } .game.off { border-left-color: #46504f; }
+  .game b { letter-spacing: 1px; } .game code { background: #11171a; padding: 1px 6px; font-size: 13px; } .game .d { grid-column: 1; } .game .x { grid-column: 1 / -1; }
+  .sw { position: relative; width: 46px; height: 24px; background: #46504f; cursor: pointer; border: 0; padding: 0; } .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: var(--cream); transition: left .15s; } .sw.on { background: var(--aqua); } .sw.on::after { left: 25px; background: var(--iron); }
+  .game.off b, .game.off .d { opacity: .45; }
+  .oc { display: grid; grid-template-columns: 90px 110px 1fr auto auto; gap: 8px; align-items: center; margin: 6px 0; } .oc input { font: inherit; font-size: 14px; padding: 6px 8px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; } .oc .pct { font-size: 12px; color: #b5bdb9; min-width: 52px; text-align: right; }
+  .oc.hdr { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #b5bdb9; }
+  .stat { font-size: 12px; color: #b5bdb9; } .good { color: #7bc47f; } .bad { color: var(--rust); }
+  .try { background: #11171a; padding: 8px 10px; margin: 8px 0; font-size: 14px; min-height: 36px; }
+  .tpl { display: flex; gap: 6px; flex-wrap: wrap; }
+  #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 16px; font-weight: 700; display: none; z-index: 9; max-width: 90vw; } #toast.bad { background: var(--rust); color: var(--cream); }
+  @media (max-width: 700px) { .oc { grid-template-columns: 70px 90px 1fr; } }
+</style>
+<script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style>
+</head><body>
+<header><img src="/assets/logo.png" alt=""><h1>CHAT GAMES</h1><a href="/">&larr; Home</a></header>
+<main>
+  <section data-open>
+    <h2>YOUR GAMES</h2>
+    <p class="muted">Games you make. Viewers pay a cost, one outcome is picked by its chance, and they win its points. Each game is a chat command.</p>
+    <div id="mine"></div>
+    <div class="row"><button id="newGame">+ New game</button><span class="muted">or start from:</span><span class="tpl" id="tpls"></span></div>
+    <div id="form" style="display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:12px">
+      <input type="hidden" id="fId">
+      <div class="row"><label class="fld" style="flex:1;min-width:160px">Game name<input id="fName" maxlength="30" placeholder="Go Fishing"></label>
+        <label class="fld" style="width:140px">Chat command<input id="fCmd" maxlength="20" placeholder="fish"></label>
+        <label class="fld" style="width:120px">Cost to play<input id="fCost" type="number" min="0" value="10"></label>
+        <label class="fld" style="width:130px">Viewer wait (sec)<input id="fCd" type="number" min="0" value="30"></label></div>
+      <div class="muted" style="margin:6px 0 2px">Outcomes: one is picked at random. A bigger "chance" number means it comes up more often. Write what chat says: use <code>{user}</code> <code>{payout}</code> <code>{net}</code> <code>{balance}</code> <code>{cost}</code> <code>{currency}</code>.</div>
+      <div class="oc hdr"><span>Chance</span><span>Win (points)</span><span>Chat says</span><span>Odds</span><span></span></div>
+      <div id="ocs"></div>
+      <div class="row"><button class="ghost" id="addOc">+ Add outcome</button><span id="rtp" class="stat"></span></div>
+      <div class="try" id="tryOut">Press "Try it" to see what chat would say.</div>
+      <div class="row"><button id="saveGame">Save game</button><button class="ghost" id="tryGame">Try it</button><button class="ghost" id="cancelGame">Cancel</button><label class="fld" style="flex-direction:row;align-items:center;gap:8px;margin-left:auto"><input type="checkbox" id="fOn" checked style="width:18px;height:18px">On</label></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>BUILT-IN GAMES</h2>
+    <p class="muted">Switch any of them off, and tune the ones with settings.</p>
+    <div id="builtin"></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const post = (p, b) => fetch('/api/bot/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3600); }
+let V = null, open = '';
+const TEMPLATES = {
+  'Fishing': { name: 'Go Fishing', command: 'fish', cost: 10, cooldown: 30, outcomes: [{ weight: 45, payout: 0, text: '{user} caught an old boot. {net} {currency}' }, { weight: 35, payout: 9, text: '{user} reeled in a fish! {net} {currency}' }, { weight: 17, payout: 18, text: '{user} landed a big one! {net} {currency}' }, { weight: 3, payout: 90, text: '{user} hooked the legendary golden carp! {net} {currency}' }] },
+  'Mystery box': { name: 'Mystery Box', command: 'box', cost: 50, cooldown: 60, outcomes: [{ weight: 50, payout: 0, text: '{user} opened the box: empty. {net} {currency}' }, { weight: 35, payout: 60, text: '{user} found a prize! {net} {currency}' }, { weight: 15, payout: 160, text: '{user} struck gold! {net} {currency}' }] },
+  'Free spin': { name: 'Daily Spin', command: 'spin', cost: 0, cooldown: 3600, outcomes: [{ weight: 60, payout: 10, text: '{user} spun +{payout} {currency}' }, { weight: 30, payout: 25, text: '{user} spun +{payout} {currency}' }, { weight: 10, payout: 100, text: 'JACKPOT! {user} spun +{payout} {currency}' }] },
+};
+
+function draw() {
+  const cur = V.games.currency, P = V.games.prefix;
+  $('mine').innerHTML = V.games.custom.length ? V.games.custom.map((g) => '<div class="game' + (g.enabled ? '' : ' off') + '" data-id="' + g.id + '"><div><b>' + esc(g.name) + '</b> &nbsp;<code>' + esc(P + g.command) + '</code></div><div><button class="sw' + (g.enabled ? ' on' : '') + '" data-a="onoff" title="On / off"></button></div>'
+    + '<div class="d muted">Costs ' + g.cost + ' ' + esc(cur) + ', wait ' + g.cooldown + 's, ' + g.outcomes.length + ' outcomes' + (g.odds.rtp != null ? ', pays back ' + g.odds.rtp + '% on average' : '') + '</div>'
+    + '<div class="x stat">' + (g.plays ? 'Played ' + g.plays + ' times: took in ' + g.paidIn + ', paid out ' + g.paidOut + ' <span class="' + (g.paidIn - g.paidOut >= 0 ? 'good' : 'bad') + '">(' + (g.paidIn - g.paidOut >= 0 ? '+' : '') + (g.paidIn - g.paidOut) + ' ' + esc(cur) + ' net)</span>' : 'Not played yet') + ' &nbsp; <button class="ghost" data-a="edit">Edit</button> <button class="danger" data-a="del">Delete</button></div></div>').join('') : '<p class="muted">You haven\'t made a game yet. Press <b>+ New game</b> or pick a starting point.</p>';
+  $('tpls').innerHTML = Object.keys(TEMPLATES).map((k) => '<button class="ghost" data-t="' + esc(k) + '">' + esc(k) + '</button>').join('');
+  const S = V.games.settings, num = (id, v, label, extra) => '<label class="fld" style="width:150px">' + label + '<input id="' + id + '" type="number" value="' + v + '" ' + (extra || '') + '></label>';
+  const settingsFor = { gamble: num('sWin', Math.round(S.gambleWin * 100), 'Win chance %', 'min="5" max="95"') + num('sMax', S.maxBet, 'Max bet (0 = none)', 'min="0"'),
+    trivia: num('sTr', S.triviaReward, 'Reward', 'min="0"') + num('sTs', S.triviaSeconds, 'Seconds to answer', 'min="5"'),
+    duel: num('sDs', S.duelSeconds, 'Challenge expires (sec)', 'min="10"') + '<div class="muted" style="flex-basis:100%;margin-top:6px">Duel the bot: <b>!duel bot</b>, once a day for chatters under a points line. The bot always accepts.</div>' + '<label class="fld" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="sBot" ' + (S.botDuel.on !== false ? 'checked' : '') + ' style="width:18px;height:18px">Bot duels on</label>' + num('sBelow', S.botDuel.below, 'Only chatters under (points)', 'min="1"') + num('sMaxWin', S.botDuel.maxWin, 'Most the bot pays out', 'min="1"') + num('sHouse', S.botDuel.house, 'Stake for broke chatters', 'min="0"') + '<label class="fld" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="sAnim" ' + (S.duelAnim !== false ? 'checked' : '') + ' style="width:18px;height:18px">Pixel duel overlay in OBS</label><button class="ghost" data-a="testDuel">Test duel</button>' };
+  const AR = S.arena, tst = (g) => '<button class="ghost" data-a="gtest" data-game="' + g + '">Test on overlay</button><button class="ghost" data-a="gtest" data-game="stop">Stop</button>';
+  const RC = S.race, RV = V.race || {}, bet = RV.phase === 'betting', run = RV.phase === 'racing';
+  const BI = S.bits || {}; settingsFor.race = num('cBits', BI.race, 'Bits to start it (0 = off)', 'min="0"') + num('cNum', RC.count, 'Horses (2-10)', 'min="2" max="10"') + num('cSec', RC.seconds, 'Betting time (sec)', 'min="30"') + '<label class="fld" style="width:260px">Prediction title<input id="cTitle" maxlength="45" value="' + esc(RC.title) + '"></label>'
+    + '<label class="fld" style="flex-basis:100%">Horse names (one per line, leave empty for the built-in funny names)<textarea id="cNames" rows="3" style="width:100%">' + esc((RC.names || []).join('\n')) + '</textarea></label>'
+    + '<div class="muted" style="flex-basis:100%">Starting a race opens a Twitch <b>prediction</b> (one choice per horse) so viewers bet channel points. When time is up the bets lock, the horses race, the winner is picked and Twitch pays out. Needs Affiliate/Partner. A cheer with the word <b>race</b> and enough bits starts one too. Mods can use <b>!race</b>, <b>!race now</b>, <b>!race cancel</b>.</div>'
+    + '<div style="flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;align-items:center">' + (bet ? '<b>Bets open (' + RV.secondsLeft + 's left):</b> <select id="cPick"><option value="">Random winner</option>' + RV.horses.map((h, i) => '<option value="' + (i + 1) + '">' + esc(h) + ' wins</option>').join('') + '</select><button data-a="rrun">Close bets and race</button><button class="danger" data-a="rcancel">Cancel + refund</button>'
+      : run ? '<b>Racing...</b>' : '<button data-a="rstart">Start a race (opens prediction)</button>') + '<button class="ghost" data-a="rdemo">Preview on overlay</button></div>';
+  const DN = S.dance || {};
+  settingsFor.dance = num('dBits', BI.dance, 'Bits to start it (0 = off)', 'min="0"') + num('dSec', DN.seconds, 'Length (sec)', 'min="20" max="600"') + '<label class="fld" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="dStrobe" ' + (DN.strobe !== false ? 'checked' : '') + ' style="width:18px;height:18px">Strobe flashes (max 3 a second)</label>'
+    + '<div class="muted" style="flex-basis:100%">A full-screen party on the <b>Dance Party</b> OBS source: moving lights, lasers, a mirror ball and pixel dancers named after recent chatters, all following the music. A cheer of the bits above with the word <b>dance</b> in it starts it, or mods type <b>!dance</b>. Turn strobes off if you or your viewers are sensitive to flashing.</div><button class="ghost" data-a="dtest">Test on overlay (silent)</button><button class="ghost" data-a="dstop">Stop</button>';
+  settingsFor.boss = num('bBits', BI.boss, 'Bits to start it (0 = off)', 'min="0"') + num('bHp', AR.boss.baseHp, 'Base HP', 'min="10"') + num('bPer', AR.boss.hpPerChatter, 'HP per active chatter', 'min="0"') + num('bSec', AR.boss.seconds, 'Time limit (sec)', 'min="15"') + num('bCd', AR.boss.hitCd, 'Seconds between hits', 'min="1"') + num('bPool', AR.boss.pool, 'Prize per fighter', 'min="0"') + num('bLast', AR.boss.lastHit, 'Final blow bonus', 'min="0"') + num('bCon', AR.boss.consolation, 'Consolation if it escapes', 'min="0"') + '<div class="muted" style="flex-basis:100%">Subs hit twice as hard. Bits, subs, gift subs and raids land big blows. Everyone is paid by how much damage they did. Mods start it with <b>!boss</b> or <b>!boss Name</b>. A cheer with the word <b>boss</b> and enough bits starts it too.</div>' + tst('boss');
+  settingsFor.royale = num('rBits', BI.royale, 'Bits to start it (0 = off)', 'min="0"') + num('rFee', AR.royale.fee, 'Entry fee', 'min="0"') + num('rLobby', AR.royale.lobby, 'Lobby (sec)', 'min="10"') + num('rMax', AR.royale.max, 'Max fighters (2-8)', 'min="2" max="8"') + '<div class="muted" style="flex-basis:100%">Every fight is decided by the server, so ping and typing speed never matter. The last fighter takes the whole pot. Mods start it with <b>!arena</b>. A cheer with the word <b>arena</b> and enough bits starts it too.</div>' + tst('royale');
+  settingsFor.teams = num('tFee', AR.teams.fee, 'Entry fee', 'min="0"') + num('tLobby', AR.teams.lobby, 'Lobby (sec)', 'min="10"') + num('tMax', AR.teams.maxPerTeam, 'Max per team', 'min="1"') + '<div class="muted" style="flex-basis:100%">The smaller team hits harder (up to 2x) so lopsided teams stay fair. Winners split the pot. Mods start it with <b>!teams</b>.</div>' + tst('teams');
+  $('builtin').innerHTML = V.games.builtin.map((g) => '<div class="game' + (g.on ? '' : ' off') + '" data-g="' + g.id + '"><div><b>' + esc(g.name) + '</b> &nbsp;<code>' + esc(g.how.replace(/^!/, P)) + '</code></div><div><button class="sw' + (g.on ? ' on' : '') + '" data-a="gon" title="On / off"></button></div>'
+    + '<div class="d muted">' + esc(g.desc) + '</div>' + (settingsFor[g.id] ? '<div class="x"><div class="row" style="margin:4px 0">' + settingsFor[g.id] + '<button data-a="gsave">Save</button></div></div>' : '') + '</div>').join('');
+}
+// ---------------------------------------------------------------- builder
+function ocRow(o) { const d = document.createElement('div'); d.className = 'oc'; d.innerHTML = '<input class="w" type="number" min="1" max="1000" value="' + (o.weight || 1) + '"><input class="p" type="number" min="0" value="' + (o.payout || 0) + '"><input class="t" maxlength="200" value="' + esc(o.text || '') + '" placeholder="{user} caught a fish! {net} {currency}"><span class="pct"></span><button class="ghost" data-a="rm" title="Remove">&#10005;</button>'; return d; }
+function readForm() { return { id: $('fId').value || undefined, name: $('fName').value, command: $('fCmd').value, cost: $('fCost').value, cooldown: $('fCd').value, enabled: $('fOn').checked, outcomes: [...$('ocs').children].map((d) => ({ weight: d.querySelector('.w').value, payout: d.querySelector('.p').value, text: d.querySelector('.t').value })) }; }
+function odds() {
+  const rows = [...$('ocs').children], tot = rows.reduce((a, d) => a + (+d.querySelector('.w').value || 0), 0), cost = +$('fCost').value || 0; let ev = 0;
+  rows.forEach((d) => { const w = +d.querySelector('.w').value || 0, p = +d.querySelector('.p').value || 0; d.querySelector('.pct').textContent = tot ? (w / tot * 100).toFixed(1) + '%' : ''; ev += tot ? w / tot * p : 0; });
+  $('rtp').innerHTML = cost ? 'Pays back <b class="' + (ev > cost ? 'bad' : 'good') + '">' + (ev / cost * 100).toFixed(0) + '%</b> of what viewers pay on average' + (ev > cost ? ' (viewers win points over time)' : '') : 'Free to play: average prize ' + ev.toFixed(1);
+}
+function openForm(g) {
+  g = g || { name: '', command: '', cost: 10, cooldown: 30, enabled: true, outcomes: [{ weight: 1, payout: 0, text: '' }, { weight: 1, payout: 20, text: '' }] };
+  $('form').style.display = 'block'; $('fId').value = g.id || ''; $('fName').value = g.name; $('fCmd').value = g.command; $('fCost').value = g.cost; $('fCd').value = g.cooldown; $('fOn').checked = g.enabled !== false;
+  $('ocs').innerHTML = ''; g.outcomes.forEach((o) => $('ocs').appendChild(ocRow(o))); $('tryOut').textContent = 'Press "Try it" to see what chat would say.'; odds(); $('fName').focus();
+}
+$('newGame').onclick = () => openForm(null);
+$('tpls').onclick = (e) => { const t = TEMPLATES[e.target.dataset.t]; if (t) openForm(Object.assign({ enabled: true }, JSON.parse(JSON.stringify(t)))); };
+$('addOc').onclick = () => { if ($('ocs').children.length >= 12) return toast('12 outcomes is the limit', true); $('ocs').appendChild(ocRow({ weight: 1, payout: 0, text: '' })); odds(); };
+$('ocs').oninput = odds; $('fCost').oninput = odds;
+$('ocs').onclick = (e) => { if (e.target.dataset.a === 'rm') { if ($('ocs').children.length < 2) return toast('Keep at least one outcome', true); e.target.closest('.oc').remove(); odds(); } };
+$('cancelGame').onclick = () => { $('form').style.display = 'none'; };
+$('tryGame').onclick = async () => { const r = await post('game/try', readForm()); if (r.error) return toast(r.error, true); $('tryOut').textContent = r.text; };
+$('saveGame').onclick = async () => { const r = await post('game/save', readForm()); if (r.error) return toast(r.error, true); $('form').style.display = 'none'; toast('Saved'); load(); };
+$('mine').onclick = async (e) => {
+  const a = e.target.dataset.a; if (!a) return; const row = e.target.closest('.game'), g = V.games.custom.find((x) => x.id === row.dataset.id);
+  if (a === 'edit') return openForm(g);
+  if (a === 'onoff') { await post('game/save', Object.assign({}, g, { enabled: !g.enabled })); return load(); }
+  if (a === 'del') { if (!e.target.dataset.arm) { e.target.dataset.arm = 1; e.target.textContent = 'Sure?'; setTimeout(() => { delete e.target.dataset.arm; e.target.textContent = 'Delete'; }, 3000); return; } await post('game/delete', { id: g.id }); load(); }
+};
+$('builtin').onclick = async (e) => {
+  const a = e.target.dataset.a; if (!a) return; const row = e.target.closest('.game'), id = row.dataset.g;
+  if (a === 'gon') { const g = V.games.builtin.find((x) => x.id === id); await post('games/toggle', { id, on: !g.on }); return load(); }
+  if (a === 'testDuel') return fetch('/api/duel/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(() => toast('Duel sent to OBS'));
+  if (a === 'rstart' || a === 'rrun' || a === 'rcancel') {
+    const r = a === 'rstart' ? await post('race/start', {}) : a === 'rrun' ? await post('race/run', { winner: (row.querySelector('#cPick') || {}).value }) : await post('race/cancel', {});
+    if (r.error) return toast(r.error, true); toast(a === 'rstart' ? 'Race opened: bets are on' : a === 'rrun' ? 'Racing!' : 'Cancelled'); return load();
+  }
+  if (a === 'dtest' || a === 'dstop') { const r = await post('games/dancetest', { stop: a === 'dstop' }); return toast(r.error || r.text, !!r.error); }
+  if (a === 'gsave' && id === 'dance') { const v = (i) => row.querySelector('#' + i); await post('games/bits', { dance: +v('dBits').value }); const r = await post('games/dance', { seconds: +v('dSec').value, strobe: v('dStrobe').checked }); if (r.error) return toast(r.error, true); toast('Saved'); return load(); }
+  if (a === 'rdemo') { await post('race/demo', {}); return toast('Preview sent to OBS'); }
+  if (a === 'gsave' && id === 'race') { const v = (i) => row.querySelector('#' + i).value; await post('games/bits', { race: +v('cBits') }); const r = await post('race/settings', { count: +v('cNum'), seconds: +v('cSec'), title: v('cTitle'), names: v('cNames') }); if (r.error) return toast(r.error, true); toast('Saved'); return load(); }
+  if (a === 'gtest') { const r = await post('games/test', { game: e.target.dataset.game }); return toast(r.error || r.text, !!r.error); }
+  if (a === 'gsave' && ['boss', 'royale', 'teams'].includes(id)) {
+    const v = (i) => +row.querySelector('#' + i).value, b = {};
+    if (id === 'boss') b.boss = { baseHp: v('bHp'), hpPerChatter: v('bPer'), seconds: v('bSec'), hitCd: v('bCd'), pool: v('bPool'), lastHit: v('bLast'), consolation: v('bCon') };
+    if (id === 'royale') b.royale = { fee: v('rFee'), lobby: v('rLobby'), max: v('rMax') }; if (id === 'teams') b.teams = { fee: v('tFee'), lobby: v('tLobby'), maxPerTeam: v('tMax') };
+    const bits = {}; bits[id] = v(id === 'boss' ? 'bBits' : id === 'royale' ? 'rBits' : 'tBits_'); if (id !== 'teams') await post('games/bits', bits);
+    const r = await post('games/arena', b); if (r.error) return toast(r.error, true); toast('Saved'); return load();
+  }
+  if (a === 'gsave') { const v = (i) => (row.querySelector('#' + i) || {}).value; const b = {}; if (id === 'gamble') { b.gambleWin = +v('sWin'); b.maxBet = +v('sMax'); } if (id === 'trivia') { b.triviaReward = +v('sTr'); b.triviaSeconds = +v('sTs'); } if (id === 'duel') { b.duelSeconds = +v('sDs'); b.duelAnim = row.querySelector('#sAnim').checked; b.botDuel = { on: row.querySelector('#sBot').checked, below: +v('sBelow'), maxWin: +v('sMaxWin'), house: +v('sHouse') }; } const r = await post('games/settings', b); if (r.error) return toast(r.error, true); toast('Saved'); load(); }
+};
+async function load() { V = await fetch('/api/bot').then((r) => r.json()); draw(); }
+load();
+</script></body></html>

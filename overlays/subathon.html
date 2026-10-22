@@ -1,0 +1,42 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Subathon</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* OBS Browser Source: http://localhost:8420/overlays/subathon.html   (suggested size 640 x 190)
+     Its own timer, separate from the start-screen countdown. Controlled in the app (Subathon page) and in chat (!subathon).
+     ?demo=1 previews it without the server. */
+  body { display: flex; flex-direction: column; justify-content: center; padding: 6px 8px; transition: opacity .5s; } body.off { opacity: 0; }
+  .card { background: var(--iron); position: relative; padding: 14px 26px 16px 22px; clip-path: polygon(0 0, 100% 0, calc(100% - 26px) 100%, 0 100%); filter: drop-shadow(0 8px 14px rgba(0,0,0,.5)); }
+  .card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 8px; background: linear-gradient(90deg, var(--aqua) 0 30%, var(--heat) 30% 55%, var(--rust) 55% 75%, var(--drust) 75% 90%, var(--cream) 90%); }
+  .head { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+  .label { font-size: 24px; font-weight: 700; letter-spacing: 7px; color: var(--aqua); text-transform: uppercase; }
+  .tag { background: var(--heat); color: var(--iron); font-size: 14px; letter-spacing: 4px; padding: 2px 10px 0; transform: skewX(-12deg); font-weight: 700; display: none; } .paused .tag { display: inline-block; }
+  .time { font-size: 112px; font-weight: 700; line-height: 1; font-stretch: 80%; color: var(--cream); font-variant-numeric: tabular-nums; letter-spacing: 2px; margin-top: 2px; white-space: nowrap; }
+  .time.msg { font-size: 64px; color: var(--heat); animation: pulse 1s infinite; } .low .time { color: var(--rust); }
+  .add { position: absolute; right: 36px; top: 12px; font-size: 40px; font-weight: 700; letter-spacing: 2px; color: var(--heat); opacity: 0; transform: translateY(14px); text-shadow: 0 3px 0 rgba(0,0,0,.4); } .add small { display: block; font-size: 14px; letter-spacing: 3px; color: var(--cream); text-align: right; }
+  .add.go { animation: bump 3.6s ease-out forwards; } @keyframes bump { 0% { opacity: 0; transform: translateY(14px) scale(.8); } 10% { opacity: 1; transform: none; } 78% { opacity: 1; } 100% { opacity: 0; transform: translateY(-18px); } }
+  @keyframes pulse { 50% { opacity: .55; } }
+</style></head>
+<body id="body">
+<div class="card" id="root"><div class="head"><span class="label" id="label">SUBATHON</span><span class="tag">PAUSED</span></div><div class="time" id="time">0:00:00</div><div class="add" id="add"></div></div>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search), BASE = icmBase('subathon', +(Q.get('port') || C.serverPort || 8420));
+  const $ = (id) => document.getElementById(id);
+  let D = null, skew = 0, lastAdd = 0;
+  const hms = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h + ':' + String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+  const short = (sec) => { sec = Math.abs(Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), x = sec % 60; return (h ? h + 'h ' : '') + (m ? m + 'm ' : '') + (!h && x ? x + 's' : '') ; };
+  function draw() {
+    if (!D) return; const now = Date.now() + skew, rem = D.mode === 'running' ? Math.max(0, D.endsAt - now) : D.remainingMs, done = D.mode === 'done' || (D.mode === 'running' && rem <= 0);
+    document.body.classList.toggle('off', !D.visible);
+    $('root').className = 'card ' + (D.mode === 'paused' ? 'paused ' : '') + (!done && D.mode === 'running' && rem < 60000 ? 'low' : '');
+    $('label').textContent = D.label || 'SUBATHON';
+    const t = $('time'); t.textContent = done ? (D.doneMessage || 'SUBATHON COMPLETE!') : hms(rem); t.className = 'time' + (done ? ' msg' : '');
+    if (D.lastAdd && D.lastAdd.at !== lastAdd) { lastAdd = D.lastAdd.at; if (now - D.lastAdd.at < 6000) { const a = $('add'), s = D.lastAdd.seconds; a.innerHTML = (s > 0 ? '+' : '-') + short(s) + (D.lastAdd.why ? '<small>' + String(D.lastAdd.why).replace(/[<>&]/g, '') + '</small>' : ''); a.classList.remove('go'); void a.offsetWidth; a.classList.add('go'); } }
+  }
+  const es = new EventSource(BASE + '/events'); es.addEventListener('subathon', (e) => { D = JSON.parse(e.data); skew = D.now - Date.now(); draw(); });
+  setInterval(draw, 200);
+  if (Q.get('demo')) { const end = Date.now() + 8 * 3600e3 + 1234000; D = { mode: 'running', endsAt: end, remainingMs: 0, durationMs: 12 * 3600e3, visible: true, label: 'SUBATHON', now: Date.now(), lastAdd: null }; draw(); setInterval(() => { D.endsAt += 600e3; D.lastAdd = { seconds: 600, why: 'sub from RetroRider', at: Date.now() }; }, 7000); }
+})();
+</script></body></html>
