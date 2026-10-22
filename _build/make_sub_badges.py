@@ -2,7 +2,8 @@
 flat colours on a tiny grid, scaled with hard edges. A star on 18 x 18 pixels (Twitch's smallest size), saved at 18, 36 and 72 pixels.
 Tiers: base, 2, 3, 6 and 9 months, 1 year, then every half year up to 8.5 years (21 badges). The star grows and changes colour as the months go up;
 from 1 year it carries the number of full years, and a half year adds a little gold "+".
-Run:  python _build/make_sub_badges.py   (needs Pillow). Output: twitch/sub_badges/ (upload them under Viewer Rewards > Subscriptions > Subscriber Badges)."""
+Tier 2 and Tier 3 subscribers get the same star with a flair: Tier 2 has two silver bars (like a roman II), Tier 3 has three gold bars (III), in the bottom left corner.
+Run:  python _build/make_sub_badges.py   (needs Pillow). Output: twitch/sub_badges/ (upload them under Viewer Rewards > Subscriptions > Subscriber Badges: tier1/ , tier2/ and tier3/ are the three tiers)."""
 import math
 import os
 from PIL import Image, ImageDraw, ImageFont
@@ -38,7 +39,7 @@ def star_points(cx, cy, R, r):
     return pts
 
 
-def tier(months):
+def tier(months, level=1):
     years, half = divmod(months, 12)[0], months > 12 and (months % 12) == 6
     if months == 0:   name, R = 'grey', 5.2
     elif months == 2: name, R = 'aqua', 6.0
@@ -75,6 +76,12 @@ def tier(months):
     if years >= 8:
         for x in (5, 8, 11): px[x, 0] = hexrgb(GOLD_L)
         for x in range(5, 12): px[x, 1] = hexrgb(GOLD)
+    # Tier 2 and 3 flair: roman-numeral style bars in the bottom left corner (silver for II, gold for III)
+    if level >= 2:
+        bar, bar_l = ('#c9d1d0', '#ffffff') if level == 2 else (GOLD, GOLD_L)
+        for i in range(level):
+            for y in range(13, 17):
+                px[1 + i * 2, y] = hexrgb(bar_l if y == 13 else bar)
     out = im.copy(); op = out.load(); ol = hexrgb(INK)
     for y in range(18):
         for x in range(18):
@@ -85,24 +92,25 @@ def tier(months):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    tiles = []
-    for name, label, months in TIERS:
-        im = tier(months)
-        for size in (18, 36, 72):
-            im.resize((size, size), Image.NEAREST).save(os.path.join(OUT, 'sub_%s_%d.png' % (name, size)))
-        tiles.append((label, im.resize((90, 90), Image.NEAREST)))
-    cols = 7; W = cols * 130 + 24; rows = (len(tiles) + cols - 1) // cols; H = rows * 140 + 24
-    sheet = Image.new('RGB', (W, H), '#222A2A'); d = ImageDraw.Draw(sheet)
     try:
         font = ImageFont.truetype('C:/Windows/Fonts/bahnschrift.ttf', 17); font.set_variation_by_name(b'Bold Condensed')
     except Exception:
         font = ImageFont.load_default()
-    for i, (label, im) in enumerate(tiles):
-        x = 24 + (i % cols) * 130; y = 24 + (i // cols) * 140
-        d.rectangle([x - 8, y - 8, x + 104, y + 118], fill='#1A2020'); sheet.paste(im, (x + 3, y), im)
-        w = d.textlength(label, font=font); d.text((x + 48 - w / 2, y + 94), label, font=font, fill='#E2DAC2')
-    sheet.save(os.path.join(OUT, 'sub_badges_sheet.png'))
-    print('wrote', len(TIERS), 'badges (18, 36 and 72 px) to', os.path.abspath(OUT))
+    for level in (1, 2, 3):
+        folder = os.path.join(OUT, 'tier%d' % level); os.makedirs(folder, exist_ok=True); tiles = []
+        for name, label, months in TIERS:
+            im = tier(months, level)
+            for size in (18, 36, 72):
+                im.resize((size, size), Image.NEAREST).save(os.path.join(folder, 'sub_t%d_%s_%d.png' % (level, name, size)))
+            tiles.append((label, im.resize((90, 90), Image.NEAREST)))
+        cols = 7; W = cols * 130 + 24; rows = (len(tiles) + cols - 1) // cols; H = rows * 140 + 24
+        sheet = Image.new('RGB', (W, H), '#222A2A'); d = ImageDraw.Draw(sheet)
+        for i, (label, im) in enumerate(tiles):
+            x = 24 + (i % cols) * 130; y = 24 + (i // cols) * 140
+            d.rectangle([x - 8, y - 8, x + 104, y + 118], fill='#1A2020'); sheet.paste(im, (x + 3, y), im)
+            w = d.textlength(label, font=font); d.text((x + 48 - w / 2, y + 94), label, font=font, fill='#E2DAC2')
+        sheet.save(os.path.join(OUT, 'sub_badges_tier%d_sheet.png' % level))
+    print('wrote', len(TIERS) * 3, 'badges (3 tiers x 18, 36 and 72 px) to', os.path.abspath(OUT))
 
 
 if __name__ == '__main__':
