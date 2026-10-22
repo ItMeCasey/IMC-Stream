@@ -47,10 +47,16 @@
 
   // 7TV name paints (the colours, gradients, pictures and glow on a 7TV user's name): asked from the local server once per chatter, then drawn on the name
   const paints = new Map();
-  R.applyPaint = function (node, uid) {
-    if (!node || !uid || R.paintsOff) return;
-    if (!paints.has(uid)) paints.set(uid, fetch(R.base + '/api/seventv/paint?uid=' + encodeURIComponent(uid)).then((r) => r.json()).catch(() => ({})));
-    paints.get(uid).then((p) => { if (p && p.style && node.isConnected) { node.style.cssText += ';' + p.style; node.title = '7TV paint: ' + (p.name || ''); } });
+  R.applyPaint = function (node, uid, login) {
+    if (!node || !uid) return;
+    const key = uid + '/' + (login || '');
+    if (!paints.has(key)) paints.set(key, fetch(R.base + '/api/seventv/paint?uid=' + encodeURIComponent(uid) + '&login=' + encodeURIComponent(login || '')).then((r) => r.json()).catch(() => ({})));
+    paints.get(key).then((p) => {
+      if (!p || !node.isConnected) return;
+      if (p.style && !R.paintsOff) { node.style.cssText += ';' + p.style; node.title = '7TV paint: ' + (p.name || ''); }
+      // the extra badges (7TV, BetterTTV, FrankerFaceZ) go in front of the name, after the Twitch badges
+      if ((p.badges || []).length && !R.badgesOff) node.insertAdjacentHTML('beforebegin', p.badges.map((b) => '<img class="badge x3p" src="' + esc(b.url) + '" alt="" title="' + esc(b.title + ' (' + b.provider + ')') + '"' + (b.bg ? ' style="background:' + esc(b.bg) + '"' : '') + '>').join(''));
+    });
   };
 
   R.badgeHTML = function (msg) {
@@ -77,6 +83,6 @@
   R.css = '.gifpic{display:block;max-width:100%;max-height:170px;margin:6px 0 2px;border-radius:4px}' +
     '.emote{height:1.5em;vertical-align:middle;margin:-.2em 1px 0}' +
     '.stack{position:relative;display:inline-block;vertical-align:middle}.stack .zw{position:absolute;left:0;top:0;margin:0}' +
-    '.badge{height:1.1em;vertical-align:-.2em;margin-right:4px}.cheer{color:#F39120;font-weight:700}.mention{color:#4FBBBC;font-weight:700}';
+    '.badge{height:1.1em;vertical-align:-.2em;margin-right:4px}.x3p{border-radius:3px}.cheer{color:#F39120;font-weight:700}.mention{color:#4FBBBC;font-weight:700}';
   const st = document.createElement('style'); st.textContent = R.css; document.head.appendChild(st);
 })();

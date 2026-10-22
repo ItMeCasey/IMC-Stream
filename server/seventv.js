@@ -25,7 +25,7 @@ const isBttv = (text) => /betterttv\.com\/emotes\//i.test(String(text || ''));
 
 module.exports = function createSevenTV(ctx) {
   const now = ctx.now || Date.now, log = ctx.log || (() => {}), doFetch = ctx.fetch || ((...a) => fetch(...a)), FILE = ctx.file;
-  let S = { token: '', days: 30, max: 20, blockEdgy: true, rewardId: '', active: [], paints: true };
+  let S = { token: '', days: 30, max: 20, blockEdgy: true, rewardId: '', active: [], paints: true, badges: true };
   try { S = Object.assign(S, JSON.parse(fs.readFileSync(FILE, 'utf8'))); } catch (e) { /* first run */ }
   const save = () => { try { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(S, null, 2)); } catch (e) { log('7tv save failed:', e.message); } };
   const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : d; };
@@ -154,9 +154,10 @@ module.exports = function createSevenTV(ctx) {
     if (b.days !== undefined) S.days = num(b.days, 30, 1, 365); if (b.max !== undefined) S.max = num(b.max, 20, 1, 200); if (b.blockEdgy !== undefined) S.blockEdgy = !!b.blockEdgy;
     if (b.rewardId !== undefined) S.rewardId = String(b.rewardId).slice(0, 80);
     if (b.paints !== undefined) { S.paints = !!b.paints; PAINTS.clear(); }
+    if (b.badges !== undefined) { S.badges = !!b.badges; PAINTS.clear(); }
     save(); return view();
   }
-  const view = () => ({ paints: S.paints !== false, hasToken: !!S.token, days: S.days, max: S.max, blockEdgy: S.blockEdgy, rewardId: S.rewardId,
+  const view = () => ({ paints: S.paints !== false, badges: S.badges !== false, hasToken: !!S.token, days: S.days, max: S.max, blockEdgy: S.blockEdgy, rewardId: S.rewardId,
     active: S.active.map((a) => ({ emoteId: a.emoteId, name: a.name, by: a.by, animated: !!a.animated, addedAt: a.addedAt, expiresAt: a.expiresAt, daysLeft: Math.max(0, Math.ceil((a.expiresAt - now()) / DAY)) })).sort((x, y) => x.expiresAt - y.expiresAt) });
 
   // ---------------------------------------------------------------------------------------------------------- name paints
@@ -181,21 +182,23 @@ module.exports = function createSevenTV(ctx) {
     const shadows = ((p.data && p.data.shadows) || []).map((s) => { const c = rgba(s.color && s.color.hex); return c ? 'drop-shadow(' + fx(s.offsetX, 0) + 'px ' + fx(s.offsetY, 0) + 'px ' + Math.max(0, fx(s.blur, 0)) + 'px ' + c + ')' : ''; }).filter(Boolean);
     return 'background-image:' + layers.join(', ') + ';background-size:100% 100%;background-repeat:no-repeat;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent' + (shadows.length ? ';filter:' + shadows.join(' ') : '');
   }
-  const PAINT_QUERY = 'query($id: String!) { users { userByConnection(platform: TWITCH, platformId: $id) { style { activePaint { id name data { layers { opacity ty { __typename ... on PaintLayerTypeSingleColor { color { hex } } ... on PaintLayerTypeLinearGradient { angle repeating stops { at color { hex } } } ... on PaintLayerTypeRadialGradient { repeating shape stops { at color { hex } } } ... on PaintLayerTypeImage { images { url mime scale frameCount } } } } shadows { color { hex } offsetX offsetY blur } } } } } } }';
+  const PAINT_QUERY = 'query($id: String!) { users { userByConnection(platform: TWITCH, platformId: $id) { style { activeBadge { name description images { url mime scale frameCount } } activePaint { id name data { layers { opacity ty { __typename ... on PaintLayerTypeSingleColor { color { hex } } ... on PaintLayerTypeLinearGradient { angle repeating stops { at color { hex } } } ... on PaintLayerTypeRadialGradient { repeating shape stops { at color { hex } } } ... on PaintLayerTypeImage { images { url mime scale frameCount } } } } shadows { color { hex } offsetX offsetY blur } } } } } } }';
   /** the paint of a Twitch user: { name, style } or null (no 7TV account, no paint, or paints switched off) */
   function paintFor(twitchId) {
-    const id = String(twitchId || ''); if (!S.paints || !/^\d{1,12}$/.test(id)) return Promise.resolve(null);
+    const id = String(twitchId || ''); if ((!S.paints && !S.badges) || !/^\d{1,12}$/.test(id)) return Promise.resolve(null);
     const hit = PAINTS.get(id); if (hit && now() - hit.t < hit.ttl) return hit.p;
     const p = (async () => {
       try {
         const r = await doFetch(GQL4, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: PAINT_QUERY, variables: { id } }) }); const j = r.ok ? await r.json() : null;
-        const paint = j && j.data && j.data.users && j.data.users.userByConnection && j.data.users.userByConnection.style && j.data.users.userByConnection.style.activePaint;
-        const css = paint ? paintCss(paint) : ''; if (!css) { hit0.ttl = NO_PAINT_TTL; return null; } return { name: String(paint.name || '').slice(0, 60), style: css };
+        const style = j && j.data && j.data.users && j.data.users.userByConnection && j.data.users.userByConnection.style, paint = style && style.activePaint, bd = style && style.activeBadge;
+        const css = S.paints && paint ? paintCss(paint) : '', im = S.badges && bd ? (bd.images || []).filter((i) => i.mime === 'image/webp' && cdnUrl(i.url)) : [], pick = im.find((i) => i.scale === 2) || im[0];
+        const badge = pick ? { provider: '7TV', title: String(bd.description || bd.name || '7TV badge').slice(0, 80), url: cdnUrl(pick.url), bg: '' } : null;
+        if (!css && !badge) { hit0.ttl = NO_PAINT_TTL; return null; } return { name: css ? String(paint.name || '').slice(0, 60) : '', style: css, badge };
       } catch (e) { hit0.ttl = 60000; return null; }
     })();
     const hit0 = { t: now(), ttl: PAINT_TTL, p }; PAINTS.set(id, hit0); if (PAINTS.size > 2000) PAINTS.delete(PAINTS.keys().next().value); return p;
   }
 
-  return { paintFor, paintCss, add, addById, search, mySet, removeFromSet, expireDue, removeNow, test, configure, view, parseEmoteId, isBttv, lookup, days: () => S.days };
+  return { paintFor, paintCss, badgesOn: () => S.badges !== false, paintsOn: () => S.paints !== false, add, addById, search, mySet, removeFromSet, expireDue, removeNow, test, configure, view, parseEmoteId, isBttv, lookup, days: () => S.days };
 };
 module.exports.parseEmoteId = parseEmoteId;

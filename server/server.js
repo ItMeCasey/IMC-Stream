@@ -1464,7 +1464,10 @@ async function route(req, res) {
     return;
   }
   if (p === '/api/bot') return json(res, 200, bot.view());
-  if (p === '/api/seventv/paint') { const pt = await seventv.paintFor(u.searchParams.get('uid')); return json(res, 200, pt || {}); }   // the 7TV name paint of a chatter (for the chat overlay and the mod dock)
+  if (p === '/api/seventv/paint') {   // the 7TV name paint and the extra badges (7TV, BetterTTV, FrankerFaceZ) of a chatter, for the chat overlay and the mod dock
+    const uid = u.searchParams.get('uid'), login = u.searchParams.get('login'), pt = await seventv.paintFor(uid), more = seventv.badgesOn() ? await extraBadges.forUser({ uid, login }).catch(() => []) : [];
+    return json(res, 200, { name: (pt && pt.name) || '', style: (pt && pt.style) || '', badges: [].concat(pt && pt.badge ? [pt.badge] : [], more) });
+  }
   if (p === '/api/words') return json(res, 200, await bot.api('words/state', {}));   // the Word Rush overlay asks for the current game when it loads
   if (p === '/bot' || p === '/bot/') return serveFile(res, path.join(__dirname, 'public', 'bot.html'));
   if (p === '/api/polls') { try { return json(res, 200, await pollsSnapshot()); } catch (e) { return json(res, 200, { error: e.message, presets: { polls: state.pollPresets, predictions: state.predictionPresets } }); } }
@@ -1868,6 +1871,7 @@ async function obsStats() {   // cached for a second so several open widgets sha
   obsStatsCache = { t: now, v }; return v;
 }
 const vmix = require('./voicemeeter.js')({ DATA, obs: obsClient, log });
+const extraBadges = require('./extrabadges')({ log });   // BetterTTV and FrankerFaceZ chat badges
 const seventv = require('./seventv')({ file: path.join(DATA, 'emotes7tv.json'), log, twitchId: () => (tokens ? tokens.user_id : '') });   // viewers add 7TV emotes to the channel with channel points
 const hooks = createHooks({
   state, persist, log, bot, obs: obsClient, seventv,

@@ -28,6 +28,7 @@
   const chat = document.getElementById('chat');
   const PAL = ['#4FBBBC', '#F39120', '#EC4624', '#E2DAC2'];
   const esc = R.esc;
+  R.paintsOff = Q.get('paints') === '0'; R.badgesOff = Q.get('badges') === '0' || !SHOW_BADGES;   // ?paints=0 and ?badges=0 switch the 7TV name paints and the extra badges off for this source
   await R.load(BASE);
   setInterval(() => R.load(BASE), 30 * 60 * 1000);
 
@@ -39,7 +40,7 @@
     let col = m.color; if (!col || col.toLowerCase() === '#000000') col = PAL[name.length % PAL.length];
     el.style.setProperty('--c', col);
     el.innerHTML = (SHOW_BADGES ? R.badgeHTML(m) : '') + '<span class="u">' + esc(name) + '</span><span class="t">' + R.body(m) + '</span>';
-    if (m.uid && Q.get('paints') !== '0') R.applyPaint(el.querySelector('.u'), m.uid);
+    if (m.uid) R.applyPaint(el.querySelector('.u'), m.uid, m.login);
     chat.appendChild(el);
     while (chat.children.length > MAX) chat.removeChild(chat.firstChild);
     if (FADE > 0) setTimeout(() => { el.classList.add('fade'); setTimeout(() => el.remove(), 650); }, FADE * 1000);

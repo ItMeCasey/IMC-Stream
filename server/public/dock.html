@@ -85,7 +85,7 @@ function addMsg(m, quiet) {
     '<span class="time">' + t + '</span>' + R.badgeHTML(m) + '<b class="u" style="color:' + R.esc(col) + '">' + R.esc(m.name) + '</b>: <span class="t">' + R.body(m) + '</span>';
   el._m = m;
   if (filterUid && m.uid !== filterUid) el.classList.add('hide');
-  list.appendChild(el); if (m.uid) R.applyPaint(el.querySelector('.u'), m.uid);   // the chatter's 7TV name paint
+  list.appendChild(el); if (m.uid) R.applyPaint(el.querySelector('.u'), m.uid, m.login);   // the chatter's 7TV name paint
   while (list.children.length > 300) list.removeChild(list.firstChild);
   if (!quiet) { if (stick) list.scrollTop = list.scrollHeight; else $('more').style.display = 'block'; }
 }
