@@ -7,9 +7,9 @@ Everything runs locally. Your Twitch login, settings and data stay on your PC (s
 ## What you get
 - **Alerts and overlays:** follows, subs, gift subs, bits, raids, tips, hype train, polls and predictions, a recent-events list and ticker, viewer stats, Now Playing (with a live music visualizer), goals with an emote explosion, subathon timer.
 - **Chat bot:** custom commands, timers, points, filters, AutoMod review, welcome messages, raid shoutouts, text-to-speech (optional realistic voices), an optional separate bot account.
-- **Games for chat:** duels (also against the bot), boss raid, arena royale, team battle, horse race (Twitch predictions pay out), a pixel spin-the-wheel for mods with your own options, gamble, slots, trivia, raffles, and a builder for your own games. Everything plays on one pixel overlay.
-- **Dance Party:** a bits reward. Two minutes of lights, lasers, strobes (3 flashes a second at most), pixel dancers named after chatters, a DJ, pyrotechnics and steam, all following the beat of your current song.
-- **Channel points:** make and switch rewards on and off, and run actions (alerts, chat, OBS scene changes, sounds, points) when they are redeemed.
+- **Games for chat:** duels (also against the bot), boss raid, arena royale, team battle, horse race (Twitch predictions pay out), a pixel spin-the-wheel for you and your mods (your own options, each with its own percentage), gamble, slots, trivia, raffles, and a builder for your own games. Everything plays on one pixel overlay.
+- **Dance Party:** a bits reward (1,000 bits by default; mods can also type `!dance`). Two minutes of lights, lasers, strobes (3 flashes a second at most), pixel dancers named after chatters, a DJ, pyrotechnics and steam, all following the beat of your current song.
+- **Channel points:** make and switch rewards on and off (pixel-art icons for the built-in rewards and power-ups are in `twitch/reward_icons/`), and run actions (alerts, chat, OBS scene changes, sounds, points) when they are redeemed.
 - **Control:** a control board, automatic scene switching, an audio mixer with per-scene sources, Voicemeeter setup that keeps music and alerts out of your VOD, OBS stats, Twitch panels you can design and sync to chat commands.
 - **Reliability:** tray status light, a watchdog that restarts the server, daily backups, and a Setup page that checks everything.
 
@@ -18,7 +18,7 @@ Everything runs locally. Your Twitch login, settings and data stay on your PC (s
 - Affiliate or Partner is needed only for predictions (horse race), channel-point rewards and bits.
 
 ## Quick start
-1. Run **`ItMeCasey Stream Setup <version>.exe`** (for example `2026.10.1`). Windows may say "unknown publisher" because the app is not code-signed yet: click **More info, then Run anyway**.
+1. Run **`ItMeCasey Stream Setup <version>.exe`** (for example `2026.10.2`). Windows may say "unknown publisher" because the app is not code-signed yet: click **More info, then Run anyway**.
 2. The first time, a **welcome guide** opens and walks you through the steps below (you can skip it and use the **Setup** page in the left rail instead).
 3. **Connect Twitch:** press the button, a browser page opens, approve it. The status light turns green.
 4. **OBS:** in OBS open *Tools, WebSocket Server Settings* and tick *Enable WebSocket server*. Enter the port and password on the Setup page, then press **Test**.
@@ -29,6 +29,7 @@ Optional: **Audio + VOD** on the Setup page walks you through Voicemeeter so mus
 
 ## Troubleshooting
 - **"Local server connected - Twitch: error" appears in OBS, or alerts stop:** the Twitch login expired. Press **Connect Twitch** again. Only run one copy of the app at a time, because two copies fight over the same login.
+- **The wheel (or another game) does not appear:** add the **Game Arena** browser source `http://localhost:8420/overlays/arena.html` (1920 x 1080); the starter scenes already include it.
 - **Nothing shows in OBS:** the app must be running (check the tray icon). In the browser source, use *Refresh cache of current page*.
 - **OBS says it cannot connect:** enable the WebSocket server in OBS and check the port and password on the Setup page.
 - **Music visualizer or Dance Party does not move:** the app has to be running, because it listens to your PC's audio.
@@ -182,6 +183,7 @@ Replaces Streamlabs/StreamElements: connects to Twitch directly, pushes alerts t
 - **Admin:** give, take or set any viewer's balance from the dashboard or chat (`!addpoints`, `!removepoints`, `!setpoints`, `!bonus n` for everyone active). A ledger shows where currency came from and went. Balances never go below 0.
 - **Games** (all of these spend and win the same currency; win chances and rewards are on the Games tab): `!gamble !slots !duel/!accept !8ball !roll !flip`, mod-run `!trivia` (25 questions, edit them in `data/bot.json`) and `!raffle open / !enter / !draw`.
 - **Pixel games, one overlay** (`overlays/arena.html`, the "Game Arena" source): duels, **boss raid** (`!boss` mod, everyone `!hit`; subs hit 2x, bits/subs/raids land big blows; prizes by damage), **arena royale** (`!arena` mod, `!join`, up to 8 fighters, last one takes the pot) and **team battle** (`!teams` mod, `!red`/`!blue`; the smaller team hits harder). All results are decided on the server, so ping never matters. Settings and Test buttons are on the Chat Games page.
+- **Spin the wheel** (same Game Arena overlay; Chat Games page > Spin the wheel): the streamer and mods only. Type your options into the input boxes (2 to 16) and give each one a chance in percent: change one and the others adjust so the total is always 100%, and the slices are drawn that size. Mods type `!wheel` (spins your saved list), `!wheel pizza, tacos, sushi` (a list typed on the spot, all equally likely) or `!wheel stop`. The page also has **Save and spin now**, **Test (silent)** and **Stop**. The winner is picked on the server, the pixel wheel spins about 7 seconds and lands on it, and the bot says the result in chat. An option at 0% is left off the wheel.
 - **Horse race** (same Game Arena overlay): `!race` (mod) or the Chat Games page opens a Twitch prediction with one choice per horse, viewers bet channel points, then bets lock, the horses race, the winner is picked (random, or the one you choose) and the prediction is resolved so Twitch pays out. `!race now`, `!race cancel`. Needs Affiliate/Partner.
 - **Event messages:** optional "thanks for the follow / sub / raid..." lines in chat (off by default; test alerts never trigger them).
 - **Replies as you by default.** To reply under its own name like Nightbot, connect a second Twitch account in the bot page's Settings tab and press **Connect Twitch** on the dashboard once so your login grants permission. This bot-account path is untested.
@@ -224,7 +226,7 @@ Other sources can still send tips with `POST http://localhost:8420/api/event` an
 
 **Label files:** 95 live text files in `data/labels/` (followers, subs, bits, raids, redemptions, hype train, goal, poll, prediction, stream info/uptime/viewers, chat, ads, charity, session + all-time stats). Full list with descriptions: [LABELS.md](LABELS.md), also browsable with live values on the dashboard. In OBS add a *Text (GDI+)* source > **Read from file**. Session counters reset when the stream goes online (or from the dashboard). Raw event history: `data/events.jsonl`; saved state: `data/state.json`.
 
-**Checks:** `node selftest.js` (labels, alerts, goals), `node bot-test.js` (chat bot), `node hooks-test.js` (reward hooks), `node obs-test.js` (OBS client), `node media-test.js` (music), `node countdown-test.js` (timer), `node tts-test.js` (speech, uses the real Windows voices), `node scenes-test.js` (auto scenes + board), `node access-backup-test.js` (password / LAN / backup), `node video-test.js` (video alerts + overlay data) and `node test-mock.js` (full login + EventSub flow against a fake Twitch). Both pass; neither has touched the real Twitch service.
+**Checks:** `node selftest.js` (labels, alerts, goals), `node bot-test.js` (chat bot), `node hooks-test.js` (reward hooks), `node obs-test.js` (OBS client), `node media-test.js` (music), `node countdown-test.js` (timer), `node tts-test.js` (speech, uses the real Windows voices), `node scenes-test.js` (auto scenes + board), `node access-backup-test.js` (password / LAN / backup), `node video-test.js` (video alerts + overlay data), `node arena-test.js`, `node race-test.js` and `node wheel-test.js` (the pixel games), `node beat-test.js` (Dance Party beat detection), `node refresh-test.js` (Twitch login renewal) and `node test-mock.js` (full login + EventSub flow against a fake Twitch). Both pass; neither has touched the real Twitch service.
 
 ## Twitch kit (`twitch/`)
 Profile picture 800x800, banner 1200x480, offline screen 1920x1080, 8 panel headers (640x140): About, Schedule, Rules, Commands, Socials, Support, Gear, FAQ.
