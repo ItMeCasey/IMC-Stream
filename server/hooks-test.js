@@ -109,7 +109,7 @@ const redemption = (over = {}) => Object.assign({ id: 'red1', user_id: 'u9', use
   assert.match((await hooks.api('test', { id: h3.id })).results[0].msg, /real redemptions/, 'status action refuses test runs');
 
   // ---- rewards list + create, OBS settings
-  assert.deepStrictEqual(await hooks.api('rewards'), [{ id: 'r1', title: 'Hydrate!', cost: 200, enabled: true, input: false }]);
+  assert.deepStrictEqual(await hooks.api('rewards'), [{ id: 'r1', title: 'Hydrate!', cost: 200, enabled: true, paused: false, input: false, mine: true }]);
   const created = await hooks.api('reward/create', { title: 'Pick my snack', cost: 500, prompt: 'what snack?', input: true, cooldown: 60 });
   assert.strictEqual(created.title, 'Pick my snack');
   assert.deepStrictEqual(helixCalls.find((c) => c[0] === 'POST' && c[1].startsWith('/channel_points/custom_rewards?'))[2],
