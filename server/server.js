@@ -1104,6 +1104,7 @@ async function refreshTokenOnce() {
   if (!tokens || !tokens.refresh_token) throw new Error('no refresh token');
   const r = await idPost('/token', { client_id: CFG.clientId, grant_type: 'refresh_token', refresh_token: tokens.refresh_token });
   if (!r.ok) { authState = { status: 'error', message: 'Session expired - press Connect Twitch again' }; broadcast('status', status()); throw new Error('refresh failed: ' + (r.json.message || r.status)); }
+  log('Twitch login renewed (valid for ' + Math.round((r.json.expires_in || 14400) / 60) + ' min)');
   saveTokens(Object.assign({}, tokens, {
     access_token: r.json.access_token, refresh_token: r.json.refresh_token || tokens.refresh_token,
     expires_at: Date.now() + (r.json.expires_in || 14400) * 1000, scopes: r.json.scope || tokens.scopes,
