@@ -1,24 +1,59 @@
-# ItMeCasey OBS Pack
+# ItMeCasey Stream
 
+A Windows desktop app and OBS pack for Twitch streamers. It replaces Streamlabs / StreamElements and a separate chat bot with one app that runs on your own PC: alerts, a chat bot with games, channel-point reward actions, goals, tips, a subathon timer, an audio mixer, pixel-art mini-games and a Dance Party, all themed (palette below) and shown through ordinary OBS browser sources.
+
+Everything runs locally. Your Twitch login, settings and data stay on your PC (see [Privacy](#privacy-and-your-data)).
+
+## What you get
+- **Alerts and overlays:** follows, subs, gift subs, bits, raids, tips, hype train, polls and predictions, a recent-events list and ticker, viewer stats, Now Playing (with a live music visualizer), goals with an emote explosion, subathon timer.
+- **Chat bot:** custom commands, timers, points, filters, AutoMod review, welcome messages, raid shoutouts, text-to-speech (optional realistic voices), an optional separate bot account.
+- **Games for chat:** duels (also against the bot), boss raid, arena royale, team battle, horse race (Twitch predictions pay out), gamble, slots, trivia, raffles, and a builder for your own games. Everything plays on one pixel overlay.
+- **Dance Party:** a bits reward. Two minutes of lights, lasers, strobes (3 flashes a second at most), pixel dancers named after chatters, a DJ, pyrotechnics and steam, all following the beat of your current song.
+- **Channel points:** make and switch rewards on and off, and run actions (alerts, chat, OBS scene changes, sounds, points) when they are redeemed.
+- **Control:** a control board, automatic scene switching, an audio mixer with per-scene sources, Voicemeeter setup that keeps music and alerts out of your VOD, OBS stats, Twitch panels you can design and sync to chat commands.
+- **Reliability:** tray status light, a watchdog that restarts the server, daily backups, and a Setup page that checks everything.
+
+## Requirements
+- Windows 10 or 11, OBS Studio 28 or newer (WebSocket is built in), a Twitch account.
+- Affiliate or Partner is needed only for predictions (horse race), channel-point rewards and bits.
+
+## Quick start
+1. Run **`ItMeCasey Stream Setup 1.0.0.exe`**. Windows may say "unknown publisher" because the app is not code-signed yet: click **More info, then Run anyway**.
+2. The app opens to the dashboard. Open **Setup** in the left rail.
+3. **Connect Twitch:** press the button, a browser page opens, approve it. The status light turns green.
+4. **OBS:** in OBS open *Tools, WebSocket Server Settings* and tick *Enable WebSocket server*. Enter the port and password on the Setup page, then press **Test**.
+5. **Install the scenes:** press **Install into OBS**, then in OBS pick *Scene Collection, ItMeCasey*.
+6. Test an alert from the dashboard. If it shows in OBS, you are done.
+
+Optional: **Audio + VOD** on the Setup page walks you through Voicemeeter so music and alert sounds stay out of your VOD.
+
+## Troubleshooting
+- **"Local server connected - Twitch: error" appears in OBS, or alerts stop:** the Twitch login expired. Press **Connect Twitch** again. Only run one copy of the app at a time, because two copies fight over the same login.
+- **Nothing shows in OBS:** the app must be running (check the tray icon). In the browser source, use *Refresh cache of current page*.
+- **OBS says it cannot connect:** enable the WebSocket server in OBS and check the port and password on the Setup page.
+- **Music visualizer or Dance Party does not move:** the app has to be running, because it listens to your PC's audio.
+- **Something else:** on the Setup page press **Copy diagnostics** and include the text when you report a problem.
+
+## Privacy and your data
+Your settings, bot data, logins and backups live in `%APPDATA%\ItMeCasey Stream\data`. Updating or reinstalling never touches them. The app only talks to: Twitch (login, events, chat), emote lists (BTTV, FrankerFaceZ, 7TV), Apple's iTunes search (album art for songs Windows can't give a cover for), VB-Audio's site (only if you press Download Voicemeeter), and any services you connect yourself (Spotify, PayPal, Stripe). Nothing is sent to the author.
+
+## License
+Copyright (c) 2026 ItMeCasey. All rights reserved. See [LICENSE](LICENSE).
+
+## Reference
 Palette: Iron Core `#222A2A` · Industrial Aqua `#4FBBBC` · Rust Signal `#EC4624` · Heat Marker `#F39120` · Architectural Cream `#E2DAC2` (+ Dark Rust `#B13A22` from the logo). Font: Bahnschrift (ships with Windows 10/11).
 
-## The app (recommended): ItMeCasey Stream
-A normal Windows app: run **`ItMeCasey Stream Setup 1.0.0.exe`** (from `app/release/`, see "Build the installer" below), pick an install folder, done. No Node.js, no batch files.
+### The app
 - Lives in the **system tray** with a status light (green = connected to Twitch, amber = needs attention, red = server problem). Closing the window keeps it running so alerts and overlays keep working; **Quit** is in the tray menu.
-- **Self-healing:** a watchdog restarts the stream server if it crashes or stops answering. Tray options: start with Windows, open OBS when the app starts, restart server, open data folder.
-- Your data (settings, bot, logins, uploads, backups) lives in `%APPDATA%\ItMeCasey Stream\data`, so updating or reinstalling never touches it.
-- First run: open **Setup & health** (`/setup`): paste your Twitch Client ID, **Install into OBS** (installs the scene collection), enter the OBS WebSocket details, optionally **Install realistic voices**. Then press **Connect Twitch** on the dashboard.
-- OBS browser sources keep using `http://localhost:8420/overlays/...`, exactly as before.
+- **Self-healing:** a watchdog restarts the stream server if it crashes or stops answering. Tray options: start with Windows, open OBS and Voicemeeter when the app starts, restart server, open data folder.
+- OBS browser sources use `http://localhost:8420/overlays/...`.
 
 **Build the installer** (needs Node.js 22+ once, on the PC you build on):
 ```
-cd app
-npm install
-npm run dist        # -> app/release/ItMeCasey Stream Setup <version>.exe  (installer)
-npm run pack        # -> app/release/win-unpacked/ItMeCasey Stream.exe     (portable folder, no installer)
-npm test            # watchdog test
+powershell -ExecutionPolicy Bypass -File app\build-installer.ps1   # -> app\release\ItMeCasey Stream Setup <version>.exe
+cd app && npm test                                                  # watchdog test
 ```
-Windows SmartScreen may warn about an unsigned app on other PCs ("More info > Run anyway"); a code-signing certificate removes that.
+Tests for the server live in `server/*-test.js` (run each with `node`).
 
 ## New in this version
 - **Control Board** (`/board`): big buttons for your OBS scenes, run/snooze ads, clip, pause/mute/skip alerts, music, timer, plus **your own buttons** (anything a reward hook can do) and **automatic scene switching** (going live/offline, raid, ad break, hype train, `!brb` / `!back`; temporary scenes return to where you were).

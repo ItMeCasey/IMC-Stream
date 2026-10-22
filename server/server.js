@@ -1480,6 +1480,7 @@ async function route(req, res) {
   if (p.startsWith('/panel-img/')) return serveFile(res, path.join(DATA, 'panels', path.basename(p)));
   if (p === '/api/panels') return json(res, 200, { panels: state.panels, login: tokens ? tokens.login : '' });
   if (p === '/tips' || p === '/tips/') return serveFile(res, path.join(__dirname, 'public', 'tips.html'));
+  if (req.method === 'GET' && p === '/api/diagnostics') return json(res, 200, { text: diagnostics() });
   if (req.method === 'GET' && p === '/api/obs/stats') { try { return json(res, 200, await obsStats()); } catch (e) { return json(res, 200, { error: e.message }); } }
   if (req.method === 'GET' && p === '/api/vm') return json(res, 200, vmix.status());
   if (req.method === 'GET' && p === '/api/vm/volumes') return json(res, 200, await vmix.volumes());
@@ -1821,6 +1822,19 @@ function health() {
     access: access.view(), backups: backup.list().length,
     obs: { configured: !!(state.obsCfg && state.obsCfg.host) }, media: { provider: state.mediaCfg.provider, status: media.view().status },
     tts: { kokoro: tts.kokoroInstalled() }, recentErrors: bad, dataDir: DATA, light: !CFG.clientId || !tokens ? 'amber' : e === 'connected' ? 'green' : e === 'partial' || e === 'connecting' ? 'amber' : 'red' };
+}
+
+/** plain text for a bug report: versions, connection states and the last log lines, with anything that looks like a secret blanked out */
+function diagnostics() {
+  const os = require('node:os'), h = health();
+  const scrub = (t) => String(t).replace(/(access_token|refresh_token|authorization|bearer|api[_-]?key|secret|password|client_secret|code)(["':=\s]+)([A-Za-z0-9._\-]{6,})/gi, '$1$2***').replace(/oauth:[A-Za-z0-9]+/gi, 'oauth:***');
+  const lines = [
+    'ItMeCasey Stream ' + h.version, 'Windows ' + os.release() + ' (' + os.arch() + '), Node ' + process.versions.node + (process.versions.electron ? ', Electron ' + process.versions.electron : ''),
+    'Running for ' + h.uptimeSec + ' s, port ' + h.port, 'Twitch: ' + (h.twitch.loggedIn ? 'logged in' : 'not logged in') + ', EventSub ' + h.twitch.eventsub + ', light ' + h.light,
+    'Own Client ID set: ' + !!(CFG.clientId), 'Bot account: ' + (bot.hasAccount() ? 'yes' : 'no'), 'OBS configured: ' + h.obs.configured, 'Music source: ' + h.media.provider + ' (' + h.media.status + ')',
+    'Voicemeeter: ' + (['banana', 'potato'].filter((k) => vmix.status()[k].installed).join(', ') || 'not installed'), 'Realistic voices: ' + h.tts.kokoro, 'LAN access: ' + h.access.lan, 'Backups: ' + h.backups, '',
+    'Recent problems:'].concat(h.recentErrors.length ? h.recentErrors.map((e) => new Date(e.t).toLocaleTimeString() + ' ' + e.text) : ['(none)'], ['', 'Last log lines:'], logRing.slice(-40).map((l) => new Date(l.t).toLocaleTimeString() + ' ' + l.text));
+  return lines.map(scrub).join('\n');
 }
 
 function statsView() {

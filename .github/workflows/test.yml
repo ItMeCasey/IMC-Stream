@@ -1,0 +1,29 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Server tests
+        shell: bash
+        working-directory: server
+        run: |
+          fail=0
+          for t in selftest bot-test hooks-test scenes-test access-backup-test video-test audio-test paypal-test botaccount-test countdown-test tts-test obs-test media-test arena-test race-test vm-test beat-test test-mock; do
+            echo "::group::$t"
+            if node "$t.js"; then echo "ok: $t"; else echo "::error::$t failed"; fail=1; fi
+            echo "::endgroup::"
+          done
+          exit $fail
+      - name: Watchdog test
+        working-directory: app
+        run: node supervisor-test.js

@@ -106,7 +106,7 @@
   </section>
   <section>
     <h2>APP</h2>
-    <div class="row"><button class="ghost" id="restart">Restart the server</button><span class="muted">Applies LAN/restore changes. The app also restarts it automatically if it ever stops.</span></div>
+    <div class="row"><button class="ghost" id="diag">Copy diagnostics</button><button class="ghost" id="restart">Restart the server</button><span class="muted">Applies LAN/restore changes. The app also restarts it automatically if it ever stops.</span></div>
     <div class="muted" id="paths"></div>
   </section>
 </main>
@@ -132,6 +132,7 @@ async function refresh() {
 }
 async function loadBackups() { const l = await fetch('/api/backup/list').then((r) => r.json()); $('bkList').innerHTML = l.length ? 'Saved copies: ' + l.slice(0, 5).map((f) => esc(f.name) + ' (' + Math.round(f.size / 1024) + ' KB)').join(', ') : 'No saved copies yet.'; }
 
+$('diag').onclick = async () => { const r = await fetch('/api/diagnostics').then((x) => x.json()); try { await navigator.clipboard.writeText(r.text); toast('Copied: paste it into your bug report'); } catch (e) { prompt('Copy this into your bug report:', r.text); } };
 $('bTwitch').onclick = async () => { const r = await post('/api/auth/start'); if (r.error) { $('adv').open = true; return toast(r.error, true); } if (r.verification_uri) window.open(r.verification_uri, '_blank'); $('bTwitchMsg').textContent = 'Waiting for you to press Authorize in the browser…'; };
 $('cidSave').onclick = async () => { const r = await post('/api/config', { clientId: $('cid').value }); toast(r.error || 'Saved', !!r.error); refresh(); };
 $('obsInstall').onclick = async () => {
