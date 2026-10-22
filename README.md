@@ -38,7 +38,7 @@ Optional: **Audio + VOD** on the Setup page walks you through Voicemeeter so mus
 Your settings, bot data, logins and backups live in `%APPDATA%\ItMeCasey Stream\data`. Updating or reinstalling never touches them. The app only talks to: Twitch (login, events, chat), emote lists (BTTV, FrankerFaceZ, 7TV), Apple's iTunes search (album art for songs Windows can't give a cover for), VB-Audio's site (only if you press Download Voicemeeter), GitHub (a check for newer versions twice a day, which you can switch off on the Setup page), and any services you connect yourself (Spotify, PayPal, Stripe). Nothing is sent to the author.
 
 ## License
-Copyright (c) 2026 ItMeCasey. All rights reserved. See [LICENSE](LICENSE).
+The code is free software under the **GNU General Public License v3.0 or later** (see [LICENSE](LICENSE)): you may use, study, change and share it, and anything you distribute based on it must stay open under the same license. The name, logo, sounds and artwork are not part of that license, see [ASSETS.md](ASSETS.md).
 
 ## Reference
 Palette: Iron Core `#222A2A` · Industrial Aqua `#4FBBBC` · Rust Signal `#EC4624` · Heat Marker `#F39120` · Architectural Cream `#E2DAC2` (+ Dark Rust `#B13A22` from the logo). Font: Bahnschrift (ships with Windows 10/11).

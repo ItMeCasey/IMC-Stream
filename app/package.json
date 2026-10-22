@@ -4,6 +4,7 @@
   "version": "2026.10.1",
   "description": "Local Twitch alerts, overlays, chat bot and stream control for ItMeCasey",
   "author": "ItMeCasey",
+  "license": "GPL-3.0-or-later",
   "main": "main.js",
   "private": true,
   "scripts": {
