@@ -1,7 +1,7 @@
 {
   "name": "itmecasey-stream",
   "productName": "ItMeCasey Stream",
-  "version": "2026.10.1",
+  "version": "2026.10.2",
   "description": "Local Twitch alerts, overlays, chat bot and stream control for ItMeCasey",
   "author": "ItMeCasey",
   "license": "GPL-3.0-or-later",
@@ -22,18 +22,59 @@
     "appId": "com.itmecasey.stream",
     "productName": "ItMeCasey Stream",
     "copyright": "ItMeCasey",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "supervisor.js", "package.json", "build/*.png"],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "supervisor.js",
+      "package.json",
+      "build/*.png"
+    ],
     "asar": true,
     "extraResources": [
-      { "from": "../server", "to": "server", "filter": ["**/*", "!kokoro/**", "!node_modules/**", "!data/**", "!*-test.js", "!selftest.js", "!test-mock.js", "!make-label-docs.js", "!config.local.json"] },
-      { "from": "../overlays", "to": "overlays" },
-      { "from": "../assets", "to": "assets" },
-      { "from": "../sounds", "to": "sounds" },
-      { "from": "../transitions", "to": "transitions" }
+      {
+        "from": "../server",
+        "to": "server",
+        "filter": [
+          "**/*",
+          "!kokoro/**",
+          "!node_modules/**",
+          "!data/**",
+          "!*-test.js",
+          "!selftest.js",
+          "!test-mock.js",
+          "!make-label-docs.js",
+          "!config.local.json"
+        ]
+      },
+      {
+        "from": "../overlays",
+        "to": "overlays"
+      },
+      {
+        "from": "../assets",
+        "to": "assets"
+      },
+      {
+        "from": "../sounds",
+        "to": "sounds"
+      },
+      {
+        "from": "../transitions",
+        "to": "transitions"
+      }
     ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "build/icon.ico",
       "signAndEditExecutable": true
     },
