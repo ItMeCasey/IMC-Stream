@@ -886,6 +886,11 @@ function handleEventInner(type, e, opts = {}) {
       fire('bits', { name, amount: bits, message: e.message || '', uid: e.is_anonymous ? '' : e.user_id }, bits);
       break;
     }
+    case 'channel.bits.use': {   // cheers also arrive as channel.cheer (handled above); this one adds Power-ups, including custom ones: a Power-up named "Dance Party" starts the party
+      if (e.type === 'cheer') break;
+      if (live && /dance.?party/.test(JSON.stringify(e).toLowerCase())) bot.execute('!dance', { id: e.user_id || '', name: e.user_name || 'Someone' }, 4).catch(() => {});
+      break;
+    }
     case 'channel.raid': {
       const name = e.from_broadcaster_user_name, v = e.viewers || 0;
       if (live) {
@@ -1295,6 +1300,7 @@ function subscriptionList(uid) {
     ['channel.subscription.gift', '1', { broadcaster_user_id: uid }],
     ['channel.subscription.message', '1', { broadcaster_user_id: uid }],
     ['channel.cheer', '1', { broadcaster_user_id: uid }],
+    ['channel.bits.use', '1', { broadcaster_user_id: uid }],
     ['channel.raid', '1', { to_broadcaster_user_id: uid }],
     ['channel.channel_points_custom_reward_redemption.add', '1', { broadcaster_user_id: uid }],
     ['channel.hype_train.begin', '2', { broadcaster_user_id: uid }],

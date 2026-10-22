@@ -14,6 +14,14 @@ ev('channel.subscription.gift', { user_name: 'Eve', total: 5, tier: '1000', is_a
 ev('channel.subscription.message', { user_name: 'Fay', tier: '2000', cumulative_months: 9, message: { text: 'hi' } });
 ev('channel.cheer', { user_name: 'Gus', bits: 300, message: 'x', is_anonymous: false });
 ev('channel.cheer', { is_anonymous: true, bits: 100, message: '' });
+// a custom Power-up called "Dance Party" starts the party; ordinary cheers and other Power-ups do not
+{
+  const ran = []; const real = S.bot.execute; S.bot.execute = async (t, u, r) => { ran.push([t, u.name, r]); };
+  ev('channel.bits.use', { user_id: '9', user_name: 'Hype', bits: 1000, type: 'power_up', power_up: { type: 'custom', title: 'Dance Party' } });
+  ev('channel.bits.use', { user_id: '9', user_name: 'Hype', bits: 300, type: 'power_up', power_up: { type: 'gigantify_an_emote' } });
+  ev('channel.bits.use', { user_id: '9', user_name: 'Hype', bits: 1000, type: 'cheer', message: 'dance party' });
+  S.bot.execute = real; assert.deepStrictEqual(ran, [['!dance', 'Hype', 4]]);
+}
 ev('channel.cheer', { user_name: 'Gus', bits: 250, message: '', is_anonymous: false });
 ev('channel.raid', { from_broadcaster_user_name: 'Hal', viewers: 42 });
 ev('channel.channel_points_custom_reward_redemption.add', { user_name: 'Ivy', reward: { title: 'Hydrate' }, user_input: '' });
