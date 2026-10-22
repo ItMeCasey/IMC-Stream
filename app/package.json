@@ -26,7 +26,7 @@
     "files": ["main.js", "supervisor.js", "package.json", "build/*.png"],
     "asar": true,
     "extraResources": [
-      { "from": "../server", "to": "server", "filter": ["**/*", "!kokoro/**", "!node_modules/**", "!data/**", "!*-test.js", "!selftest.js", "!make-label-docs.js", "!config.local.json"] },
+      { "from": "../server", "to": "server", "filter": ["**/*", "!kokoro/**", "!node_modules/**", "!data/**", "!*-test.js", "!selftest.js", "!test-mock.js", "!make-label-docs.js", "!config.local.json"] },
       { "from": "../overlays", "to": "overlays" },
       { "from": "../assets", "to": "assets" },
       { "from": "../sounds", "to": "sounds" },
