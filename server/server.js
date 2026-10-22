@@ -1358,8 +1358,9 @@ function startEventSub() {
   refreshTotals();
   startPollers();
 }
+let esGen = 0;   // only the newest connection may subscribe: two at once made the older one's subscriptions fail ("websocket session has already disconnected")
 function openEventSub(url, isReconnect) {
-  let ws;
+  const gen = ++esGen; let ws;
   try { ws = new WebSocket(url); } catch (e) { log('websocket error', e.message); return scheduleReconnect(); }
   let keepaliveMs = 45000, timer;
   const arm = () => { clearTimeout(timer); timer = setTimeout(() => { log('EventSub keepalive timeout'); try { ws.close(); } catch (e) { /* ignore */ } }, keepaliveMs); };
@@ -1369,6 +1370,7 @@ function openEventSub(url, isReconnect) {
     let msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
     const t = msg.metadata && msg.metadata.message_type;
     if (t === 'session_welcome') {
+      if (gen !== esGen) { try { ws.onclose = null; ws.close(); } catch (e) { /* ignore */ } return; }   // a newer connection took over
       const sess = msg.payload.session;
       keepaliveMs = ((sess.keepalive_timeout_seconds || 30) + 10) * 1000; arm();
       if (esWs && esWs !== ws) { try { esWs.onclose = null; esWs.close(); } catch (e) { /* ignore */ } }
