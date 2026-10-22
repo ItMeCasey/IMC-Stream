@@ -1,7 +1,7 @@
 {
   "name": "itmecasey-stream",
   "productName": "ItMeCasey Stream",
-  "version": "2026.10.8",
+  "version": "2026.10.9",
   "description": "Local Twitch alerts, overlays, chat bot and stream control for ItMeCasey",
   "author": "ItMeCasey",
   "license": "GPL-3.0-or-later",
