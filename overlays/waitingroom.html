@@ -123,10 +123,10 @@
   }
   function leave(p) { if (p.mode === 'leave') return; if (p.seat) { p.seat.taken = null; p.seat = null; } p.mode = 'leave'; }
   function leaveOldest() { const live = [...people.values()].filter((p) => p.mode !== 'leave'); live.sort((a, b) => a.last - b.last); if (live[0]) leave(live[0]); }
-  function chat(m) {
+  function show(m) {
     const login = String(m.login || m.name || '').toLowerCase(), text = String(m.text || '').trim(); if (!login || !text || text.startsWith('!') || HIDE.includes(login)) return;
     let p = people.get(login); if (!p || p.mode === 'leave') { if (p) people.delete(login); p = enter(login, m.name || login, m.color && m.color.toLowerCase() !== '#000000' ? m.color : ''); } if (!p) return;
-    p.last = Date.now(); const lines = wrap(text); p.bubble = { lines, at: performance.now(), until: performance.now() + 3500 + Math.min(6000, text.length * 90) }; p.tagUntil = p.bubble.until + 2500;   // the name tag shows while they talk
+    p.uid = m.uid || p.uid; p.last = Date.now(); const lines = wrap(text); p.bubble = { id: m.id || '', lines, at: performance.now(), until: performance.now() + 3500 + Math.min(6000, text.length * 90) }; p.tagUntil = p.bubble.until + 2500;   // the name tag shows while they talk
   }
   function wrap(text) {   // uppercase, plain characters only, up to 3 lines of 15 characters
     const words = text.toUpperCase().replace(/[^A-Z0-9 !?.,:\-'\/+*<>()=@#%&_;"$~]/g, '').split(/\s+/).filter(Boolean), lines = []; let cur = '';
@@ -156,8 +156,21 @@
   }
   g.imageSmoothingEnabled = false; requestAnimationFrame(draw);
 
-  window.waitingRoomChat = chat; window.waitingRoom = { people, SEATS, SPOTS };   // (handy for debugging)
-  try { const es = new EventSource(BASE + '/events'); es.addEventListener('chat', (e) => { try { chat(JSON.parse(e.data)); } catch (x) { /* ignore */ } }); } catch (x) { /* no server: the room stays empty */ }
+  // A message is held back for 1.5 seconds before it becomes a bubble, so that the chat bot's filters and the mods can delete it first; a deleted message
+  // (or a cleared / banned chatter) never gets a bubble, or loses the one it has.
+  const pending = new Map();
+  function chat(m) {
+    if (!m.id) return show(m);
+    const t = setTimeout(() => { pending.delete(m.id); show(m); }, 1500); pending.set(m.id, { t, uid: m.uid });
+  }
+  function moderate(ev) {
+    const hitUser = (uid) => { for (const [id, x] of pending) if (x.uid === uid) { clearTimeout(x.t); pending.delete(id); } for (const p of people.values()) if (p.uid === uid) p.bubble = null; };
+    if (ev.type === 'delete') { const x = pending.get(ev.id); if (x) { clearTimeout(x.t); pending.delete(ev.id); } for (const p of people.values()) if (p.bubble && p.bubble.id === ev.id) p.bubble = null; }
+    else if (ev.type === 'clearUser' && ev.uid) hitUser(ev.uid);
+    else if (ev.type === 'clear') { for (const x of pending.values()) clearTimeout(x.t); pending.clear(); for (const p of people.values()) p.bubble = null; }
+  }
+  window.waitingRoomChat = show; window.waitingRoom = { people, SEATS, SPOTS, chat, moderate };   // (handy for debugging)
+  try { const es = new EventSource(BASE + '/events'); es.addEventListener('chat', (e) => { try { chat(JSON.parse(e.data)); } catch (x) { /* ignore */ } }); es.addEventListener('chatmod', (e) => { try { moderate(JSON.parse(e.data)); } catch (x) { /* ignore */ } }); } catch (x) { /* no server: the room stays empty */ }
   if (Q.get('demo')) {
     const folks = [['RetroRider', 'hey everyone, long time no see!'], ['BitBaron', 'first time here'], ['TealTina', 'what are we playing today'], ['ChaosChad', 'LUL'], ['GenerousGamer', 'brought snacks for everybody'], ['PixelPat', 'is the stream starting soon?'], ['VinylVince', 'this room is so cozy'], ['MaxMuscle', 'gg']];
     folks.forEach(([n, t], i) => setTimeout(() => chat({ login: n.toLowerCase(), name: n, text: t }), 400 + i * 700));
