@@ -18,6 +18,7 @@ function Mirror($from, $to, $xd) {
 Write-Host 'Copying files to a local build folder...'
 Mirror $app (Join-Path $stage 'app') @('node_modules', 'dist')
 Mirror (Join-Path $root 'server') (Join-Path $stage 'server') @('kokoro', 'data', 'node_modules')
+Mirror (Join-Path $root 'relay') (Join-Path $stage 'relay') @('node_modules', '.wrangler')
 foreach ($d in 'overlays', 'assets', 'sounds', 'transitions') { Mirror (Join-Path $root $d) (Join-Path $stage $d) $null }
 
 Push-Location (Join-Path $stage 'app')
