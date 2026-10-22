@@ -4,6 +4,14 @@
   var get = function (k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
   var css = [
 
+    /* ---------- form controls in the app's own look (low specificity: any page can still override) */
+    ':where(select){-webkit-appearance:none;appearance:none;font:inherit;font-size:15px;color:var(--cream);background:var(--iron) url(data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2212%22%20height=%228%22%3E%3Cpath%20d=%22M1%201l5%205%205-5%22%20fill=%22none%22%20stroke=%22%23F39120%22%20stroke-width=%222%22/%3E%3C/svg%3E) no-repeat right 11px center/12px 8px;border:2px solid #46504f;border-radius:0;padding:8px 34px 8px 10px;cursor:pointer;min-width:0}',
+    ':where(select:hover){border-color:var(--aqua)}',':where(select:focus){outline:none;border-color:var(--heat)}',
+    ':where(select option){background:var(--iron-d,#1A2020);color:var(--cream)}',
+    ':where(input[type=checkbox]){padding:0;-webkit-appearance:none;appearance:none;width:18px;height:18px;margin:0;flex:none;vertical-align:middle;background:var(--iron);border:2px solid #46504f;border-radius:0;cursor:pointer;position:relative}',
+    ':where(input[type=checkbox]:hover){border-color:var(--aqua)}','input[type=checkbox]:checked{background:var(--aqua);border-color:var(--aqua);padding:0}',
+    'input[type=checkbox]:checked::after{content:"";position:absolute;left:4px;top:0;width:5px;height:10px;border:solid var(--iron);border-width:0 2px 2px 0;transform:rotate(45deg)}',
+    ':where(input[type=checkbox]:focus-visible){outline:2px solid var(--heat);outline-offset:2px}',
     /* ---------- calm layer: quieter panels, one neutral heading style, folded sections */
     'section{border-left:0!important;border-top:1px solid var(--line)!important}',
     'section>h2{color:var(--cream)!important;opacity:.9;font-size:12px!important;letter-spacing:3px!important;font-weight:700}',
