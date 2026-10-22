@@ -1,11 +1,11 @@
 'use strict';
 /**
  * Tips through PayPal.
- *  - PayPal.Me link: no keys, no address shown to tippers. Used by the !tip chat command and shown on the Tips page.
+ *  - Tip link: the streamer's own tip page (relay/), used by the !tip chat command and shown on the Tips page.
  *  - Log a tip yourself (one button) to fire the tip alert.
  *  - Optional auto-detect: PayPal's Transaction Search API with your own app's Client ID + Secret (kept in <data>/paypal.json).
  *    PayPal reports new payments there with a delay (minutes, sometimes hours), so this is for "catch every tip", not instant alerts.
- *  - Optional instant alerts: a tip relay the streamer deploys to their own Cloudflare account (relay/). PayPal calls the relay the moment a
+ *  - Instant alerts: the tip relay the streamer deploys to their own Cloudflare account (relay/). PayPal calls the relay the moment a
  *    tip is paid, and this app keeps an outgoing connection to it, so nothing on this PC has to be reachable from the internet.
  */
 const fs = require('node:fs');
@@ -23,17 +23,14 @@ module.exports = function createPaypal(ctx) {
   let rws = null, rtimer = null, rping = null, rgen = 0, rfail = 0, rstatus = { connected: false, error: '', tips: 0 };
   const str = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 
-  const meClean = (v) => String(v || '').trim().replace(/^https?:\/\/(www\.)?paypal\.me\//i, '').replace(/^paypal\.me\//i, '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);
-  const link = (amount) => (P().me ? 'https://paypal.me/' + P().me + (amount ? '/' + amount + P().currency : '') : '');
-  const view = () => ({ me: P().me, currency: P().currency, suggest: P().suggest, link: link(), links: P().suggest.map((a) => ({ amount: a, url: link(a) })), note: P().note,
+  const link = () => (relay.url ? relay.url + '/' : '');   // the streamer's own tip page
+  const view = () => ({ currency: P().currency, link: link(), note: P().note,
     api: { configured: !!(creds && creds.clientId && creds.secret), clientIdHint: creds && creds.clientId ? creds.clientId.slice(0, 6) + '…' : '', status },
-    relay: { url: relay.url, hasKey: !!relay.token, status: rstatus, tipPage: relay.url ? relay.url + '/' : '' }, recent: P().recent.slice(0, 20) });
+    relay: { url: relay.url, hasKey: !!relay.token, status: rstatus }, recent: P().recent.slice(0, 20) });
 
   function save(b) {
     const p = P();
-    if (b.me !== undefined) p.me = meClean(b.me);
     if (b.currency !== undefined) p.currency = /^[A-Za-z]{3}$/.test(b.currency) ? String(b.currency).toUpperCase() : p.currency;
-    if (b.suggest !== undefined) p.suggest = String(b.suggest).split(/[ ,]+/).map(Number).filter((n) => n > 0 && n <= 10000).slice(0, 5);
     if (b.note !== undefined) p.note = str(b.note, 200);
     ctx.persist(); return view();
   }

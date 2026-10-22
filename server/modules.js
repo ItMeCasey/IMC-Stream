@@ -11,7 +11,7 @@ const { spawnSync } = require('node:child_process');
 
 const BUILTIN = [
   { id: 'dashboard', name: 'Dashboard', icon: '\u25A6', group: 'Stream', url: '/dashboard', description: 'Alerts, goals, labels, test buttons' },
-  { id: 'tips', name: 'Tips (PayPal)', icon: '♥', group: 'Stream', url: '/tips', description: 'PayPal.Me link, !tip command, tip alerts' },
+  { id: 'tips', name: 'Tips (PayPal)', icon: '♥', group: 'Stream', url: '/tips', description: 'Instant PayPal tip page, !tip command, tip alerts' },
   { id: 'panels', name: 'Panels', icon: '▤', group: 'Stream', url: '/panels', description: 'Design your Twitch channel panels, export the images, sync them to chat commands' },
   { id: 'goals', name: 'Goals', icon: '⚑', group: 'Stream', url: '/goals', description: 'Progress bars for followers, subs, bits and your own targets' },
   { id: 'mixer', name: 'Audio Mixer', icon: '♬', group: 'Stream', url: '/widgets/mixer.html?full=1', description: 'Level meters, mute and volume for every scene' },

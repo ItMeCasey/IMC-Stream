@@ -98,7 +98,7 @@ const defaultState = () => ({
   panels: [],
   updates: { enabled: true },
   setup: { done: false },
-  paypal: { me: '', currency: 'USD', suggest: [5, 10, 20], note: '', since: 0, seen: [], recent: [] },
+  paypal: { currency: 'USD', note: '', since: 0, seen: [], recent: [] },
   overlayCfg: { alerts: { position: 'top', volume: 100 }, explosion: { goal: true, raid: false, hype: false, sub: false, giftsub: false, bits: false, count: 70, seconds: 6, style: 'burst' }, events: { align: 'bottom', grow: 'up', max: 6, mode: 'list', speed: 80, include: { follow: true, sub: true, bits: true, raid: true, tip: true, redeem: false, hype: true, goal: true, custom: false } } },
   home: { pages: [{ id: 'p1', name: 'Home', widgets: [{ id: 'w0', mod: 'golive', size: 's' }, { id: 'w1', mod: 'status', size: 's' }, { id: 'w2', mod: 'ads', size: 's' }, { id: 'w3', mod: 'music', size: 's' }, { id: 'w4', mod: 'scenes', size: 'm' }, { id: 'w5', mod: 'buttons', size: 'm' }, { id: 'w7', mod: 'chat', size: 'l' }, { id: 'w8', mod: 'recent', size: 'm' }] }] },
   ttsCfg: { on: true, voice: '', rate: 0, pitch: 0, volume: 80, maxChars: 200, blockWords: [], command: { on: false, level: 'subscriber', cost: 0, userCd: 60 } },

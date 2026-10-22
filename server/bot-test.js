@@ -414,8 +414,8 @@ const MOD = ['moderator'], SUB = ['subscriber'];
   assert.strictEqual(await one('Sue', '!dc', SUB), 'discord.gg/x');
   assert.strictEqual((await api('command/test', { response: 'Hi $(user) $(1)', args: 'there' })).text, 'Hi TestViewer there');
   // tips
-  T += 60000; assert.strictEqual(await one('Bob', '!tip'), 'Tips are not set up yet.'); tipUrl = 'https://paypal.me/ItMeCasey'; T += 60000;
-  assert.match(await one('Bob', '!tip'), /leave a tip here: https:\/\/paypal\.me\/ItMeCasey/); T += 60000; assert.strictEqual(await one('Sue', '!paypal'), 'PayPal: https://paypal.me/ItMeCasey');
+  T += 60000; assert.strictEqual(await one('Bob', '!tip'), 'Tips are not set up yet.'); tipUrl = 'https://tips.example.workers.dev/'; T += 60000;
+  assert.match(await one('Bob', '!tip'), /leave a tip here: https:\/\/tips\.example\.workers\.dev\//); T += 60000; assert.strictEqual(await one('Sue', '!paypal'), 'PayPal: https://tips.example.workers.dev/');
   // subathon commands: everyone sees time and rules, only mods change it
   T += 30000; assert.strictEqual(await one('Bob', '!subathon'), 'SUB:'); T += 30000; assert.strictEqual(await one('Bob', '!subathon rules'), 'SUB:rules'); T += 30000;
   assert.strictEqual(await one('Bob', '!subathon start 6h'), 'Only mods can change the subathon timer.'); T += 30000; assert.strictEqual(await one('Mia', '!subathon start 6h', MOD), 'SUB:start 6h'); T += 30000; assert.strictEqual(await one('Bob', '!subrules'), 'RULES');

@@ -4,8 +4,8 @@ A tiny Cloudflare Worker each streamer deploys to their own free Cloudflare acco
 
 ## For streamers
 
-Open the app's **Tips** page, section 4, and follow the three steps (copy key, deploy, paste the address).
-Needs a PayPal **Business** account. Tips must be paid through the relay's tip page (its address, shown in the app), not a PayPal.Me link.
+Open the app's **Tips** page, section 1, and follow the three steps (copy key, deploy, paste the address).
+Needs a PayPal **Business** account. The tip page's address is the tip link: the app shows it, and `!tip` answers with it.
 
 ## How it works
 
