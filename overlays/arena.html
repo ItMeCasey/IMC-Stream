@@ -282,16 +282,67 @@
     }
   }
 
+  // ---- spin the wheel: the server picks the winner (index, jitter, turns); this only plays the spin and lands on it
+  const WN = 72, WS = 3.1, WX = 132, WY = 152, WR = WN / 2 - 0.5, WCOL = ['#4FBBBC', '#F39120', '#EC4624', '#E2DAC2', '#B13A22'];
+  const wcv = document.createElement('canvas'); wcv.width = wcv.height = WN; const wg = wcv.getContext('2d'), wimg = wg.createImageData(WN, WN);
+  const hex3 = (c) => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)], TAU = Math.PI * 2, TOP = -Math.PI / 2;
+  const sliceColor = (i, n) => (i === n - 1 && n % 5 === 1 ? '#8e7cc3' : WCOL[i % 5]);   // the last slice never matches the first
+  function renderWheel(m, rot) {
+    const n = m.options.length, s = TAU / n, d = wimg.data, cols = m.options.map((_, i) => hex3(sliceColor(i, n)));
+    for (let y = 0; y < WN; y++) for (let x = 0; x < WN; x++) {
+      const dx = x + 0.5 - WN / 2, dy = y + 0.5 - WN / 2, r = Math.hypot(dx, dy), k = (y * WN + x) * 4;
+      if (r > WR) { d[k + 3] = 0; continue; }
+      let col; const ang = Math.atan2(dy, dx);
+      if (r > WR - 1.7) col = [20, 25, 26];                                                          // dark rim
+      else if (r > WR - 3.4) col = Math.floor((((ang - rot) % TAU) + TAU) % TAU / TAU * 24) % 2 ? [243, 145, 32] : [226, 218, 194];   // ring of lights that turns with the wheel
+      else if (r < 3.4) col = r < 1.8 ? [226, 218, 194] : [20, 25, 26];                              // hub
+      else {
+        const a = (((ang - rot) % TAU) + TAU) % TAU, idx = Math.min(n - 1, Math.floor(a / s)), frac = a / s - idx, edge = Math.min(frac, 1 - frac) * s * r;
+        col = edge < 0.7 ? [20, 25, 26] : cols[idx];                                                 // dark line between slices
+      }
+      d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255;
+    }
+    wg.putImageData(wimg, 0, 0);
+  }
+  const wrot = (m, t) => { const e = 1 - Math.pow(1 - Math.min(1, t / m.spinMs), 4); return m.delta * e; };   // fast at the start, a long slow crawl at the end
+  const wslice = (m, rot) => Math.min(m.options.length - 1, Math.floor((((TOP - rot) % TAU) + TAU) % TAU / (TAU / m.options.length)));
+  function drawWheel(m, now) {
+    const t = now - m.t0, rot = wrot(m, t), n = m.options.length, idx = wslice(m, rot), done = t >= m.spinMs;
+    if (idx !== m.last) { m.last = idx; m.tickAt = now; }
+    setTop(esc(m.title || 'Spin the wheel'));
+    g.save(); g.imageSmoothingEnabled = false; renderWheel(m, rot); g.drawImage(wcv, Math.round(WX - WN * WS / 2), Math.round(WY - WN * WS / 2), WN * WS, WN * WS);
+    const bounce = done ? 0 : Math.max(0, 1 - (now - m.tickAt) / 110) * 4, px = WX, py = WY - WN * WS / 2 - 3 + bounce;   // the pointer flicks on every slice it passes
+    g.fillStyle = '#14191a'; g.beginPath(); g.moveTo(px - 11, py - 12); g.lineTo(px + 11, py - 12); g.lineTo(px, py + 14); g.closePath(); g.fill();
+    g.fillStyle = '#E2DAC2'; g.beginPath(); g.moveTo(px - 7, py - 9); g.lineTo(px + 7, py - 9); g.lineTo(px, py + 9); g.closePath(); g.fill();
+    g.restore();
+    // the list of options, with the one under the pointer lit up
+    const rowH = Math.min(17, 200 / n), size = rowH >= 15 ? 13 : 11, top = 50 + (200 - rowH * n) / 2;
+    m.options.forEach((o, i) => {
+      const y = top + i * rowH, on = i === idx; if (on) { g.fillStyle = sliceColor(i, n); g.fillRect(262, y, 206, rowH - 1); }
+      g.fillStyle = sliceColor(i, n); g.fillRect(266, y + rowH / 2 - 3, 6, 6);
+      g.font = '700 ' + size + 'px Bahnschrift,"Arial Narrow",sans-serif'; g.textAlign = 'left'; g.fillStyle = on ? '#222A2A' : '#E2DAC2'; const txt = (o.length > 24 ? o.slice(0, 23) + '…' : o).toUpperCase(); g.fillText(txt, 278, y + rowH / 2 + size / 2 - 2);
+    });
+    if (done && !m.won) { m.won = now; bannerShow(esc(m.options[m.index]) + '<small>' + esc(m.title || 'The wheel has spoken') + '</small>'); for (let k = 0; k < 40; k++) m.bits.push({ x: WX + (Math.random() - 0.5) * 60, y: WY - 30, vx: (Math.random() - 0.5) * 200, vy: -80 - Math.random() * 160, c: WCOL[k % 5] }); }
+    if (m.won) {   // confetti, in the pixel style
+      const dt = 1 / 60; for (const b of m.bits) { b.vy += 260 * dt; b.x += b.vx * dt; b.y += b.vy * dt; if (b.y < H) { g.fillStyle = b.c; g.fillRect(Math.round(b.x), Math.round(b.y), 4, 4); } }
+    }
+  }
+  function wheelEvent(d) {
+    const n = d.options.length, s = TAU / n, rf = TOP - (d.index + 0.5 + d.jitter) * s, fin = ((rf % TAU) + TAU) % TAU;   // the angle that puts the winner's slice under the pointer
+    mode = { kind: 'wheel', title: d.title, options: d.options, index: d.index, spinMs: d.spinMs || 7000, delta: fin + TAU * (d.turns || 6), t0: performance.now(), last: -1, tickAt: 0, won: 0, bits: [] };
+    $('card').classList.add('on'); bannerShow('Spin!<small>' + n + ' options</small>'); endMode((d.spinMs || 7000) + (d.holdMs || 5200) + 600);
+  }
+
   function gameLoop(now) {
     requestAnimationFrame(gameLoop);
     if (!mode || playing) return;
     $('na').style.display = $('nb').style.display = 'none'; $('card').classList.add('on');
     g.clearRect(0, 0, W, H); ground(); g.save();
-    try { if (mode.kind === 'boss') drawBoss(mode, now); else if (mode.kind === 'royale') drawRoyale(mode, now); else if (mode.kind === 'teams') drawTeams(mode, now); else if (mode.kind === 'race') drawRace(mode, now); } catch (x) { /* a bad frame must never kill the overlay */ }
+    try { if (mode.kind === 'boss') drawBoss(mode, now); else if (mode.kind === 'royale') drawRoyale(mode, now); else if (mode.kind === 'teams') drawTeams(mode, now); else if (mode.kind === 'race') drawRace(mode, now); else if (mode.kind === 'wheel') drawWheel(mode, now); } catch (x) { /* a bad frame must never kill the overlay */ }
     g.restore();
   }
   requestAnimationFrame(gameLoop);
-  const onArena = (e) => { try { const d = JSON.parse(e.data); if (d.type === 'stop') { mode = null; $('card').classList.remove('on'); pump(); } else if (d.type.startsWith('boss:')) bossEvent(d); else if (d.type.startsWith('royale:')) royaleEvent(d); else if (d.type.startsWith('teams:')) teamsEvent(d); else if (d.type.startsWith('race:')) raceEvent(d); } catch (x) { /* ignore */ } };
+  const onArena = (e) => { try { const d = JSON.parse(e.data); if (d.type === 'stop') { mode = null; $('card').classList.remove('on'); pump(); } else if (d.type.startsWith('boss:')) bossEvent(d); else if (d.type.startsWith('royale:')) royaleEvent(d); else if (d.type.startsWith('teams:')) teamsEvent(d); else if (d.type.startsWith('race:')) raceEvent(d); else if (d.type.startsWith('wheel:')) wheelEvent(d); } catch (x) { /* ignore */ } };
   window.arenaEvent = (d) => bossOrOther(d);
   function bossOrOther(d) { onArena({ data: JSON.stringify(d) }); }
   const es = new EventSource(BASE + '/events'); es.addEventListener('arena', onArena); es.addEventListener('duel', (e) => { try { window.playDuel(JSON.parse(e.data)); } catch (x) { /* ignore */ } });

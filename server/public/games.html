@@ -90,6 +90,13 @@ function draw() {
     + '<div class="muted" style="flex-basis:100%">Starting a race opens a Twitch <b>prediction</b> (one choice per horse) so viewers bet channel points. When time is up the bets lock, the horses race, the winner is picked and Twitch pays out. Needs Affiliate/Partner. A cheer with the word <b>race</b> and enough bits starts one too. Mods can use <b>!race</b>, <b>!race now</b>, <b>!race cancel</b>.</div>'
     + '<div style="flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;align-items:center">' + (bet ? '<b>Bets open (' + RV.secondsLeft + 's left):</b> <select id="cPick"><option value="">Random winner</option>' + RV.horses.map((h, i) => '<option value="' + (i + 1) + '">' + esc(h) + ' wins</option>').join('') + '</select><button data-a="rrun">Close bets and race</button><button class="danger" data-a="rcancel">Cancel + refund</button>'
       : run ? '<b>Racing...</b>' : '<button data-a="rstart">Start a race (opens prediction)</button>') + '<button class="ghost" data-a="rdemo">Preview on overlay</button></div>';
+  const WH = S.wheel || { title: '', options: [] };
+  const wopt = (t) => '<div class="wrow" style="display:flex;gap:6px"><input class="wo" maxlength="40" value="' + esc(t) + '" placeholder="An option" style="flex:1"><button class="ghost" data-a="wrm" title="Remove">&#10005;</button></div>';
+  settingsFor.wheel = '<label class="fld" style="width:260px">Title (shown above the wheel)<input id="wTitle" maxlength="40" value="' + esc(WH.title) + '"></label>'
+    + '<div style="flex-basis:100%"><div class="muted" style="margin-bottom:6px">Options (2 to 16). Add the same one twice to make it twice as likely.</div><div id="wOpts" style="display:grid;gap:6px;max-width:420px">' + (WH.options.length ? WH.options : ['', '']).map(wopt).join('') + '</div></div>'
+    + '<button class="ghost" data-a="wadd">+ Add option</button>'
+    + '<div class="muted" style="flex-basis:100%">Only you and your mods can start it: <b>!wheel</b> spins this list, <b>!wheel pizza, tacos, sushi</b> spins a list typed on the spot, <b>!wheel stop</b> cancels. The winner is picked by the server, then the wheel on the <b>Game Arena</b> OBS source spins and lands on it.</div>'
+    + '<button data-a="wspin">Save and spin now</button><button class="ghost" data-a="wtest">Test (silent)</button><button class="ghost" data-a="wstop">Stop</button>';
   const DN = S.dance || {};
   settingsFor.dance = num('dBits', BI.dance, 'Bits to start it (0 = off)', 'min="0"') + num('dSec', DN.seconds, 'Length (sec)', 'min="20" max="600"') + '<label class="fld" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="dStrobe" ' + (DN.strobe !== false ? 'checked' : '') + ' style="width:18px;height:18px">Strobe flashes (max 3 a second)</label>'
     + '<div class="muted" style="flex-basis:100%">A full-screen party on the <b>Dance Party</b> OBS source: moving lights, lasers, a mirror ball and pixel dancers named after recent chatters, all following the music. A cheer of the bits above with the word <b>dance</b> in it starts it, or mods type <b>!dance</b>. Turn strobes off if you or your viewers are sensitive to flashing.</div><button class="ghost" data-a="dtest">Test on overlay (silent)</button><button class="ghost" data-a="dstop">Stop</button>';
@@ -136,6 +143,14 @@ $('builtin').onclick = async (e) => {
   }
   if (a === 'dtest' || a === 'dstop') { const r = await post('games/dancetest', { stop: a === 'dstop' }); return toast(r.error || r.text, !!r.error); }
   if (a === 'gsave' && id === 'dance') { const v = (i) => row.querySelector('#' + i); await post('games/bits', { dance: +v('dBits').value }); const r = await post('games/dance', { seconds: +v('dSec').value, strobe: v('dStrobe').checked }); if (r.error) return toast(r.error, true); toast('Saved'); return load(); }
+  if (['wadd', 'wrm', 'wspin', 'wtest', 'wstop'].includes(a)) {
+    const box = row.querySelector('#wOpts'), list = () => [...box.querySelectorAll('.wo')].map((i) => i.value.trim()).filter(Boolean);
+    if (a === 'wadd') { if (box.children.length >= 16) return toast('16 options is the limit', true); box.insertAdjacentHTML('beforeend', wopt('')); return box.lastChild.querySelector('input').focus(); }
+    if (a === 'wrm') { if (box.children.length <= 2) return toast('Keep at least 2 options', true); return e.target.closest('.wrow').remove(); }
+    if (a === 'wstop') { const r = await post('wheel/stop', {}); return toast(r.error || 'Stopped', !!r.error); }
+    const body = { title: row.querySelector('#wTitle').value, options: list() }; const sv = await post('wheel/save', body); if (sv.error) return toast(sv.error, true);
+    const r = await post('wheel/spin', Object.assign({ silent: a === 'wtest' }, body)); return toast(r.error || ('Spinning... ' + (a === 'wtest' ? '(silent)' : '')), !!r.error);
+  }
   if (a === 'rdemo') { await post('race/demo', {}); return toast('Preview sent to OBS'); }
   if (a === 'gsave' && id === 'race') { const v = (i) => row.querySelector('#' + i).value; await post('games/bits', { race: +v('cBits') }); const r = await post('race/settings', { count: +v('cNum'), seconds: +v('cSec'), title: v('cTitle'), names: v('cNames') }); if (r.error) return toast(r.error, true); toast('Saved'); return load(); }
   if (a === 'gtest') { const r = await post('games/test', { game: e.target.dataset.game }); return toast(r.error || r.text, !!r.error); }

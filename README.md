@@ -7,7 +7,7 @@ Everything runs locally. Your Twitch login, settings and data stay on your PC (s
 ## What you get
 - **Alerts and overlays:** follows, subs, gift subs, bits, raids, tips, hype train, polls and predictions, a recent-events list and ticker, viewer stats, Now Playing (with a live music visualizer), goals with an emote explosion, subathon timer.
 - **Chat bot:** custom commands, timers, points, filters, AutoMod review, welcome messages, raid shoutouts, text-to-speech (optional realistic voices), an optional separate bot account.
-- **Games for chat:** duels (also against the bot), boss raid, arena royale, team battle, horse race (Twitch predictions pay out), gamble, slots, trivia, raffles, and a builder for your own games. Everything plays on one pixel overlay.
+- **Games for chat:** duels (also against the bot), boss raid, arena royale, team battle, horse race (Twitch predictions pay out), a pixel spin-the-wheel for mods with your own options, gamble, slots, trivia, raffles, and a builder for your own games. Everything plays on one pixel overlay.
 - **Dance Party:** a bits reward. Two minutes of lights, lasers, strobes (3 flashes a second at most), pixel dancers named after chatters, a DJ, pyrotechnics and steam, all following the beat of your current song.
 - **Channel points:** make and switch rewards on and off, and run actions (alerts, chat, OBS scene changes, sounds, points) when they are redeemed.
 - **Control:** a control board, automatic scene switching, an audio mixer with per-scene sources, Voicemeeter setup that keeps music and alerts out of your VOD, OBS stats, Twitch panels you can design and sync to chat commands.

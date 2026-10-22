@@ -61,6 +61,7 @@ const defaults = () => ({
   extras: { welcome: { on: false, msg: 'Welcome to the stream, $(user)! Glad you are here.', announce: '', onlyLive: true }, raidShout: { on: false }, regulars: { on: false, minutes: 300, messages: 200 } },
   games: { gambleWin: 0.45, maxBet: 0, triviaReward: 100, triviaSeconds: 30, duelSeconds: 60, duelAnim: true, off: [], botDuel: { on: true, below: 1000, house: 50, maxWin: 1000 },
     bits: { boss: 100, royale: 100, race: 100, dance: 1000 },
+    wheel: { title: 'Spin the wheel', options: ['Yes', 'No', 'Ask again'] },
     dance: { seconds: 120, strobe: true },   // a cheer of at least this many bits with the word boss / arena / race in it starts that game (0 = off)
     race: { count: 5, seconds: 90, title: 'Who wins the race?', names: [] },
     arena: { boss: { baseHp: 200, hpPerChatter: 40, seconds: 120, hitCd: 3, pool: 40, lastHit: 100, consolation: 10 }, royale: { fee: 50, lobby: 60, max: 8 }, teams: { fee: 50, lobby: 60, maxPerTeam: 20 } } },
@@ -427,6 +428,7 @@ module.exports = function createBot(ctx) {
     { id: 'raffle', name: 'Raffle', cmd: 'raffle', how: '!raffle (mods), !enter, !draw', desc: 'Mods open a raffle, viewers enter, mods draw a winner.' },
     { id: '8ball', name: 'Magic 8-ball', cmd: '8ball', how: '!8ball <question>', desc: 'Ask a yes/no question, get a mystical answer.' },
     { id: 'roll', name: 'Dice', cmd: 'roll', how: '!roll [NdM]', desc: 'Roll dice, for example !roll 2d6.' },
+    { id: 'wheel', name: 'Spin the wheel', cmd: 'wheel', how: '!wheel (mods) or !wheel pizza, tacos, sushi', desc: 'Streamer and mods only. A pixel wheel spins on the overlay and picks one option at random from your list.' },
     { id: 'dance', name: 'Dance Party', cmd: 'dance', how: '!dance (mods), or a 1000-bit cheer with "dance"', desc: 'Two minutes of lights, lasers, strobes and pixel dancers (named after chatters) dancing to the current song.' },
     { id: 'race', name: 'Horse race', cmd: 'race', how: '!race (mods)', desc: 'Horses run across the overlay. A Twitch prediction takes channel-point bets, then the winner is picked and the prediction pays out.' },
     { id: 'boss', name: 'Boss raid', cmd: 'boss', how: '!boss (mods) then everyone !hit', desc: 'A pixel monster appears; chat attacks it. Subs and bits hit harder. Damage decides the prize share.' },
@@ -434,7 +436,7 @@ module.exports = function createBot(ctx) {
     { id: 'teams', name: 'Team battle', cmd: 'teams', how: '!teams (mods) then !red or !blue', desc: 'Two teams fight; the smaller team hits harder so it stays fair. Winners split the pot.' },
     { id: 'flip', name: 'Coin flip', cmd: 'flip', how: '!flip', desc: 'Heads or tails.' },
   ];
-  const GAME_OF = { dance: 'dance', race: 'race', hit: 'boss', boss: 'boss', arena: 'royale', join: 'royale', teams: 'teams', red: 'teams', blue: 'teams', gamble: 'gamble', slots: 'slots', duel: 'duel', accept: 'duel', trivia: 'trivia', raffle: 'raffle', enter: 'raffle', draw: 'raffle', '8ball': '8ball', roll: 'roll', flip: 'flip' };
+  const GAME_OF = { wheel: 'wheel', spin: 'wheel', dance: 'dance', race: 'race', hit: 'boss', boss: 'boss', arena: 'royale', join: 'royale', teams: 'teams', red: 'teams', blue: 'teams', gamble: 'gamble', slots: 'slots', duel: 'duel', accept: 'duel', trivia: 'trivia', raffle: 'raffle', enter: 'raffle', draw: 'raffle', '8ball': '8ball', roll: 'roll', flip: 'flip' };
   const rollOutcome = (G, r) => { const total = G.outcomes.reduce((a, o) => a + o.weight, 0); let x = r * total; for (const o of G.outcomes) { if ((x -= o.weight) < 0) return o; } return G.outcomes[G.outcomes.length - 1]; };
   async function playCustom(G, u, reply) {
     const p = pt(u.id, u.name), cost = G.cost || 0;
@@ -498,6 +500,14 @@ module.exports = function createBot(ctx) {
     return '';
   }
   function danceStop() { clearTimeout(danceTimer); danceOn = false; ctx.broadcast && ctx.broadcast('dance', { type: 'stop' }); }
+  // ---- Spin the wheel: only the streamer and mods can start it (commands need the moderator level; the page is the streamer's own)
+  const wheel = require('./wheel')({ broadcast: (ev, d) => (ctx.broadcast ? ctx.broadcast(ev, d) : 0), say: (t) => say(t) });
+  function wheelCmd(args, reply) {
+    const text = args.join(' ').trim(), W = db.games.wheel;
+    if (text.toLowerCase() === 'stop') { const r = wheel.cancel(); return reply(r.error || 'Wheel stopped.'); }
+    const r = text ? wheel.spin({ title: '', options: text }) : wheel.spin({ title: W.title, options: W.options });
+    if (r.error) reply(r.error);
+  }
   const arenaCmd = (fn) => ({ run: ({ args, u, reply }) => { const r = fn(args, u); if (r) reply(r); } });
 
   // chat games state
@@ -760,6 +770,8 @@ module.exports = function createBot(ctx) {
       const a = (args[0] || '').toLowerCase(), r = a === 'cancel' ? await race.cancel() : a === 'now' ? await race.run(args.slice(1).join(' ')) : await race.start({});
       if (r && r.error) reply(r.error);
     } },
+    wheel: { level: 3, run: ({ args, reply }) => wheelCmd(args, reply) },
+    spin: { level: 3, run: ({ args, reply }) => wheelCmd(args, reply) },
     dance: { level: 3, run: ({ args, u, reply }) => { if (args[0] === 'stop') { danceStop(); return reply('Party stopped.'); } const r = danceStart(u); if (r) reply(r); } },
     hit: arenaCmd((a, u) => arena.boss.hit(u)),
     boss: { level: 3, run: ({ args, u, reply }) => { const r = args[0] === 'status' ? arena.boss.status() : args[0] === 'stop' ? (arena.stop(), 'Stopped.') : arena.boss.start(u, args.join(' ')); if (r) reply(r); } },
@@ -1016,7 +1028,7 @@ module.exports = function createBot(ctx) {
         if (b.bonuses) for (const k of Object.keys(db.bonuses)) if (b.bonuses[k]) { const x = b.bonuses[k], t = db.bonuses[k]; t.on = !!x.on; t.amount = num(x.amount, t.amount, 0, 1e7); if ('perViewer' in t) t.perViewer = num(x.perViewer, t.perViewer, 0, 1e6); }
         if (b.clip) db.clip = { on: !!b.clip.on, level: ['everyone', 'subscriber', 'vip', 'moderator'].includes(b.clip.level) ? b.clip.level : 'everyone' };
         if (b.daily) db.daily = { on: !!b.daily.on, amount: num(b.daily.amount, 100, 0, 1e7), streakBonus: num(b.daily.streakBonus, 25, 0, 1e6), maxStreak: num(b.daily.maxStreak, 10, 0, 365) };
-        if (b.games) db.games = { dance: db.games.dance, bits: db.games.bits, race: db.games.race, arena: db.games.arena, botDuel: db.games.botDuel,
+        if (b.games) db.games = { wheel: db.games.wheel, dance: db.games.dance, bits: db.games.bits, race: db.games.race, arena: db.games.arena, botDuel: db.games.botDuel,
           off: db.games.off || [], duelAnim: b.games.duelAnim !== false,
           gambleWin: num(b.games.gambleWin, 0.45, 0.05, 0.95), maxBet: num(b.games.maxBet, 0, 0, 1e9),
           triviaReward: num(b.games.triviaReward, 100, 0, 1e6), triviaSeconds: num(b.games.triviaSeconds, 30, 5, 300),
@@ -1081,6 +1093,12 @@ module.exports = function createBot(ctx) {
       case 'games/bits': { const B = db.games.bits, x = b || {}; for (const k of ['boss', 'royale', 'race', 'dance']) if (x[k] !== undefined) B[k] = Math.floor(num(x[k], 100, 0, 1e6)); save(); return B; }
       case 'games/dance': { const x = b || {}, D = db.games.dance; if (x.seconds !== undefined) D.seconds = Math.floor(num(x.seconds, 120, 20, 600)); if (x.strobe !== undefined) D.strobe = !!x.strobe; save(); return D; }
       case 'games/dancetest': { if (b && b.stop) { danceStop(); return { text: 'Stopped' }; } return { text: danceStart({ name: 'TestViewer' }, true) || 'Party started (silent test)' }; }
+      case 'wheel/save': { const W = db.games.wheel, x = b || {}; if (x.title !== undefined) W.title = oneLine(x.title, 40); if (x.options !== undefined) W.options = wheel.clean(x.options); save(); return W; }
+      case 'wheel/spin': {   // from the Chat Games page (the streamer): the saved list, or the one sent along; silent = no chat message
+        const W = db.games.wheel, x = b || {}; const r = wheel.spin({ title: x.title !== undefined ? x.title : W.title, options: x.options !== undefined ? x.options : W.options, silent: !!x.silent });
+        if (r.error) throw new Error(r.error); return r;
+      }
+      case 'wheel/stop': { const r = wheel.cancel(); if (r.error) throw new Error(r.error); return r; }
       case 'games/toggle': {
         if (!GAMES.some((g) => g.id === b.id)) throw new Error('Unknown game'); const off = new Set(db.games.off || []); if (b.on) off.delete(b.id); else off.add(b.id);
         db.games.off = [...off]; save(); return { ok: true, off: db.games.off };

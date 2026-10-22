@@ -12,7 +12,7 @@ const mediaState = { status: 'playing', title: 'Midnight City', artist: 'M83', a
 const mediaCfg = { requests: false, requestLevel: 'everyone' };
 const bot = createBot({
   DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'icm-bot-')), log: (...a) => { if (process.env.V) console.log(...a); },
-  get state() { return state; }, now: () => T, rng: () => R, gapMs: 0, maxPer30s: 1e9,
+  get state() { return state; }, now: () => T, rng: () => R, gapMs: 0, maxPer30s: 1e9, broadcast: (ev, d) => overlayEvents.push(d),
   me: () => ({ id: '1', login: 'itmecasey' }),
   send: async (text, replyTo, announce) => { sent.push({ text, replyTo, announce }); },
   mod: async (kind, body) => { modCalls.push([kind, body]); },
@@ -45,6 +45,7 @@ const bot = createBot({
   clientId: () => 'cid', ID_URL: () => 'x', HELIX: () => 'y',
 });
 
+const overlayEvents = [];
 let n = 0;
 const msg = (name, text, badges = []) => ({ message_id: 'm' + ++n, chatter_user_id: 'id-' + name.toLowerCase(), chatter_user_login: name.toLowerCase(), chatter_user_name: name,
   badges: badges.map((b) => ({ set_id: b, id: '1' })), message: { text, fragments: [{ type: 'text', text }] } });
@@ -465,6 +466,18 @@ const MOD = ['moderator'], SUB = ['subscriber'];
   assert.ok(sent.slice(sentBefore).some((x) => /Go check out CoolStreamer/.test(x.text)), 'raid triggers a shout-out');
   assert.ok(helixCalls.some((c) => /shoutouts\?from_broadcaster_id=1&to_broadcaster_id=id-coolstreamer/.test(c[1])), 'and the Twitch shoutout');
   assert.strictEqual(bot.view().settings.extras.regulars.messages, 3);
+  // spin the wheel: viewers cannot start it, mods and the streamer can
+  const spins = () => overlayEvents.filter((e) => e.type === 'wheel:spin');
+  for (const [who, b] of [['Viewer', []], ['Sub', SUB], ['Mod', MOD], ['ItMeCasey', ['broadcaster']]]) await say(who, 'hi', b);   // first messages (welcome replies) out of the way
+  assert.deepStrictEqual(await say('Viewer', '!wheel a, b, c'), [], 'a viewer cannot start the wheel'); assert.deepStrictEqual(await say('Sub', '!spin x | y', SUB), [], 'nor a subscriber'); assert.equal(spins().length, 0);
+  assert.deepStrictEqual(await say('Mod', '!wheel pizza, tacos | sushi', MOD), []); assert.deepStrictEqual(spins()[0].options, ['pizza', 'tacos', 'sushi']);
+  assert.strictEqual(await one('Mod', '!wheel', MOD), 'The wheel is already spinning.');
+  assert.strictEqual(await one('Mod', '!wheel stop', MOD), 'Wheel stopped.'); assert.equal(overlayEvents[overlayEvents.length - 1].type, 'stop');
+  await api('wheel/save', { title: 'Next game', options: ['Doom', 'Quake', 'Duke'] }); assert.deepStrictEqual(await say('ItMeCasey', '!wheel', ['broadcaster']), []);
+  assert.equal(spins()[1].title, 'Next game'); assert.deepStrictEqual(spins()[1].options, ['Doom', 'Quake', 'Duke']); await api('wheel/stop');
+  assert.strictEqual(await one('Mod', '!wheel only', MOD), 'The wheel needs at least 2 options.');
+  await assert.rejects(api('wheel/spin', { options: ['solo'] }), /at least 2/);
+
   await api('settings', { enabled: false, prefix: '!', currency: 'coins' });
   assert.deepStrictEqual(await say('Bob', '!lurk'), [], 'bot disabled');
   assert.strictEqual(bot.view().settings.currency, 'coins');
