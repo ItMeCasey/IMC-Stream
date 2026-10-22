@@ -5,7 +5,7 @@
   /* OBS Browser Source: http://localhost:8420/overlays/waitingroom.html?scale=1   (1920 x 360: the bottom third of a 1920 x 1080 scene)
      A pixel-art doctor's waiting room for the Starting Soon scene. Everybody who talks in chat walks in, takes a seat (or stands when the seats are full) and
      gets a speech bubble with what they said. People leave after a while, and the longest-quiet one leaves when the room is full.
-     ?max=14 how many people fit, ?idle=600 seconds of silence before somebody leaves, ?demo=1 fills the room with pretend chatters (&speed=5 makes them walk faster).  Silent. */
+     ?walls=1 brings back the wall and the floor (they are left out so the scene's background shows through), ?max=14 how many people fit, ?idle=600 seconds of silence before somebody leaves, ?demo=1 fills the room with pretend chatters (&speed=5 makes them walk faster).  Silent. */
   html, body { background: transparent; overflow: hidden; }
   canvas { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; image-rendering: pixelated; image-rendering: crisp-edges; }
 </style></head>
@@ -16,7 +16,7 @@
 (function () {
   const C = window.CFG || {}, Q = new URLSearchParams(location.search), BASE = icmBase('waitingroom', +(Q.get('port') || C.serverPort || 8420));
   const cv = document.getElementById('cv'), g = cv.getContext('2d'), W = 480, H = 90;
-  const SPEED = Math.max(0.5, Math.min(20, +Q.get('speed') || 1)), MAX = Math.max(2, Math.min(30, +Q.get('max') || 14)), IDLE = Math.max(30, +Q.get('idle') || 600) * 1000, HIDE = (C.hideBots || []).map((s) => s.toLowerCase());
+  const WALLS = Q.get('walls') === '1', SPEED = Math.max(0.5, Math.min(20, +Q.get('speed') || 1)), MAX = Math.max(2, Math.min(30, +Q.get('max') || 14)), IDLE = Math.max(30, +Q.get('idle') || 600) * 1000, HIDE = (C.hideBots || []).map((s) => s.toLowerCase());
   const INK = '#14191a', CREAM = '#E2DAC2', CREAM_D = '#b3ab92', AQUA = '#4FBBBC', AQUA_D = '#2f8a8b', HEAT = '#F39120', HEAT_D = '#c06a0c', HEAT_L = '#ffd9a0', RUST = '#EC4624', DRUST = '#B13A22', DRUST_D = '#7a2515', WOOD = '#8b5a2b', WOOD_L = '#b5813f', WOOD_D = '#5e3c1c', GREEN = '#6aa84f', GREEN_D = '#43762f', GREY = '#8a9594', GREY_D = '#5d6867';
   const hash = (str) => { let h = 2166136261; for (const c of String(str)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
   const rng = (seed) => { let s = seed >>> 0 || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
@@ -39,11 +39,12 @@
   const SEATS = [], SPOTS = [];
   function build() {
     const d = rg;
-    // walls: teal paper with a light panel along the bottom, a rail, and a tiled floor
+    if (WALLS) {   // walls: teal paper with a light panel along the bottom, a rail, and a tiled floor (off by default: the scene's background shows instead)
     box(d, 0, 0, W, 50, AQUA_D); for (let x = 0; x < W; x += 12) box(d, x, 0, 2, 50, '#2a7e7f');
     box(d, 0, 34, W, 16, CREAM_D); box(d, 0, 34, W, 2, CREAM); box(d, 0, 49, W, 1, WOOD_D); for (let x = 0; x < W; x += 24) box(d, x, 36, 1, 13, '#a39b80');
     for (let y = 50; y < H; y += 8) for (let x = ((y - 50) / 8 % 2) * 8; x < W; x += 16) box(d, x, y, 8, 8, '#d8cfb2'), box(d, x + 8, y, 8, 8, '#cbc29f');
     box(d, 0, 50, W, 1, WOOD_D);
+    }
     // the wall decorations: reception window, clock, WELCOME plaque, notice board, TV, pictures
     box(d, 6, 20, 52, 28, WOOD_D); box(d, 8, 22, 48, 17, '#9fd6d7'); box(d, 8, 22, 48, 2, '#cdeeee'); box(d, 31, 22, 2, 17, WOOD_D);   // the reception window
     box(d, 4, 39, 56, 11, WOOD); box(d, 4, 39, 56, 2, WOOD_L); box(d, 4, 48, 56, 2, WOOD_D); box(d, 18, 18, 28, 5, CREAM); text35('CHECK IN', 20, 19, INK);
@@ -53,7 +54,8 @@
     box(d, 310, 6, 38, 24, INK); box(d, 312, 8, 34, 20, '#26383d'); box(d, 340, 31, 2, 3, GREY_D);                                                                                             // the TV (its picture moves)
     box(d, 154, 8, 24, 18, WOOD_D); box(d, 156, 10, 20, 14, '#e8f1f2'); box(d, 156, 19, 20, 5, GREEN); box(d, 162, 14, 6, 6, HEAT); box(d, 164, 12, 2, 2, HEAT_L);                                 // a picture of a hill
     box(d, 390, 8, 24, 18, WOOD_D); box(d, 392, 10, 20, 14, '#f2e3c8'); box(d, 396, 14, 12, 8, DRUST); box(d, 399, 12, 6, 3, AQUA);                                                              // another picture
-    // the furniture
+    // the furniture (with soft shadows on the floor)
+    d.fillStyle = 'rgba(0,0,0,0.28)'; for (const [sx, sy, sw] of [[66, 59, 56], [334, 59, 56], [148, 58, 18], [170, 58, 18], [278, 58, 18], [300, 58, 18], [194, 75, 54], [128, 59, 14], [408, 61, 14], [426, 61, 20], [54, 64, 18]]) d.fillRect(sx, sy, sw, 2);
     couch(d, 68, 3); couch(d, 336, 3);
     for (const cx of [150, 172, 280, 302]) chair(d, cx);
     coffeeTable(d, 196, 62);
@@ -149,6 +151,7 @@
     g.clearRect(0, 0, W, H); g.drawImage(room, 0, 0);
     const tv = Math.floor(now / 700) % 3; R(312, 8, 34, 20, '#26383d'); R(314, 10, 30, 16, ['#1f3f48', '#2a4a30', '#3a2a48'][tv]); R(314 + tv * 8, 10, 8, 16, ['#2e86c1', '#6aa84f', '#8e7cc3'][tv]); R(320 + ((now / 400) | 0) % 18, 16, 4, 4, '#ffffff66');   // the TV picture
     const list = [...people.values()].sort((a, b) => a.y - b.y);
+    list.forEach((p) => { g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(Math.round(p.x) - 4, Math.round(p.y), 9, 2); });   // everybody's shadow
     list.filter((p) => p.mode === 'sit').forEach((p) => person(p, now));
     g.drawImage(front, 0, 0);
     list.filter((p) => p.mode !== 'sit').forEach((p) => person(p, now));
