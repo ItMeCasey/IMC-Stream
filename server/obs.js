@@ -6,6 +6,7 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('base64');
 module.exports = function createObs(getCfg, opts = {}) {
   const WS = opts.WebSocket || WebSocket;
   const log = opts.log || (() => {});
+  let lastOk = 0;   // when OBS last answered, so the Setup page can say whether it is really connected
 
   async function session(fn) {
     const cfg = getCfg() || {}, url = 'ws://' + (cfg.host || '127.0.0.1') + ':' + (+cfg.port || 4455);
@@ -24,7 +25,7 @@ module.exports = function createObs(getCfg, opts = {}) {
           id.authentication = sha(sha(cfg.password + d.authentication.salt) + d.authentication.challenge);
         }
         ws.send(JSON.stringify({ op: 1, d: id }));
-      } else if (m.op === 2) ready();                    // Identified
+      } else if (m.op === 2) { lastOk = Date.now(); ready(); }   // Identified
       else if (m.op === 7) {                             // RequestResponse
         const p = pending.get(m.d.requestId); if (!p) return; pending.delete(m.d.requestId);
         if (m.d.requestStatus && m.d.requestStatus.result) p.res(m.d.responseData || {}); else p.rej(new Error((m.d.requestStatus && m.d.requestStatus.comment) || 'OBS request failed'));
@@ -53,6 +54,7 @@ module.exports = function createObs(getCfg, opts = {}) {
     });
   }
   return {
+    lastOk: () => lastOk,
     /** OBS's own performance numbers: CPU, memory, FPS, frame times, skipped frames, disk, and the stream's bytes/congestion */
     statsRaw: () => session(async (call) => { const s = await call('GetStats'), st = await call('GetStreamStatus').catch(() => ({})); return { s, st }; }),
     raw: (fn) => session(fn),   // several requests in one connection (used by the Voicemeeter setup)

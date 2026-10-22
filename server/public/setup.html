@@ -124,7 +124,7 @@ async function refresh() {
   let h; try { h = await fetch('/api/health').then((r) => r.json()); } catch (e) { $('light').className = 'light red'; $('lightTxt').textContent = 'Server not answering'; return; }
   $('light').className = 'light ' + h.light;
   $('lightTxt').textContent = h.light === 'green' ? 'All good: connected to Twitch' : !h.clientId ? 'Add your Twitch Client ID (step 1)' : !h.twitch.loggedIn ? 'Press Connect Twitch on the dashboard' : 'Twitch is ' + h.twitch.eventsub + '…';
-  $('stat').innerHTML = row('Twitch', h.twitch.loggedIn ? esc(h.twitch.login) + ' (' + esc(h.twitch.eventsub) + ')' : 'not connected') + row('OBS', h.obs.configured ? 'configured' : 'not set up') + row('Music', esc(h.media.provider) + ' / ' + esc(h.media.status))
+  $('stat').innerHTML = row('Twitch', h.twitch.loggedIn ? esc(h.twitch.login) + ' (' + esc(h.twitch.eventsub) + ')' : 'not connected') + row('OBS', h.obs.connected ? 'connected' : 'not connected yet (press Test connection)') + row('Music', esc(h.media.provider) + ' / ' + esc(h.media.status))
     + row('Realistic voices', h.tts.kokoro ? 'installed' : 'not installed (optional)') + row('Version', esc(h.version)) + row('Running for', fmtUp(h.uptimeSec)) + row('Backups saved', h.backups);
   $('errs').innerHTML = h.recentErrors.length ? 'Recent problems:<br>' + h.recentErrors.map((e) => new Date(e.t).toLocaleTimeString() + ' ' + esc(e.text)).join('<br>') : '';
   $('paths').innerHTML = 'Your data lives in: <b>' + esc(h.dataDir) + '</b>';

@@ -59,7 +59,7 @@ const logRing = [];   // last log lines, for the health page / support
 const log = (...a) => {
   console.log(new Date().toLocaleTimeString(), ...a);
   const text = a.map((x) => (x instanceof Error ? x.message : typeof x === 'object' ? JSON.stringify(x) : String(x))).join(' ');
-  logRing.push({ t: Date.now(), text: text.slice(0, 300), bad: /fail|error|could not|refused|expired|unauthor/i.test(text) }); if (logRing.length > 200) logRing.shift();
+  logRing.push({ t: Date.now(), text: text.slice(0, 300), bad: /fail|error|could not|refused|expired|unauthor/i.test(text) && !/(^|[^0-9])0 failed/.test(text) }); if (logRing.length > 200) logRing.shift();
 };
 
 // ------------------------------------------------------------------ state + labels
@@ -1844,7 +1844,7 @@ function health() {
   return { ok, version: APP_VERSION, uptimeSec: Math.round((Date.now() - STARTED_AT) / 1000), port: CFG.port,
     twitch: { loggedIn: !!tokens, login: tokens ? tokens.login : '', eventsub: e }, clientId: !!CFG.clientId,
     access: access.view(), backups: backup.list().length,
-    obs: { configured: !!(state.obsCfg && state.obsCfg.host) }, media: { provider: state.mediaCfg.provider, status: media.view().status },
+    obs: { configured: !!(state.obsCfg && state.obsCfg.host), connected: Date.now() - obsClient.lastOk() < 10 * 60e3 }, media: { provider: state.mediaCfg.provider, status: media.view().status },
     tts: { kokoro: tts.kokoroInstalled() }, recentErrors: bad, dataDir: DATA, light: !CFG.clientId || !tokens ? 'amber' : e === 'connected' ? 'green' : e === 'partial' || e === 'connecting' ? 'amber' : 'red' };
 }
 
