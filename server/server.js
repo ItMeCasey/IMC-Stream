@@ -1676,7 +1676,21 @@ async function route(req, res) {
         const steps = await obsClient.raw(async (call) => {
           const scenes = ((await call('GetSceneList')).scenes || []).map((x) => x.sceneName), have = ((await call('GetInputList')).inputs || []).some((i) => i.inputName === f[0]), out = [];
           if (!have) { await call('CreateInput', { sceneName: scenes[scenes.length - 1], inputName: f[0], inputKind: 'browser_source', inputSettings: { url, width: f[2], height: f[3], fps: 30, reroute_audio: false, shutdown: false, restart_when_active: false }, sceneItemEnabled: true }); out.push('created "' + f[0] + '"'); }
-          for (const sc of scenes) { try { await call('CreateSceneItem', { sceneName: sc, sourceName: f[0], sceneItemEnabled: true }); out.push('added to ' + sc); } catch (e) { /* already in that scene */ } }
+          for (const sc of scenes) {
+            let items = ((await call('GetSceneItemList', { sceneName: sc })).sceneItems || []).filter((i) => i.sourceName === f[0]);
+            if (!items.length) { await call('CreateSceneItem', { sceneName: sc, sourceName: f[0], sceneItemEnabled: true }); out.push('added to ' + sc); }
+            for (const extra of items.slice(1)) { try { await call('RemoveSceneItem', { sceneName: sc, sceneItemId: extra.sceneItemId }); out.push('removed a duplicate from ' + sc); } catch (e) { /* leave it */ } }   // one copy per scene
+          }
+          // these overlays cover the whole picture: make the source as big as the OBS canvas and stretch it over the canvas in every scene
+          const vs = await call('GetVideoSettings'), cw = vs.baseWidth || f[2], ch = vs.baseHeight || f[3];
+          try { await call('SetInputSettings', { inputName: f[0], inputSettings: { width: cw, height: ch }, overlay: true }); } catch (e) { /* keep the size it has */ }
+          for (const sc of scenes) {
+            try {
+              const id = (await call('GetSceneItemId', { sceneName: sc, sourceName: f[0] })).sceneItemId;
+              await call('SetSceneItemTransform', { sceneName: sc, sceneItemId: id, sceneItemTransform: { positionX: 0, positionY: 0, alignment: 5, boundsType: 'OBS_BOUNDS_STRETCH', boundsAlignment: 0, boundsWidth: cw, boundsHeight: ch } });
+              out.push('full screen in ' + sc);
+            } catch (e) { /* not in that scene */ }
+          }
           return out;
         });
         return json(res, 200, { ok: true, steps });
