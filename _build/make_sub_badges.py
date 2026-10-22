@@ -110,6 +110,20 @@ def main():
             d.rectangle([x - 8, y - 8, x + 104, y + 118], fill='#1A2020'); sheet.paste(im, (x + 3, y), im)
             w = d.textlength(label, font=font); d.text((x + 48 - w / 2, y + 94), label, font=font, fill='#E2DAC2')
         sheet.save(os.path.join(OUT, 'sub_badges_tier%d_sheet.png' % level))
+    # the flair on its own, as transparent overlays that go on top of any of the normal (Tier 1) badges
+    fl = os.path.join(OUT, 'flair'); os.makedirs(fl, exist_ok=True)
+    for level in (2, 3):
+        im = Image.new('RGBA', (18, 18), (0, 0, 0, 0)); px = im.load(); bar, bar_l = ('#c9d1d0', '#ffffff') if level == 2 else (GOLD, GOLD_L)
+        for i in range(level):
+            for y in range(13, 17):
+                px[1 + i * 2, y] = hexrgb(bar_l if y == 13 else bar)
+        out = im.copy(); op = out.load()
+        for y in range(18):
+            for x in range(18):
+                if px[x, y][3] == 0 and any(0 <= x + dx < 18 and 0 <= y + dy < 18 and px[x + dx, y + dy][3] for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                    op[x, y] = hexrgb(INK)
+        for size in (18, 36, 72):
+            out.resize((size, size), Image.NEAREST).save(os.path.join(fl, 'sub_flair_t%d_%d.png' % (level, size)))
     print('wrote', len(TIERS) * 3, 'badges (3 tiers x 18, 36 and 72 px) to', os.path.abspath(OUT))
 
 
