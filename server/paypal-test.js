@@ -38,6 +38,8 @@ const tx = (id, amt, name, note, extra) => ({ transaction_info: Object.assign({ 
   // missing Transaction Search feature is explained
   denied = true; await sleep(500); assert.match(pp.view().api.status.error, /Transaction Search/);
   pp.setCreds({ clear: true }); assert.strictEqual(pp.view().api.configured, false); assert.ok(!fs.existsSync(path.join(DATA, 'paypal.json'))); const n = tokenCalls; await sleep(600); assert.strictEqual(tokenCalls, n, 'stops checking when the keys are removed');
+  // which service the streamer sets up: PayPal unless they pick Ko-fi
+  assert.strictEqual(pp.view().service, 'paypal'); pp.save({ service: 'kofi' }); assert.strictEqual(pp.view().service, 'kofi'); pp.save({ service: 'bogus' }); assert.strictEqual(pp.view().service, 'paypal');
   // instant tips through the streamer's own relay
   assert.throws(() => pp.setRelay({ url: 'not a url' }), /web address/); assert.throws(() => pp.setRelay({ url: 'http://relay.example.com' }), /https/);
   const key = pp.relayKey(); assert.match(key, /^[0-9a-f]{48}$/); assert.strictEqual(pp.relayKey(), key, 'the key stays the same');
@@ -45,9 +47,10 @@ const tx = (id, amt, name, note, extra) => ({ transaction_info: Object.assign({ 
   assert.strictEqual(pp.setRelay({ url: 'https://relay.example.workers.dev/some/path' }).relay.url, 'https://relay.example.workers.dev', 'only the address is kept');
   assert.strictEqual(pp.link(), 'https://relay.example.workers.dev/', 'the tip link is the relay tip page'); assert.strictEqual(pp.view().link, pp.link());
   await sleep(50); const ws = FakeWS.last; assert.strictEqual(ws.url, 'wss://relay.example.workers.dev/ws?token=' + key); assert.strictEqual(pp.view().relay.status.connected, true);
-  const before = tips.length, relayTip = { type: 'tip', txnId: 'R1', name: 'Fast Fan', msg: 'instant!', amount: 9, currency: 'usd' };
+  const before = tips.length, relayTip = { type: 'tip', txnId: 'R1', source: 'kofi', name: 'Fast Fan', msg: 'instant!', amount: 9, currency: 'usd' };
   ws.onmessage({ data: JSON.stringify(relayTip) });
   assert.strictEqual(tips.length, before + 1); assert.deepStrictEqual([tips[before].name, tips[before].amount, tips[before].currency, tips[before].msg], ['Fast Fan', 9, 'USD', 'instant!']);
+  assert.strictEqual(pp.view().recent[0].source, 'kofi', 'the tip remembers where it came from');
   assert.deepStrictEqual(JSON.parse(ws.sent[ws.sent.length - 1]), { ack: 'R1' }, 'the relay is told the tip arrived');
   ws.onmessage({ data: JSON.stringify(relayTip) }); ws.onmessage({ data: 'junk' }); ws.onmessage({ data: JSON.stringify({ type: 'tip', txnId: 'R2', amount: -3 }) });
   assert.strictEqual(tips.length, before + 1, 'a resent, broken or negative tip never alerts again'); assert.strictEqual(ws.sent.filter((s) => s.includes('R1')).length, 2, 'but a resent tip is still acknowledged');

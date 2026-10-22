@@ -24,12 +24,13 @@ module.exports = function createPaypal(ctx) {
   const str = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
 
   const link = () => (relay.url ? relay.url + '/' : '');   // the streamer's own tip page
-  const view = () => ({ currency: P().currency, link: link(), note: P().note,
+  const view = () => ({ currency: P().currency, service: P().service === 'kofi' ? 'kofi' : 'paypal', link: link(), note: P().note,
     api: { configured: !!(creds && creds.clientId && creds.secret), clientIdHint: creds && creds.clientId ? creds.clientId.slice(0, 6) + '…' : '', status },
     relay: { url: relay.url, hasKey: !!relay.token, status: rstatus }, recent: P().recent.slice(0, 20) });
 
   function save(b) {
     const p = P();
+    if (b.service !== undefined) p.service = b.service === 'kofi' ? 'kofi' : 'paypal';
     if (b.currency !== undefined) p.currency = /^[A-Za-z]{3}$/.test(b.currency) ? String(b.currency).toUpperCase() : p.currency;
     if (b.note !== undefined) p.note = str(b.note, 200);
     ctx.persist(); return view();
@@ -109,7 +110,7 @@ module.exports = function createPaypal(ctx) {
     const id = 'relay:' + m.txnId, amount = Number(m.amount); if (!m.txnId || !(amount > 0)) return;
     if (!P().seen.includes(id)) {   // a tip is shown once, even if the relay sends it again
       P().seen.push(id); P().seen = P().seen.slice(-400);
-      const rec = { name: str(m.name, 40) || 'Anonymous', amount, currency: str(m.currency, 3).toUpperCase() || P().currency, msg: str(m.msg, 200), at: Date.now(), relay: true };
+      const rec = { name: str(m.name, 40) || 'Anonymous', amount, currency: str(m.currency, 3).toUpperCase() || P().currency, msg: str(m.msg, 200), at: Date.now(), relay: true, source: m.source === 'kofi' ? 'kofi' : 'paypal' };
       ctx.recordTip(rec); P().recent.unshift(rec); P().recent.length = Math.min(P().recent.length, 50); rstatus.tips++; ctx.persist(true);
     }
     try { ws.send(JSON.stringify({ ack: m.txnId })); } catch (e) { /* relay resends on reconnect */ }

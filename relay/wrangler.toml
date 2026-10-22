@@ -5,7 +5,7 @@ compatibility_date = "2025-01-01"
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = ["/ipn", "/ws", "/config"]
+run_worker_first = ["/ipn", "/kofi", "/ws", "/config"]
 
 [[durable_objects.bindings]]
 name = "ROOM"
@@ -22,4 +22,4 @@ CURRENCY = "USD"
 # "true" sends and checks tips through PayPal's sandbox (testing only).
 SANDBOX = "false"
 
-# Secrets, set at deploy time (see .dev.vars.example): PAYPAL_EMAIL, RELAY_TOKEN
+# Set at deploy time (see .dev.vars.example): RELAY_TOKEN, and PAYPAL_EMAIL or KOFI_PAGE + KOFI_TOKEN, whichever service you use.

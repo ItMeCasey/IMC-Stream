@@ -4,12 +4,13 @@ A tiny Cloudflare Worker each streamer deploys to their own free Cloudflare acco
 
 ## For streamers
 
-Open the app's **Tips** page, section 1, and follow the three steps (copy key, deploy, paste the address).
-Needs a PayPal **Business** account. The tip page's address is the tip link: the app shows it, and `!tip` answers with it.
+Open the app's **Tips** page, section 1, pick **PayPal** or **Ko-fi**, and follow the steps it shows (copy key, deploy, paste the address).
+PayPal needs a **Business** account. Either service fires the same tip alert. The relay's address is the tip link: the app shows it, and `!tip` answers with it (with Ko-fi it forwards viewers to the streamer's Ko-fi page).
 
 ## How it works
 
 - `/` the tip page; it posts to PayPal's checkout with the streamer's email as the payee and `/ipn` as the `notify_url`.
+- `/kofi` Ko-fi's webhook. The Worker checks Ko-fi's verification token (`KOFI_TOKEN`) and forwards donations (private ones without the name and message).
 - `/ipn` PayPal's notification. The Worker sends it back to PayPal to confirm it is genuine, checks the receiver email, then hands it to the Durable Object.
 - `/ws?token=…` the app's connection. The key (`RELAY_TOKEN`) is made by the app and stored only on the PC and in the streamer's Cloudflare account.
 

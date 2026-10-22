@@ -15,11 +15,17 @@
   },
   "cloudflare": {
     "bindings": {
-      "PAYPAL_EMAIL": {
-        "description": "The email of the PayPal account that receives your tips (a Business account)."
-      },
       "RELAY_TOKEN": {
-        "description": "The key the app shows on its Tips page (step 1). It lets only your PC read your tips."
+        "description": "The key the app shows on its Tips page. It lets only your PC read your tips."
+      },
+      "PAYPAL_EMAIL": {
+        "description": "PayPal only: the email of your PayPal Business account. Ko-fi users type none."
+      },
+      "KOFI_PAGE": {
+        "description": "Ko-fi only: your Ko-fi name (ko-fi.com/yourname). PayPal users type none."
+      },
+      "KOFI_TOKEN": {
+        "description": "Ko-fi only: the verification token from Ko-fi's API settings. PayPal users type none."
       }
     }
   }

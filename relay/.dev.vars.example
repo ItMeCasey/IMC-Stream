@@ -1,2 +1,4 @@
-PAYPAL_EMAIL=you@example.com
 RELAY_TOKEN=paste-the-key-from-the-app
+PAYPAL_EMAIL=you@example.com
+KOFI_PAGE=yourkofiname
+KOFI_TOKEN=paste-the-verification-token-from-kofi

@@ -29,6 +29,8 @@
 <script>
   const f = document.getElementById('f');
   fetch('/config').then((r) => r.json()).then((c) => {
+    if (c.kofi && !c.business) return location.replace('https://ko-fi.com/' + encodeURIComponent(c.kofi));   // Ko-fi only: its own page is the tip page
+    if (c.kofi) { const a = document.createElement('a'); a.href = 'https://ko-fi.com/' + encodeURIComponent(c.kofi); a.textContent = 'Or tip on Ko-fi'; a.style.cssText = 'color:#ffc439;text-align:center'; f.append(a); }
     f.action = 'https://www.' + (c.sandbox ? 'sandbox.' : '') + 'paypal.com/cgi-bin/webscr';
     f.business.value = c.business;
     f.currency_code.value = c.currency;

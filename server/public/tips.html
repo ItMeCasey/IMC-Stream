@@ -26,14 +26,24 @@
 <main>
   <section>
     <h2>1. YOUR TIP LINK</h2>
-    <p class="muted">Your own small tip page on a free Cloudflare account. Viewers pay through PayPal on it, and PayPal tells this app the moment a tip is paid, so the alert plays within seconds. It needs a PayPal <b>Business</b> account (free to upgrade). If this PC is off, the tip alerts when it comes back. You never type your PayPal password here.</p>
-    <ol>
-      <li><button id="rkey" class="ghost">Copy my key</button> <span class="muted">(you paste it in step 2)</span></li>
-      <li><a class="btn alt" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Drakma/ItMeCasey-Stream/tree/main/relay" target="_blank">Deploy to Cloudflare</a> and log in or sign up (free). When asked, enter your PayPal email and paste the key. Press deploy.</li>
-      <li>Cloudflare shows your tip page's address (like <code>https://itmecasey-tip-relay.you.workers.dev</code>). Paste it here:</li>
+    <p class="muted">Your own small tip service on a free Cloudflare account tells this app the moment a tip is paid, so the alert plays within seconds. If this PC is off, the tip alerts when it comes back. You never type a PayPal or Ko-fi password here. Where do you want to take tips?</p>
+    <div class="row"><button id="svcPaypal" class="ghost">PayPal</button><button id="svcKofi" class="ghost">Ko-fi</button></div>
+    <ol id="stepsPaypal">
+      <li>You need a PayPal <b>Business</b> account (free to upgrade from a personal one).</li>
+      <li><button class="ghost rkey">Copy my key</button> <span class="muted">(you paste it in the next step)</span></li>
+      <li><a class="btn alt" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Drakma/ItMeCasey-Stream/tree/main/relay" target="_blank">Deploy to Cloudflare</a> and log in or sign up (free). When asked, enter the key and your PayPal email, and type <code>none</code> for the two Ko-fi boxes. Press deploy.</li>
+      <li>Cloudflare shows your address (like <code>https://itmecasey-tip-relay.you.workers.dev</code>). Paste it below. That address is your tip page.</li>
     </ol>
-    <div class="row"><label class="fld">Tip page address<input id="rurl" style="width:380px" placeholder="https://…workers.dev" autocomplete="off"></label><button id="rsave">Connect</button><button id="rclear" class="ghost">Disconnect</button></div>
+    <ol id="stepsKofi">
+      <li>Open Ko-fi, then <b>Settings &rarr; API</b>. Under Webhooks, copy the <b>Verification Token</b> (leave that tab open).</li>
+      <li><button class="ghost rkey">Copy my key</button> <span class="muted">(you paste it in the next step)</span></li>
+      <li><a class="btn alt" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Drakma/ItMeCasey-Stream/tree/main/relay" target="_blank">Deploy to Cloudflare</a> and log in or sign up (free). When asked, enter the key, your Ko-fi name (<code>ko-fi.com/<b>name</b></code>) and the Verification Token, and type <code>none</code> for the PayPal email. Press deploy.</li>
+      <li>Cloudflare shows your address (like <code>https://itmecasey-tip-relay.you.workers.dev</code>). Paste it below and press Connect.</li>
+      <li>Copy the <b>Webhook address</b> that appears below into Ko-fi's Webhook URL box and press Update. Your tip link (shown below) sends viewers to your Ko-fi page.</li>
+    </ol>
+    <div class="row"><label class="fld">Address from Cloudflare<input id="rurl" style="width:380px" placeholder="https://…workers.dev" autocomplete="off"></label><button id="rsave">Connect</button><button id="rclear" class="ghost">Disconnect</button></div>
     <div class="muted" id="rstat"></div>
+    <div id="hookbox" style="display:none"><div class="muted">Webhook address for Ko-fi:</div><div class="box"><span id="hook"></span> <button class="ghost" id="hookcp" style="margin-left:10px">Copy</button></div></div>
     <div id="links"></div>
   </section>
 
@@ -74,8 +84,11 @@ function draw() {
   $('links').innerHTML = V.link ? '<div class="muted">Your tip link (use it in stream panels and chat):</div><div class="box"><a href="' + esc(V.link) + '" target="_blank" style="color:var(--aqua)">' + esc(V.link) + '</a> <button class="ghost" id="cp" style="margin-left:10px">Copy</button></div>' : '<p class="muted">No tip link yet. Finish the steps above.</p>';
   if ($('cp')) $('cp').onclick = async () => { try { await navigator.clipboard.writeText(V.link); toast('Copied'); } catch (e) { prompt('Copy your link:', V.link); } };
   $('say').textContent = V.link ? 'Thank you for thinking of the stream! You can leave a tip here: ' + V.link : 'Tips are not set up yet.';
-  $('recent').innerHTML = V.recent.length ? V.recent.map((t) => '<tr><td>' + new Date(t.at).toLocaleString() + '</td><td>' + esc(t.name) + '</td><td>' + esc(t.amount) + ' ' + esc(t.currency || '') + '</td><td>' + esc(t.msg || '') + '</td><td class="muted">' + (t.manual ? 'logged' : 'PayPal') + '</td></tr>').join('') : '';
-  const r = V.relay;
+  $('recent').innerHTML = V.recent.length ? V.recent.map((t) => '<tr><td>' + new Date(t.at).toLocaleString() + '</td><td>' + esc(t.name) + '</td><td>' + esc(t.amount) + ' ' + esc(t.currency || '') + '</td><td>' + esc(t.msg || '') + '</td><td class="muted">' + (t.manual ? 'logged' : t.source === 'kofi' ? 'Ko-fi' : 'PayPal') + '</td></tr>').join('') : '';
+  const r = V.relay, kofi = V.service === 'kofi';
+  $('stepsPaypal').style.display = kofi ? 'none' : ''; $('stepsKofi').style.display = kofi ? '' : 'none';
+  $('svcPaypal').className = kofi ? 'ghost' : 'alt'; $('svcKofi').className = kofi ? 'alt' : 'ghost';
+  $('hookbox').style.display = kofi && r.url ? '' : 'none'; $('hook').textContent = r.url + '/kofi';
   if (document.activeElement !== $('rurl')) $('rurl').value = r.url;
   $('rstat').textContent = !r.url ? 'Not set up yet.' : r.status.connected ? 'Connected. ' + r.status.tips + ' tip(s) received this session.' : 'Not connected yet. ' + (r.status.error || 'Trying…');
   const a = V.api, s = a.status;
@@ -86,7 +99,10 @@ $('cur').onchange = async () => { const r = await post('/api/paypal/save', { cur
 $('tip').onclick = async () => { const r = await post('/api/paypal/log', { name: $('tn').value, amount: $('ta').value, msg: $('tm').value }); if (r.error) return toast(r.error, true); $('tn').value = $('ta').value = $('tm').value = ''; toast('Tip alert sent'); setTimeout(load, 400); };
 $('keys').onclick = async () => { const r = await post('/api/paypal/creds', { clientId: $('cid').value, secret: $('sec').value }); if (r.error) return toast(r.error, true); $('cid').value = $('sec').value = ''; V = r; draw(); toast('Keys saved'); setTimeout(load, 3000); };
 $('clear').onclick = async () => { if (!confirm('Remove the saved PayPal keys from this PC?')) return; V = await post('/api/paypal/creds', { clear: true }); draw(); };
-$('rkey').onclick = async () => { const r = await post('/api/paypal/relay', { key: true }); if (r.error) return toast(r.error, true); try { await navigator.clipboard.writeText(r.key); toast('Key copied'); } catch (e) { prompt('Copy your key:', r.key); } };
+const pick = (service) => async () => { const r = await post('/api/paypal/save', { service }); if (r.error) return toast(r.error, true); V = r; draw(); };
+$('svcPaypal').onclick = pick('paypal'); $('svcKofi').onclick = pick('kofi');
+$('hookcp').onclick = async () => { const t = $('hook').textContent; try { await navigator.clipboard.writeText(t); toast('Copied'); } catch (e) { prompt('Copy the webhook address:', t); } };
+document.querySelectorAll('.rkey').forEach((b) => b.onclick = async () => { const r = await post('/api/paypal/relay', { key: true }); if (r.error) return toast(r.error, true); try { await navigator.clipboard.writeText(r.key); toast('Key copied'); } catch (e) { prompt('Copy your key:', r.key); } });
 $('rsave').onclick = async () => { const r = await post('/api/paypal/relay', { url: $('rurl').value }); if (r.error) return toast(r.error, true); V = r; draw(); toast('Connecting…'); setTimeout(load, 2500); };
 $('rclear').onclick = async () => { if (!confirm('Disconnect the tip relay from this PC?')) return; V = await post('/api/paypal/relay', { clear: true }); draw(); };
 load(); setInterval(load, 15000);
