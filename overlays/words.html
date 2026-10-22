@@ -142,7 +142,7 @@
     if (ml) { const bits = []; if (md.unknown) bits.push(md.unknown + ' UNKNOWN'); if (md.fake) bits.push(md.fake + ' FAKE'); txt(bits.join('  '), x0, y, 1, HEAT, 'l'); y += ml; }
     y += 2;
     const showT = s.phase === 'round';
-    if (showT) { txt(fmtT(tm.sec), x0, y, 4, tm.low && tm.blink ? RUST : tm.low ? RUST : CREAM, 'l', INK); txt(s.found + '/' + s.total, x0 + w, y + 6, 2, AQUA, 'r', INK); txt('FOUND', x0 + w, y + 22, 1, CREAM_D, 'r'); y += 34; }
+    if (showT) { txt(fmtT(tm.sec), x0, y, 4, tm.low && tm.blink ? RUST : tm.low ? RUST : CREAM, 'l', INK); txt(s.found + '/' + s.total, x0 + w, y + 6, 2, AQUA, 'r', INK); txt('NEED ' + s.need + ' (' + s.beat + '%)', x0 + w, y + 22, 1, s.found >= s.need ? AQUA : CREAM_D, 'r'); y += 34; }
     else { txt(s.found + '/' + s.total, x0, y, 3, AQUA, 'l', INK); const ok = s.results && s.results.beaten; txt(ok ? 'BEATEN' : 'FAILED', x0 + w, y, 1, ok ? AQUA : RUST, 'r'); txt('NEEDED ' + (s.results ? s.results.need : ''), x0 + w, y + 10, 1, CREAM_D, 'r'); y += 28; }
     rect(x0, y, w, 1, '#3d4848'); y += 5;
     if (showT) {   // the latest finds
@@ -164,7 +164,7 @@
   function intro(s, t, tm) {
     const cx = W / 2, p = clamp((performance.now() - phaseAt) / 500, 0, 1);
     txt('WORD', cx, 36, 8, CREAM, 'c', DRUST); txt('RUSH', cx, 98, 4, HEAT, 'c', INK);
-    const lines = ['MAKE WORDS FROM THE LETTERS', 'JUST TYPE THEM IN CHAT', 'EVERY ROUND ADDS A LETTER', 'LATER: UNKNOWN AND FAKE LETTERS', 'FIND ' + (s.beat || 50) + '% OF THE WORDS TO BEAT A ROUND']; lines.forEach((l, i) => txt(l, cx, 134 + i * 10, 1, i === 4 ? AQUA : i === 3 ? HEAT : CREAM, 'c'));
+    const lines = ['MAKE WORDS FROM THE LETTERS', 'JUST TYPE THEM IN CHAT', 'EVERY ROUND ADDS A LETTER', 'LATER: UNKNOWN AND FAKE LETTERS', 'FIND ' + (s.beat || 50) + '% OF THE WORDS TO BEAT ROUND 1 (+5% EACH ROUND)']; lines.forEach((l, i) => txt(l, cx, 134 + i * 10, 1, i === 4 ? AQUA : i === 3 ? HEAT : CREAM, 'c'));
     if (s.rounds) txt(s.rounds + (s.rounds === 1 ? ' ROUND' : ' ROUNDS'), cx, 198, 2, CREAM, 'c', INK);
     else { txt('HOW FAR CAN CHAT GET?', cx, 198, 2, CREAM, 'c', INK); if (s.record && s.record.round) txt('RECORD: ROUND ' + s.record.round, cx, 187, 1, HEAT, 'c'); }
     txt(String(Math.max(0, Math.ceil(tm.sec))), cx, 228, 4, p < 1 ? HEAT : RUST, 'c', INK);

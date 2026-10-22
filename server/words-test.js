@@ -44,9 +44,12 @@ W.start({ rounds: 1 }); fire(); W.guess({ id: 9, name: 'Dee' }, 'sit'); const n0
 CFG.beat = 50; CFG.rounds = 0; W.start({}); assert(said[said.length - 1].includes('How many rounds can chat beat') && said[said.length - 1].includes('50%'));
 fire(); W.guess({ id: 1, name: 'Ann' }, 'tin'); assert(W.skip().ok); s = last(); assert.equal(s.results.beaten, false); assert(s.results.need > 1 && s.results.found === 1); assert(said.some((m) => /Round 1 failed \(needed \d+\)/.test(m)));
 fire(); s = last(); assert.equal(s.phase, 'final'); assert.equal(s.reached, 0); assert(said.some((m) => m.includes('Chat beat 0 rounds')), 'the game is over'); fire(); assert(!W.active());
-CFG.beat = 1; W.start({}); fire(); assert.equal(last().rounds, 0, 'no round limit');
-for (let r = 1; r <= 4; r++) { if (r > 2) { assert.equal(last().phase, 'round'); } const ans = last(); W.guess({ id: 1, name: 'Ann' }, r === 1 ? 'tin' : ''); if (r > 1) { for (const w of WORDS) if (W.guess({ id: 1, name: 'Ann' }, w)) break; } assert(W.skip().ok); fire(); if (r < 4 && last().phase === 'idle') break; }
-assert(W.active() || last().phase === 'idle'); while (W.active()) { if (last().phase === 'round') W.skip(); else fire(); }
+// the share needed to beat a round starts at the setting and goes up 5% every round, to 100%
+CFG.beat = 50; assert.deepEqual([1, 2, 3, 10, 11, 12, 20].map((r) => W.needPct(r)), [50, 55, 60, 95, 100, 100, 100]);
+W.start({}); fire(); s = last(); assert.equal(s.rounds, 0, 'no round limit'); assert.equal(s.beat, 50); const w1 = W.answersFor('listen'); assert.equal(s.total, w1.length); assert.equal(s.need, Math.ceil(w1.length * 0.5));
+w1.slice(0, s.need).forEach((w, i) => W.guess({ id: 1, name: 'Ann' }, w)); assert(W.skip().ok); assert.equal(last().results.beaten, true, 'half the words beat round 1');
+fire(); s = last(); assert.equal(s.round, 2); assert.equal(s.beat, 55, 'round 2 needs 5% more'); const w2 = W.answersFor('listens'); assert.equal(s.need, Math.ceil(w2.length * 0.55));
+w2.slice(0, Math.ceil(w2.length * 0.5)).forEach((w) => W.guess({ id: 1, name: 'Ann' }, w)); assert(W.skip().ok); assert.equal(last().results.beaten, false, 'the same half is not enough any more'); fire(); assert.equal(last().phase, 'final'); assert.equal(last().reached, 1); fire(); assert(!W.active());
 CFG.rounds = 2; CFG.beat = 1;
 
 // the real word list: every round of a long match has a sensible board, fake tiles are never used by a word, and unknown letters come out
@@ -62,7 +65,7 @@ assert(real.answersFor('garden').includes('danger') && real.answersFor('garden')
     assert.equal(s.phase, 'round'); assert.equal(s.round, r); assert.equal(s.N, pl.real); assert.equal(s.letters.length, pl.real + pl.fake, 'round ' + r + ': real letters plus fake tiles');
     assert.equal([...s.letters].filter((c) => c === '?').length, pl.unknown, 'round ' + r + ': unknown letters'); assert(s.total >= 12 && s.total <= 40, 'round ' + r + ' board has ' + s.total + ' words'); assert.deepEqual(s.fake, [], 'which tiles are fake is not shown during the round');
     while (cur().letters.includes('?')) step();   // the unknown letters turn up
-    for (const w of real.answersFor(cur().letters, 3)) if (g.guess({ id: 'u', name: 'U' }, w)) break;   // somebody finds a word (so the game does not stop for lack of players)
+    for (const w of real.answersFor(cur().letters, 3)) g.guess({ id: 'u', name: 'U' }, w);   // chat finds every word on the board (the share needed rises each round)
     g.skip(); s = cur(); assert.equal(s.phase, 'review'); assert.equal(s.fake.length, pl.fake, 'fake tiles are shown once the round is over'); assert.equal(s.letters.includes('?'), false);
     const good = [...s.letters].filter((c, i) => !s.fake.includes(i)).join(''); assert(s.words.every((w) => real.answersFor(good, 3).includes(w.w)), 'no word on the board uses a fake tile');
     if (r < 7) step();   // the review ends and the next round starts

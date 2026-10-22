@@ -3,6 +3,7 @@
  * Word Rush: a full-screen pixel word game (overlays/words.html). Each round the overlay shows a rack of letters and a board of hidden words
  * that can be made from them. Chat types words (just the word, no command); the first person to type a word on the board gets it and its points.
  * The match goes on as long as chat keeps beating the rounds (finding enough of the board) or until a mod stops it; it ends when chat fails a round.
+ * The share of the board needed to beat a round starts at the "beat" setting and goes up 5% every round, until it is 100% (every word).
  * All-time points and the best round each chatter scored in are kept (ctx.stats), together with the record: the most rounds chat ever beat in one game.
  * Every round adds one letter (up to 9). From round 2 some letters are UNKNOWN (shown as "?" until they are revealed during the round) and from
  * round 3 some tiles are FAKE (they look like any other letter, but no word on the board uses them), so the rack gets harder as the match goes on.
@@ -43,6 +44,8 @@ module.exports = function createWords(ctx) {
     return { real, unknown: round >= 2 ? Math.min(3, Math.floor(round / 2), real - 2) : 0, fake: round >= 3 ? Math.min(3, Math.floor((round - 1) / 2)) : 0 };
   }
   /** the shortest word that counts: keeps the board readable when the rack is big */
+  /** the share of the board (in percent) chat has to find to beat this round: it starts at the setting and rises 5% a round, up to 100% */
+  const needPct = (round) => Math.min(100, cfg().beat + 5 * (Math.max(1, round) - 1));
   const minLenFor = (n) => Math.max(3, n - 4);
 
   /** every word in the list that can be made from these letters (each letter used at most as often as it appears), minLen letters or more */
@@ -74,10 +77,10 @@ module.exports = function createWords(ctx) {
   /** what the overlay is allowed to see: lengths and found words only, and "?" for letters that are not revealed yet; never the hidden words or which tiles are fake */
   function state() {
     if (!game) return { phase: 'idle' };
-    const g = game, r = g.cur, s = { phase: g.phase, round: g.round, rounds: g.rounds, reached: g.reached, beat: cfg().beat, endsAt: g.endsAt, startedAt: g.startedAt, by: g.by };
+    const g = game, r = g.cur, s = { phase: g.phase, round: g.round, rounds: g.rounds, reached: g.reached, beat: needPct(g.round || 1), endsAt: g.endsAt, startedAt: g.startedAt, by: g.by };
     if (r) {
       const live = g.phase === 'round';
-      s.letters = r.tiles.map((t) => (t.hidden && live ? '?' : t.ch)).join(''); s.N = r.base.length; s.hint = r.hint; s.found = r.found; s.total = r.words.length; s.reveal = !live; s.minLen = r.minLen;
+      s.letters = r.tiles.map((t) => (t.hidden && live ? '?' : t.ch)).join(''); s.N = r.base.length; s.hint = r.hint; s.found = r.found; s.total = r.words.length; s.need = Math.max(1, Math.ceil(r.words.length * needPct(g.round) / 100)); s.reveal = !live; s.minLen = r.minLen;
       s.fake = live ? [] : r.tiles.map((t, i) => (t.fake ? i : -1)).filter((i) => i >= 0);   // which tiles were fake, shown once the round is over
       s.mods = { fake: r.plan.fake, unknown: r.plan.unknown, hidden: live ? r.tiles.filter((t) => t.hidden).length : 0 };
       s.words = r.words.map((w) => { const f = r.got.get(w); return { len: w.length, w: f || !live ? w : null, by: f ? f.name : null, pangram: w.length === r.base.length, got: !!f, first: r.hint && !f ? w[0] : null }; });
@@ -95,7 +98,7 @@ module.exports = function createWords(ctx) {
     if (game) return { error: 'Word Rush is already running.' };
     const C = cfg(), asked = opts && opts.rounds !== undefined && opts.rounds !== null ? Number(opts.rounds) : Number(C.rounds), rounds = Math.max(0, Math.min(99, Math.floor(asked) || 0)), startLetters = Math.max(4, Math.min(7, Math.floor(Number(C.letters) || 5)));
     game = { phase: 'intro', round: 0, rounds, startLetters, scores: new Map(), used: new Set(), by: String((opts && opts.by) || ''), endsAt: now() + introMs(), startedAt: now(), cur: null, results: null, champion: null, reached: 0, silent: !!(opts && opts.silent) };
-    if (!game.silent) ctx.say('🔤 WORD RUSH! ' + (rounds ? rounds + ' round' + (rounds === 1 ? '' : 's') + '. ' : 'How many rounds can chat beat? ') + 'Make words from the letters on screen and just type them in chat. Find ' + C.beat + '% of the words to beat a round. Every round adds a letter, and later on some letters are fake or unknown! Points are paid out after every round.');
+    if (!game.silent) ctx.say('🔤 WORD RUSH! ' + (rounds ? rounds + ' round' + (rounds === 1 ? '' : 's') + '. ' : 'How many rounds can chat beat? ') + 'Make words from the letters on screen and just type them in chat. Find ' + C.beat + '% of the words to beat round 1, and 5% more every round after that. Every round adds a letter, and later on some letters are fake or unknown! Points are paid out after every round.');
     push(); later(nextRound, introMs());
     return { ok: true, rounds };
   }
@@ -140,7 +143,7 @@ module.exports = function createWords(ctx) {
     clearAll(); const C = cfg(), r = g.cur, board = [...g.scores.values()].filter((p) => p.round > 0).sort((a, b) => b.round - a.round || a.name.localeCompare(b.name));
     const paid = board.map((p, i) => { const bonus = i === 0 && !stopping && board.length > 1 && C.mvp > 0 ? C.mvp : 0; ctx.award(p.id, p.name, p.round + bonus, 'words'); if (ctx.stats) ctx.stats.player(p.id, p.name, { pts: p.round + bonus, words: p.words, round: g.round }); return { name: p.name, pts: p.round, bonus, words: p.words }; });
     g.phase = 'review'; g.endsAt = now() + REVIEW_MS; g.startedAt = now();
-    const need = Math.max(1, Math.ceil(r.words.length * C.beat / 100)), beaten = r.found >= need; if (beaten) g.reached = g.round;
+    const need = Math.max(1, Math.ceil(r.words.length * needPct(g.round) / 100)), beaten = r.found >= need; if (beaten) g.reached = g.round;
     g.results = { found: r.found, total: r.words.length, paid, missed: r.words.filter((w) => !r.got.has(w)).length, need, beaten };
     if (!g.silent) {
       const cur = ctx.currency ? ctx.currency() : 'points';
@@ -165,5 +168,5 @@ module.exports = function createWords(ctx) {
     if (game.phase === 'round') endRound(true);   // what was earned this round is still paid
     clearAll(); game = null; ctx.broadcast('words', { type: 'state', s: { phase: 'idle' } }); return { ok: true };
   }
-  return { start, stop, skip, guess, state, active: () => !!game, answersFor, pointsFor, plan, minLenFor };
+  return { start, stop, skip, guess, state, active: () => !!game, answersFor, pointsFor, plan, minLenFor, needPct };
 };
