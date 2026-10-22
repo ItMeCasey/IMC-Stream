@@ -1,3 +1,4 @@
+import page from './page.js';
 export { Room } from './room.js';
 
 const VERIFY_URL = { live: 'https://ipnpb.paypal.com/cgi-bin/webscr', sandbox: 'https://ipnpb.sandbox.paypal.com/cgi-bin/webscr' };
@@ -19,6 +20,8 @@ export default {
         return new Response('OK');
       }
     }
+
+    if (url.pathname === '/' && request.method === 'GET') return new Response(page, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 
     if (url.pathname === '/ws') {
       if (!env.RELAY_TOKEN || url.searchParams.get('token') !== env.RELAY_TOKEN) return new Response('Forbidden', { status: 403 });

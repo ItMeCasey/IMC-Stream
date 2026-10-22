@@ -40,6 +40,14 @@ const tx = (id, amt, name, note, extra) => ({ transaction_info: Object.assign({ 
   pp.setCreds({ clear: true }); assert.strictEqual(pp.view().api.configured, false); assert.ok(!fs.existsSync(path.join(DATA, 'paypal.json'))); const n = tokenCalls; await sleep(600); assert.strictEqual(tokenCalls, n, 'stops checking when the keys are removed');
   // which service the streamer sets up: PayPal unless they pick Ko-fi
   assert.strictEqual(pp.view().service, 'paypal'); pp.save({ service: 'kofi' }); assert.strictEqual(pp.view().service, 'kofi'); pp.save({ service: 'bogus' }); assert.strictEqual(pp.view().service, 'paypal');
+  // deploying the relay: the Cloudflare token is passed along once and never kept; the app connects to the new address
+  let deployed = null; const pp2 = createPaypal({ DATA, state, persist: () => {}, log: () => {}, recordTip: () => {}, WebSocket: FakeWS, pollMs: 1e9,
+    relayDeploy: { deploy: async (b) => { deployed = b; return { url: 'https://itmecasey-tip-relay.me.workers.dev', accountId: 'acct1', updated: false }; } } });
+  const out = await pp2.deployRelay({ token: 'cf-secret-token', paypalEmail: 'me@example.com', streamerName: 'ItMeCasey' });
+  assert.strictEqual(deployed.token, 'cf-secret-token'); assert.strictEqual(deployed.service, 'paypal'); assert.match(deployed.relayKey, /^[0-9a-f]{48}$/);
+  assert.strictEqual(out.relay.url, 'https://itmecasey-tip-relay.me.workers.dev'); assert.strictEqual(out.relay.config.paypalEmail, 'me@example.com');
+  assert.ok(!fs.readFileSync(path.join(DATA, 'paypal-relay.json'), 'utf8').includes('cf-secret-token') && !JSON.stringify(out).includes('cf-secret-token'), 'the Cloudflare token is never saved or shown');
+  assert.strictEqual(pp2.view().link, 'https://itmecasey-tip-relay.me.workers.dev/'); pp2.stop(); pp.setRelay({ clear: true });
   // instant tips through the streamer's own relay
   assert.throws(() => pp.setRelay({ url: 'not a url' }), /web address/); assert.throws(() => pp.setRelay({ url: 'http://relay.example.com' }), /https/);
   const key = pp.relayKey(); assert.match(key, /^[0-9a-f]{48}$/); assert.strictEqual(pp.relayKey(), key, 'the key stays the same');

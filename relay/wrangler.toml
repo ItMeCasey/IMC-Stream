@@ -2,11 +2,6 @@ name = "itmecasey-tip-relay"
 main = "src/index.js"
 compatibility_date = "2025-01-01"
 
-[assets]
-directory = "./public"
-binding = "ASSETS"
-run_worker_first = ["/ipn", "/kofi", "/ws", "/config"]
-
 [[durable_objects.bindings]]
 name = "ROOM"
 class_name = "Room"
@@ -22,4 +17,4 @@ CURRENCY = "USD"
 # "true" sends and checks tips through PayPal's sandbox (testing only).
 SANDBOX = "false"
 
-# Set at deploy time (see .dev.vars.example): RELAY_TOKEN, and PAYPAL_EMAIL or KOFI_PAGE + KOFI_TOKEN, whichever service you use.
+# The app sets these when it deploys: RELAY_TOKEN, and PAYPAL_EMAIL or KOFI_PAGE + KOFI_TOKEN, whichever service the streamer uses.

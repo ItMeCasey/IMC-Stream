@@ -50,6 +50,13 @@
         ]
       },
       {
+        "from": "../relay",
+        "to": "relay",
+        "filter": [
+          "src/**"
+        ]
+      },
+      {
         "from": "../overlays",
         "to": "overlays"
       },

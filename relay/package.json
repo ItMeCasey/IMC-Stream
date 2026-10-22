@@ -12,21 +12,5 @@
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
-  },
-  "cloudflare": {
-    "bindings": {
-      "RELAY_TOKEN": {
-        "description": "The key the app shows on its Tips page. It lets only your PC read your tips."
-      },
-      "PAYPAL_EMAIL": {
-        "description": "PayPal only: the email of your PayPal Business account. Ko-fi users type none."
-      },
-      "KOFI_PAGE": {
-        "description": "Ko-fi only: your Ko-fi name (ko-fi.com/yourname). PayPal users type none."
-      },
-      "KOFI_TOKEN": {
-        "description": "Ko-fi only: the verification token from Ko-fi's API settings. PayPal users type none."
-      }
-    }
   }
 }

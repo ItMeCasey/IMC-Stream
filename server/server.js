@@ -1720,7 +1720,7 @@ async function route(req, res) {
       }
       if (p === '/api/paypal/save') return json(res, 200, paypal.save(body));
       if (p === '/api/paypal/log') return json(res, 200, paypal.logTip(body));
-      if (p === '/api/paypal/relay') { if (!access.isLoopback(req.socket.remoteAddress)) throw new Error('Only the PC itself can change the tip relay'); return json(res, 200, body.key ? { key: paypal.relayKey() } : paypal.setRelay(body)); }
+      if (p === '/api/paypal/relay') { if (!access.isLoopback(req.socket.remoteAddress)) throw new Error('Only the PC itself can change the tip relay'); return json(res, 200, body.deploy ? await paypal.deployRelay(Object.assign({ streamerName: tokens && tokens.login }, body)) : paypal.setRelay(body)); }
       if (p === '/api/paypal/creds') { if (!access.isLoopback(req.socket.remoteAddress)) throw new Error('Only the PC itself can change PayPal keys'); return json(res, 200, paypal.setCreds(body)); }
       if (p === '/api/duel/test') { const n = ['RetroRider', 'VinylVince', 'TealTina', 'ChaosChad', 'BitBaron', 'GenerousGamer'];
         const a = n[Math.floor(Math.random() * 6)];
@@ -1795,7 +1795,7 @@ async function route(req, res) {
 
 const buildCollection = require('./collection.js').build, createBackup = require('./backup.js'), createModules = require('./modules.js'), createAccess = require('./access.js');
 const createMedia = require('./media.js'), createCountdown = require('./countdown.js'), createTts = require('./tts.js');
-const createBot = require('./bot.js'), createObs = require('./obs.js'), createHooks = require('./hooks.js'), createScenes = require('./scenes.js'), createAudio = require('./audio.js'), createPaypal = require('./paypal.js');
+const createBot = require('./bot.js'), createObs = require('./obs.js'), createHooks = require('./hooks.js'), createScenes = require('./scenes.js'), createAudio = require('./audio.js'), createPaypal = require('./paypal.js'), createRelayDeploy = require('./relay-deploy.js');
 let mediaRenderT = null;
 const media = createMedia({ DATA, state, persist, log, broadcast, port: () => CFG.port,
   onChange: () => { if (!mediaRenderT) mediaRenderT = setTimeout(() => { mediaRenderT = null; renderLabels(); }, 500); } });
@@ -1846,7 +1846,7 @@ const countdown = createCountdown({ state, persist, broadcast, log, obs: obsClie
 const subathon = createCountdown({ state, persist, broadcast, log, obs: obsClient, bot, key: 'subathon', evt: 'subathon', noun: 'Subathon', labelPrefix: 'subathon', cmd: '!subathon' });
 const scenes = createScenes({ state, persist, log, obs: obsClient, hooks });
 const audio = createAudio({ getCfg: () => state.obsCfg, log, broadcast });
-const paypal = createPaypal({ DATA, state, persist, log, recordTip });
+const paypal = createPaypal({ DATA, state, persist, log, recordTip, relayDeploy: createRelayDeploy({ root: ROOT }) });
 
 const backup = createBackup({ DATA, log });
 const access = createAccess({ state, persist, port: () => CFG.port });

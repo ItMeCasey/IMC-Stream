@@ -5,7 +5,7 @@
  *  - Log a tip yourself (one button) to fire the tip alert.
  *  - Optional auto-detect: PayPal's Transaction Search API with your own app's Client ID + Secret (kept in <data>/paypal.json).
  *    PayPal reports new payments there with a delay (minutes, sometimes hours), so this is for "catch every tip", not instant alerts.
- *  - Instant alerts: the tip relay the streamer deploys to their own Cloudflare account (relay/). PayPal calls the relay the moment a
+ *  - Instant alerts: the tip relay (relay/) that this app deploys to the streamer's own Cloudflare account (see relay-deploy.js). PayPal calls the relay the moment a
  *    tip is paid, and this app keeps an outgoing connection to it, so nothing on this PC has to be reachable from the internet.
  */
 const fs = require('node:fs');
@@ -26,7 +26,7 @@ module.exports = function createPaypal(ctx) {
   const link = () => (relay.url ? relay.url + '/' : '');   // the streamer's own tip page
   const view = () => ({ currency: P().currency, service: P().service === 'kofi' ? 'kofi' : 'paypal', link: link(), note: P().note,
     api: { configured: !!(creds && creds.clientId && creds.secret), clientIdHint: creds && creds.clientId ? creds.clientId.slice(0, 6) + '…' : '', status },
-    relay: { url: relay.url, hasKey: !!relay.token, status: rstatus }, recent: P().recent.slice(0, 20) });
+    relay: { url: relay.url, hasKey: !!relay.token, config: relay.config || {}, status: rstatus }, recent: P().recent.slice(0, 20) });
 
   function save(b) {
     const p = P();
@@ -94,6 +94,12 @@ module.exports = function createPaypal(ctx) {
     if (b.clear) { relay = { url: '', token: relay.token }; saveRelay(); rstatus = { connected: false, error: '', tips: rstatus.tips }; relayStop(); return view(); }
     relay.url = relayUrlClean(b.url); relayKey(); saveRelay(); rfail = 0; relayConnect(); return view();
   }
+  // Deploys the relay to the streamer's Cloudflare account with the token they pasted (used once, never saved), then connects to it.
+  async function deployRelay(b) {
+    const r = await ctx.relayDeploy.deploy(Object.assign({}, b, { relayKey: relayKey(), service: view().service, currency: P().currency }));
+    relay.config = { paypalEmail: str(b.paypalEmail, 200), kofiPage: str(b.kofiPage, 80), streamerName: str(b.streamerName, 60), accountId: r.accountId };
+    saveRelay(); return Object.assign(setRelay({ url: r.url }), { updated: r.updated });
+  }
   function relayStop() { rgen++; clearTimeout(rtimer); clearInterval(rping); rtimer = rping = null; const w = rws; rws = null; rstatus.connected = false; if (w) { w.onclose = w.onerror = w.onmessage = null; try { w.close(); } catch (e) { /* already closed */ } } }
   function relayConnect() {
     relayStop(); if (!relay.url || !relay.token || !WS) return;
@@ -103,7 +109,7 @@ module.exports = function createPaypal(ctx) {
     rws = ws;
     ws.onopen = () => { if (gen !== rgen) return; rfail = 0; rstatus.connected = true; rstatus.error = ''; rping = setInterval(() => { try { ws.send('ping'); } catch (e) { /* reconnects on close */ } }, 30000); if (rping.unref) rping.unref(); };
     ws.onmessage = (ev) => { if (gen !== rgen) return; let m; try { m = JSON.parse(ev.data); } catch (e) { return; } if (m && m.type === 'tip') relayTip(m, ws); };
-    ws.onerror = () => { if (gen === rgen) rstatus.error = 'Could not connect to the relay. Check the address and that the key matches the one you gave Cloudflare.'; };
+    ws.onerror = () => { if (gen === rgen) rstatus.error = 'Could not reach your tip service yet. A new one can take a minute to start; if this stays, press Set up my tip link again.'; };
     ws.onclose = () => { if (gen === rgen) { rws = null; retry(); } };
   }
   function relayTip(m, ws) {
@@ -115,5 +121,5 @@ module.exports = function createPaypal(ctx) {
     }
     try { ws.send(JSON.stringify({ ack: m.txnId })); } catch (e) { /* relay resends on reconnect */ }
   }
-  return { view, save, setCreds, setRelay, relayKey, logTip, poll, start, stop, link };
+  return { view, save, setCreds, setRelay, deployRelay, relayKey, logTip, poll, start, stop, link };
 };

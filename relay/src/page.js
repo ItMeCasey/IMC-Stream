@@ -1,4 +1,5 @@
-<!doctype html>
+// The tip page, served by the Worker itself so the whole relay is plain script files (the app uploads them straight to Cloudflare).
+export default String.raw`<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -44,3 +45,4 @@
 </script>
 </body>
 </html>
+`;
