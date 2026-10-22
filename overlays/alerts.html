@@ -84,8 +84,12 @@
   // the Bits alert shows the pixel cheer badge of the tier that was cheered (1, 100, 1,000, 5,000 ... 500,000), unless the alert rule has its own image
   const BIT_TIERS = [1, 100, 1000, 5000, 10000, 25000, 50000, 75000, 100000, 200000, 300000, 400000, 500000];
   const bitsTier = (n) => BIT_TIERS.reduce((t, x) => (n >= x ? x : t), 1);
+  // the Sub alert shows the pixel sub badge of the tier and the months (base, 2, 3, 6, 9 months, 1 year, then every half year up to 8.5 years)
+  const SUB_MONTHS = [0, 2, 3, 6, 9, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90, 96, 102];
+  const subName = (m) => { const t = SUB_MONTHS.reduce((r, x) => (m >= x ? x : r), 0); return t ? t + "m" : "base"; };
   function show(a, done) {
     const k = KINDS[a.kind] || KINDS.follow;
+    const icon = a.bits ? "../assets/bits/bits_" + bitsTier(a.bits) + "_180.png" : a.sub ? "../assets/subs/tier" + a.sub.tier + "/sub_t" + a.sub.tier + "_" + subName(a.sub.months) + "_180.png" : "";   // a rule's own image wins over these
     const base = BASE;
     const el = document.createElement("div");
     el.className = "alert " + (a.accent ? "custom" : a.kind);
@@ -95,7 +99,7 @@
       el.style.setProperty("--tagfg", lum < 0.4 ? "var(--cream)" : "var(--iron)");
     }
     el.innerHTML =
-      '<div class="badge"><img' + (!a.image && a.kind === "bits" && a.bits ? ' class="px"' : '') + ' src="' + esc(a.image ? base + a.image : a.kind === "bits" && a.bits ? "../assets/bits/bits_" + bitsTier(a.bits) + "_180.png" : "../assets/logo.png") + '" alt=""></div>' +
+      '<div class="badge"><img' + (!a.image && icon ? ' class="px"' : '') + ' src="' + esc(a.image ? base + a.image : icon || "../assets/logo.png") + '" alt=""></div>' +
       '<div class="body"><div class="tag"><span>' + esc(a.tag || k.tag) + '</span></div>' +
       '<div class="name">' + esc(a.name) + '</div>' +
       (a.msg ? '<div class="msg">' + esc(a.msg) + '</div>' : '') + '</div><div class="shine"></div>';
@@ -154,7 +158,7 @@
   if (Q.get("demo")) {
     const demo = [
       { kind: "follow", name: "ItMeCasey Fan", msg: "Thanks for the follow!" },
-      { kind: "sub", name: "RetroRider", msg: "Welcome to the crew // Tier 1" },
+      { kind: "sub", sub: { tier: 1, months: 0 }, name: "RetroRider", msg: "Welcome to the crew // Tier 1" },
       { kind: "bits", tag: "500 BITS", bits: 500, name: "BitBaron", msg: "Take my bits!" },
       { kind: "raid", name: "FriendlyStreamer", msg: "42 raiders incoming" },
       { kind: "tip", tag: "$10 TIP", name: "GenerousGamer", msg: "Keep up the great work" }

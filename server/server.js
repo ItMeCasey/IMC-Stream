@@ -496,7 +496,7 @@ function pickRule(event, num, vars, key) {
 }
 function buildAlert(rule, vars) {
   return { kind: ALERT_EVENTS[rule.event].kind, event: rule.event, ruleId: rule.id, tag: tpl(rule.tag, vars), name: tpl(rule.title, vars), msg: tpl(rule.msg, vars),
-    bits: rule.event === 'bits' ? Math.floor(Number(vars.amount) || 0) : 0, accent: rule.color, sound: rule.sound ? '/sounds/' + rule.sound : '', volume: rule.volume, seconds: rule.seconds, image: rule.image ? '/assets/' + rule.image : '', video: rule.video ? '/video/' + rule.video : '' };
+    bits: rule.event === 'bits' ? Math.floor(Number(vars.amount) || 0) : 0, sub: ['sub', 'resub', 'giftsub'].includes(rule.event) ? { tier: ({ 2000: 2, 3000: 3 })[Number(vars.tierId)] || 1, months: rule.event === 'resub' ? Math.max(0, Math.floor(Number(vars.months) || 0)) : 0 } : null, accent: rule.color, sound: rule.sound ? '/sounds/' + rule.sound : '', volume: rule.volume, seconds: rule.seconds, image: rule.image ? '/assets/' + rule.image : '', video: rule.video ? '/video/' + rule.video : '' };
 }
 /** Fire an alert for an event: the best-matching enabled rule decides what it looks and sounds like (no rule = no alert). */
 const EXPLODE_ON = { goal: 'goal', raid: 'raid', hype_start: 'hype', sub: 'sub', resub: 'sub', giftsub: 'giftsub', bits: 'bits' };
@@ -853,7 +853,7 @@ function handleEventInner(type, e, opts = {}) {
         state.latest.subscriber = name; pushRecent(state.recent.subscribers, name);
         if (e.is_gift) state.latest.giftRecipient = name; else s.subs++;   // gift recipients are counted via the gifter's total
       }
-      if (!e.is_gift) fire('sub', { name, tier: tierOf(e.tier), uid: e.user_id });
+      if (!e.is_gift) fire('sub', { name, tier: tierOf(e.tier), tierId: e.tier, uid: e.user_id });
       break;
     }
     case 'channel.subscription.gift': {
@@ -863,7 +863,7 @@ function handleEventInner(type, e, opts = {}) {
         A.giftSubs += n; A.gifters[name] = (A.gifters[name] || 0) + n;
         state.latest.gifter = name + ' - ' + n;
       }
-      fire('giftsub', { name, total: n, tier: tierOf(e.tier), uid: e.is_anonymous ? '' : e.user_id }, n);
+      fire('giftsub', { name, total: n, tier: tierOf(e.tier), tierId: e.tier, uid: e.is_anonymous ? '' : e.user_id }, n);
       break;
     }
     case 'channel.subscription.message': {
@@ -872,7 +872,7 @@ function handleEventInner(type, e, opts = {}) {
         state.latest.subscriber = name; state.latest.resub = name + ' - ' + m + ' months';
         pushRecent(state.recent.subscribers, name); s.resubs++;
       }
-      fire('resub', { name, months: m, tier: tierOf(e.tier), message: (e.message && e.message.text) || '', uid: e.user_id }, m);
+      fire('resub', { name, months: m, tier: tierOf(e.tier), tierId: e.tier, message: (e.message && e.message.text) || '', uid: e.user_id }, m);
       break;
     }
     case 'channel.cheer': {
@@ -1603,7 +1603,8 @@ async function route(req, res) {
         if (body.type === 'tip') { botQuiet = true; try { fire('tip', SAMPLE_VARS.tip, 10); } finally { botQuiet = false; } return json(res, 200, { ok: true }); }
         const s = SAMPLES[body.type];
         if (!s) return json(res, 400, { error: 'unknown type', types: Object.keys(SAMPLES).concat('tip') });
-        handleEvent(s[0], s[1], { test: true });
+        const data = Object.assign({}, s[1]); if (['1000', '2000', '3000'].includes(String(body.tier))) data.tier = String(body.tier); if (body.months) data.cumulative_months = Math.max(1, Math.floor(Number(body.months)) || 1); if (body.bits) data.bits = Math.max(1, Math.floor(Number(body.bits)) || 1);   // optional: try a tier, a number of months or an amount of bits
+        handleEvent(s[0], data, { test: true });
         return json(res, 200, { ok: true });
       }
       if (p === '/api/event') {   // custom alerts, e.g. tips from a Ko-fi / PayPal / bot webhook

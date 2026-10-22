@@ -9,6 +9,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'twitch', 'sub_badges')
+ALERT_OUT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'subs')   # 180 px versions (18 x 10) for the Sub alert on stream
 INK = '#14191a'
 GOLD, GOLD_L, GOLD_D = '#F39120', '#ffd9a0', '#c06a0c'
 COLORS = {   # main, light, dark
@@ -102,6 +103,7 @@ def main():
             im = tier(months, level)
             for size in (18, 36, 72):
                 im.resize((size, size), Image.NEAREST).save(os.path.join(folder, 'sub_t%d_%s_%d.png' % (level, name, size)))
+            os.makedirs(os.path.join(ALERT_OUT, 'tier%d' % level), exist_ok=True); im.resize((180, 180), Image.NEAREST).save(os.path.join(ALERT_OUT, 'tier%d' % level, 'sub_t%d_%s_180.png' % (level, name)))
             tiles.append((label, im.resize((90, 90), Image.NEAREST)))
         cols = 7; W = cols * 130 + 24; rows = (len(tiles) + cols - 1) // cols; H = rows * 140 + 24
         sheet = Image.new('RGB', (W, H), '#222A2A'); d = ImageDraw.Draw(sheet)
