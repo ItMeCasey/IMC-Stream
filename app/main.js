@@ -13,7 +13,8 @@ const BUILD = path.join(__dirname, 'build');
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 let win = null, tray = null, sup = null, quitting = false, port = 8420, light = 'grey', settings = null;
-const userData = app.getPath('userData'), DATA = path.join(userData, 'data'), SETTINGS_FILE = path.join(userData, 'app-settings.json');
+// Microsoft Store (MSIX) installs redirect writes under AppData into a private copy that uninstalling deletes, and OBS cannot see. There the data lives in Documents instead.
+const PACKAGED = !!process.windowsStore, userData = app.getPath('userData'), DOCS = path.join(app.getPath('documents'), 'ItMeCasey Stream'), DATA = PACKAGED ? path.join(DOCS, 'data') : path.join(userData, 'data'), SETTINGS_FILE = path.join(userData, 'app-settings.json');
 const loadSettings = () => {
   const d = { startWithWindows: false, startObs: false, obsPath: '', closeToTray: true, startHidden: false };
   try { return Object.assign(d, JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'))); } catch (e) { return d; }
@@ -32,7 +33,7 @@ const icon = (name) => nativeImage.createFromPath(path.join(BUILD, name));
 function startServer() {
   port = readPort();
   fs.mkdirSync(DATA, { recursive: true });
-  const env = Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1', ICM_DATA: DATA, ICM_ROOT: RES, ICM_KOKORO_DIR: path.join(userData, 'kokoro'), ICM_VERSION: app.getVersion() });
+  const env = Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1', ICM_DATA: DATA, ICM_ROOT: RES, ICM_PACKAGED: PACKAGED ? '1' : '', ICM_DOCS: DOCS, ICM_KOKORO_DIR: path.join(userData, 'kokoro'), ICM_VERSION: app.getVersion() });
   delete env.ICM_PORT;
   sup = createSupervisor({
     command: process.execPath, args: [path.join(SERVER_DIR, 'server.js')], cwd: SERVER_DIR, env, port, log,

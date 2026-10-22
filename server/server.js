@@ -1604,6 +1604,12 @@ async function route(req, res) {
         if (body.clientId !== undefined) cur.clientId = String(body.clientId).replace(/[^A-Za-z0-9]/g, '').slice(0, 64);
         fs.writeFileSync(path.join(DATA, 'config.json'), JSON.stringify(cur, null, 2)); CFG = loadConfig(); broadcast('status', status()); return json(res, 200, { ok: true, clientId: CFG.clientId });
       }
+      if (p === '/api/obs/install' && process.env.ICM_PACKAGED) {   // Store version: it cannot write into OBS's own folder, so save the file where the user can import it
+        const dir = process.env.ICM_DOCS || path.join(require('node:os').homedir(), 'Documents', 'ItMeCasey Stream'), file = path.join(dir, 'ItMeCasey.json');
+        fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(file, JSON.stringify(buildCollection({ root: ROOT, dataDir: DATA, port: CFG.port }), null, 4));
+        if (!process.env.ICM_NO_EXPLORER) try { require('node:child_process').spawn('explorer.exe', ['/select,' + file], { detached: true, stdio: 'ignore' }).unref(); } catch (e) { /* no explorer */ }
+        return json(res, 200, { ok: true, file, manual: true });
+      }
       if (p === '/api/obs/install') {
         const dir = path.join(process.env.ICM_OBS_DIR || path.join(process.env.APPDATA || '', 'obs-studio'), 'basic', 'scenes'), file = path.join(dir, 'ItMeCasey.json');
         if (!process.env.ICM_OBS_DIR && !process.env.APPDATA) throw new Error('Could not find the OBS folder: use Download instead and import it in OBS (Scene Collection > Import)');

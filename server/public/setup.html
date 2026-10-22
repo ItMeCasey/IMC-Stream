@@ -141,7 +141,7 @@ $('cidSave').onclick = async () => { const r = await post('/api/config', { clien
 $('obsInstall').onclick = async () => {
   let r = await post('/api/obs/install', {});
   if (r.error === 'exists') { if (!confirm('An ItMeCasey scene collection already exists in OBS. Replace it? (The old one is kept as a .bak file.)')) return; r = await post('/api/obs/install', { overwrite: true }); }
-  $('obsMsg').textContent = ''; if (r.error) { $('obsMsg').textContent = r.error; return toast(r.error, true); } toast('Installed. In OBS pick Scene Collection > ItMeCasey.');
+  $('obsMsg').textContent = ''; if (r.error) { $('obsMsg').textContent = r.error; return toast(r.error, true); } if (r.manual) { $('obsMsg').textContent = 'Saved to ' + r.file + '. In OBS: Scene Collection > Import, pick that file, then Scene Collection > ItMeCasey.'; toast('Saved: import it in OBS'); } else toast('Installed. In OBS pick Scene Collection > ItMeCasey.');
 };
 $('obsSave').onclick = async () => { const r = await post('/api/hooks/obs/save', { host: $('oh').value, port: $('op').value, password: $('opw').value || '__keep__' }); toast(r.error || 'Saved', !!r.error); };
 $('obsTest').onclick = async () => { $('obsRes').textContent = 'Testing…'; const r = await post('/api/hooks/obs/test'); $('obsRes').textContent = r.error ? r.error : 'Connected to OBS ' + r.obsVersion; };
