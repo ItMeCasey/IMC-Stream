@@ -491,9 +491,11 @@ const MOD = ['moderator'], SUB = ['subscriber'];
   const bal = () => (bot.db().points['id-viewer'] || { pts: 0 }).pts, b0 = bal();
   assert.deepStrictEqual(await say('Viewer', pick), [], 'a word is not a command and gets no reply'); assert.equal((await api('words/state')).found, 1, 'the word counted'); assert.deepStrictEqual(await say('Mod', pick, MOD), [], 'the second finder gets nothing');
   assert.equal((await api('words/state')).recent[0].name, 'Viewer'); await api('words/skip'); assert.equal(bal() - b0, pick.length * 2, 'the points are paid out after the round'); await api('words/stop');
+  const wst = await api('words/stats'); const me = wst.top.find((p) => p.name === 'Viewer'); assert(me && me.pts === pick.length * 2 && me.words === 1 && me.best === 1, 'all-time points and best round are kept per chatter'); assert.equal(wst.record.round, 0, 'a failed round sets no record');
+  assert.match(await one('Mod', '!wordtop', MOD), /Word Rush all-time: 1\. Viewer \d+/); assert.match(await one('Viewer', '!wordtop'), /Word Rush all-time/, 'everyone can look at the board');
   assert.strictEqual(await one('Mod', '!words stop', MOD), 'Word Rush is not running.');
-  assert.equal((await api('words/settings', { rounds: 99, seconds: 5, letters: 7, mvp: -3 })).rounds, 10); assert.deepStrictEqual(bot.view().settings.games.words, { rounds: 10, seconds: 30, letters: 7, perLetter: 2, pangram: 25, mvp: 0 });
-  await api('words/settings', { rounds: 5, seconds: 90, letters: 6, mvp: 25 }); assert.equal((await api('words/start', { silent: true })).ok, true); await assert.rejects(api('words/start', {}), /already running/); assert.equal((await api('words/state')).phase, 'intro'); await api('words/stop');
+  assert.equal((await api('words/settings', { rounds: 500, seconds: 5, letters: 7, mvp: -3, beat: 5 })).rounds, 99); assert.deepStrictEqual(bot.view().settings.games.words, { rounds: 99, seconds: 30, letters: 7, perLetter: 2, pangram: 25, mvp: 0, beat: 10 });
+  await api('words/settings', { rounds: 0, seconds: 90, letters: 6, mvp: 25, beat: 50 }); assert.equal((await api('words/start', { silent: true })).ok, true); await assert.rejects(api('words/start', {}), /already running/); assert.equal((await api('words/state')).phase, 'intro'); await api('words/stop');
 
   await api('settings', { enabled: false, prefix: '!', currency: 'coins' });
   assert.deepStrictEqual(await say('Bob', '!lurk'), [], 'bot disabled');

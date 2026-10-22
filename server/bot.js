@@ -14,7 +14,7 @@ const BUILTIN = ['commands', 'addcom', 'editcom', 'delcom', 'uptime', 'game', 't
   'shop', 'redeem', 'buy', 'send', 'pay', 'setvar', 'listadd', 'announce', 'song', 'skip', 'pause', 'play', 'previous', 'volume', 'sr', 'songrequest',
   'countdown', 'timeleft', 'tts', 'ttsskip', 'alerts', 'clip', 'tip', 'paypal', 'subathon', 'subrules', 'brb', 'back', 'watchtime', 'addpoints',
   'removepoints', 'setpoints', 'bonus', 'approve', 'deny', 'addquote', 'delquote', 'nextad', 'ad', 'snooze', 'setgame', 'settitle', 'gamesearch',
-  'counter', 'points', 'gamble', 'slots', 'duel', 'accept', 'give', 'top', 'leaderboard', 'trivia', 'raffle', 'enter', 'draw', '8ball', 'roll', 'flip', 'words', 'wheel'];
+  'counter', 'points', 'gamble', 'slots', 'duel', 'accept', 'give', 'top', 'leaderboard', 'trivia', 'raffle', 'enter', 'draw', '8ball', 'roll', 'flip', 'words', 'wordtop', 'wheel'];
 
 const TRIVIA = [
   ['What is the capital of Australia?', 'canberra'], ['How many sides does a hexagon have?', '6|six'], ['What planet is known as the Red Planet?', 'mars'],
@@ -61,11 +61,12 @@ const defaults = () => ({
   extras: { welcome: { on: false, msg: 'Welcome to the stream, $(user)! Glad you are here.', announce: '', onlyLive: true }, raidShout: { on: false }, regulars: { on: false, minutes: 300, messages: 200 } },
   games: { gambleWin: 0.45, maxBet: 0, triviaReward: 100, triviaSeconds: 30, duelSeconds: 60, duelAnim: true, off: [], botDuel: { on: true, below: 1000, house: 50, maxWin: 1000 },
     bits: { boss: 100, royale: 100, race: 100, dance: 1000 },
-    words: { rounds: 5, seconds: 90, letters: 5, perLetter: 2, pangram: 25, mvp: 25 },
+    words: { rounds: 0, seconds: 90, letters: 5, perLetter: 2, pangram: 25, mvp: 25, beat: 50 },
     wheel: { title: 'Spin the wheel', options: ['Yes', 'No', 'Ask again'], pct: [34, 33, 33] },
     dance: { seconds: 120, strobe: true },   // a cheer of at least this many bits with the word boss / arena / race in it starts that game (0 = off)
     race: { count: 5, seconds: 90, title: 'Who wins the race?', names: [] },
     arena: { boss: { baseHp: 200, hpPerChatter: 40, seconds: 120, hitCd: 3, pool: 40, lastHit: 100, consolation: 10 }, royale: { fee: 50, lobby: 60, max: 8 }, teams: { fee: 50, lobby: 60, maxPerTeam: 20 } } },
+  wordRush: { players: {}, record: { round: 0, by: '', at: 0 } },   // all-time Word Rush points per chatter, and the most rounds chat ever beat in one game
   botDuelDay: {},
   customGames: [],
   bonuses: { follow: { on: false, amount: 50 }, sub: { on: false, amount: 500 }, resub: { on: false, amount: 300 }, giftsub: { on: false, amount: 300 },
@@ -511,7 +512,12 @@ module.exports = function createBot(ctx) {
     if (r.error) reply(r.error);
   }
   // ---- Word Rush: a full-screen word game for chat; only the streamer and mods start it, points are paid out after every round
-  const words = require('./words')({ rng, now, introMs: () => ctx.wordsIntroMs || 6000, cfg: () => db.games.words, currency: () => cur(), broadcast: (ev, d) => (ctx.broadcast ? ctx.broadcast(ev, d) : 0), say: (t) => say(t),
+  const wordStats = {
+    player: (id, name, x) => { const P = db.wordRush.players[id] || (db.wordRush.players[id] = { name, pts: 0, words: 0, best: 0 }); P.name = name; P.pts += x.pts; P.words += x.words; P.best = Math.max(P.best, x.round); save(); },
+    record: (round, by) => { const R = db.wordRush.record; if (round <= R.round) return false; db.wordRush.record = { round, by, at: now() }; save(); return true; },
+    get: () => ({ record: db.wordRush.record, top: Object.values(db.wordRush.players).sort((a, b) => b.pts - a.pts || b.best - a.best).slice(0, 10).map((p) => ({ name: p.name, pts: p.pts, words: p.words, best: p.best })) }),
+  };
+  const words = require('./words')({ rng, now, stats: wordStats, introMs: () => ctx.wordsIntroMs || 6000, cfg: () => db.games.words, currency: () => cur(), broadcast: (ev, d) => (ctx.broadcast ? ctx.broadcast(ev, d) : 0), say: (t) => say(t),
     award: (id, name, n, why) => addPts(id, name, n, why) });
   function wordsCmd(args, u, reply) {
     const a = String(args[0] || '').toLowerCase();
@@ -782,6 +788,7 @@ module.exports = function createBot(ctx) {
       if (r && r.error) reply(r.error);
     } },
     words: { level: 3, run: ({ args, u, reply }) => wordsCmd(args, u, reply) },
+    wordtop: { level: 0, run: ({ reply }) => { const st = wordStats.get(); reply(st.top.length ? 'Word Rush all-time: ' + st.top.slice(0, 5).map((p, i) => (i + 1) + '. ' + p.name + ' ' + p.pts).join(', ') + (st.record.round ? ' | Record: chat beat ' + st.record.round + ' rounds (' + (st.record.by || 'nobody') + ' won)' : '') : 'Nobody has scored in Word Rush yet.'); } },
     wheel: { level: 3, run: ({ args, reply }) => wheelCmd(args, reply) },
     spin: { level: 3, run: ({ args, reply }) => wheelCmd(args, reply) },
     dance: { level: 3, run: ({ args, u, reply }) => { if (args[0] === 'stop') { danceStop(); return reply('Party stopped.'); } const r = danceStart(u); if (r) reply(r); } },
@@ -1108,7 +1115,7 @@ module.exports = function createBot(ctx) {
       case 'games/dancetest': { if (b && b.stop) { danceStop(); return { text: 'Stopped' }; } return { text: danceStart({ name: 'TestViewer' }, true) || 'Party started (silent test)' }; }
       case 'words/settings': {
         const x = b || {}, C = db.games.words, n = (v, d, lo, hi) => Math.floor(num(v, d, lo, hi));
-        if (x.rounds !== undefined) C.rounds = n(x.rounds, 5, 1, 10); if (x.seconds !== undefined) C.seconds = n(x.seconds, 90, 30, 300); if (x.letters !== undefined) C.letters = n(x.letters, 5, 4, 7);
+        if (x.rounds !== undefined) C.rounds = n(x.rounds, 0, 0, 99); if (x.beat !== undefined) C.beat = n(x.beat, 50, 10, 100); if (x.seconds !== undefined) C.seconds = n(x.seconds, 90, 30, 300); if (x.letters !== undefined) C.letters = n(x.letters, 5, 4, 7);
         if (x.perLetter !== undefined) C.perLetter = n(x.perLetter, 2, 0, 1000); if (x.pangram !== undefined) C.pangram = n(x.pangram, 25, 0, 10000); if (x.mvp !== undefined) C.mvp = n(x.mvp, 25, 0, 10000);
         save(); return C;
       }
@@ -1116,6 +1123,8 @@ module.exports = function createBot(ctx) {
       case 'words/stop': { const r = words.stop(); if (r.error) throw new Error(r.error); return r; }
       case 'words/skip': { const r = words.skip(); if (r.error) throw new Error(r.error); return r; }
       case 'words/state': return words.state();
+      case 'words/stats': return wordStats.get();
+      case 'words/resetstats': db.wordRush = { players: {}, record: { round: 0, by: '', at: 0 } }; save(); return wordStats.get();
       case 'wheel/save': { const W = db.games.wheel, x = b || {}; if (x.title !== undefined) W.title = oneLine(x.title, 40); if (x.options !== undefined) { const e = wheel.entries(x.options, x.pct); W.options = e.map((o) => o.text); W.pct = wheel.shares(e).map((f) => Math.round(f * 1000) / 10); } save(); return W; }
       case 'wheel/spin': {   // from the Chat Games page (the streamer): the saved list, or the one sent along; silent = no chat message
         const W = db.games.wheel, x = b || {}; const r = wheel.spin({ title: x.title !== undefined ? x.title : W.title, options: x.options !== undefined ? x.options : W.options, pct: x.options !== undefined ? x.pct : W.pct, silent: !!x.silent });

@@ -79,7 +79,8 @@
 
   function header(s) {
     txt('WORD RUSH', 8, 8, 2, CREAM, 'l', DRUST);
-    if (s.round) txt('ROUND ' + s.round + '/' + s.rounds, W - 8, 8, 2, HEAT, 'r', INK);
+    if (s.round) txt('ROUND ' + s.round + (s.rounds ? '/' + s.rounds : ''), W - 8, 8, 2, HEAT, 'r', INK);
+    if (s.record && s.record.round) txt('RECORD ' + s.record.round, 262, 12, 1, CREAM_D, 'c');
   }
 
   function timerBar(s, t) {
@@ -141,7 +142,7 @@
     y += 2;
     const showT = s.phase === 'round';
     if (showT) { txt(fmtT(tm.sec), x0, y, 4, tm.low && tm.blink ? RUST : tm.low ? RUST : CREAM, 'l', INK); txt(s.found + '/' + s.total, x0 + w, y + 6, 2, AQUA, 'r', INK); txt('FOUND', x0 + w, y + 22, 1, CREAM_D, 'r'); y += 34; }
-    else { txt(s.found + '/' + s.total, x0, y, 3, AQUA, 'l', INK); txt('WORDS', x0 + w, y, 1, CREAM_D, 'r'); txt('FOUND', x0 + w, y + 10, 1, CREAM_D, 'r'); y += 28; }
+    else { txt(s.found + '/' + s.total, x0, y, 3, AQUA, 'l', INK); const ok = s.results && s.results.beaten; txt(ok ? 'BEATEN' : 'FAILED', x0 + w, y, 1, ok ? AQUA : RUST, 'r'); txt('NEEDED ' + (s.results ? s.results.need : ''), x0 + w, y + 10, 1, CREAM_D, 'r'); y += 28; }
     rect(x0, y, w, 1, '#3d4848'); y += 5;
     if (showT) {   // the latest finds
       txt('LATEST', x0, y, 1, CREAM_D, 'l'); y += 10;
@@ -161,22 +162,29 @@
 
   function intro(s, t, tm) {
     const cx = W / 2, p = clamp((performance.now() - phaseAt) / 500, 0, 1);
-    txt('WORD', cx, 26, 8, CREAM, 'c', DRUST); txt('RUSH', cx, 94, 4, HEAT, 'c', INK);
-    const lines = ['MAKE WORDS FROM THE LETTERS', 'JUST TYPE THEM IN CHAT', 'EVERY ROUND ADDS A LETTER', 'LATER: UNKNOWN AND FAKE LETTERS', 'POINTS ARE PAID AFTER EVERY ROUND']; lines.forEach((l, i) => txt(l, cx, 130 + i * 11, 1, i === 4 ? AQUA : i === 3 ? HEAT : CREAM, 'c'));
-    txt(s.rounds + (s.rounds === 1 ? ' ROUND' : ' ROUNDS'), cx, 194, 2, CREAM, 'c', INK);
-    txt(String(Math.max(0, Math.ceil(tm.sec))), cx, 220, 4, p < 1 ? HEAT : RUST, 'c', INK);
+    txt('WORD', cx, 36, 8, CREAM, 'c', DRUST); txt('RUSH', cx, 98, 4, HEAT, 'c', INK);
+    const lines = ['MAKE WORDS FROM THE LETTERS', 'JUST TYPE THEM IN CHAT', 'EVERY ROUND ADDS A LETTER', 'LATER: UNKNOWN AND FAKE LETTERS', 'FIND ' + (s.beat || 50) + '% OF THE WORDS TO BEAT A ROUND']; lines.forEach((l, i) => txt(l, cx, 134 + i * 10, 1, i === 4 ? AQUA : i === 3 ? HEAT : CREAM, 'c'));
+    if (s.rounds) txt(s.rounds + (s.rounds === 1 ? ' ROUND' : ' ROUNDS'), cx, 198, 2, CREAM, 'c', INK);
+    else { txt('HOW FAR CAN CHAT GET?', cx, 198, 2, CREAM, 'c', INK); if (s.record && s.record.round) txt('RECORD: ROUND ' + s.record.round, cx, 187, 1, HEAT, 'c'); }
+    txt(String(Math.max(0, Math.ceil(tm.sec))), cx, 228, 4, p < 1 ? HEAT : RUST, 'c', INK);
   }
 
   function final(s, t) {
-    const cx = W / 2, ch = s.champion, sc = (s.scores || []).slice(0, 5);
-    txt('GAME OVER', cx, 20, 5, CREAM, 'c', DRUST);
-    if (!ch) { txt('NOBODY SCORED. THANKS FOR WATCHING!', cx, 130, 2, CREAM, 'c', INK); return; }
+    const ch = s.champion, cx = s.alltime && s.alltime.length ? 160 : W / 2, sc = (s.scores || []).slice(0, 5);
+    txt('GAME OVER', W / 2, 14, 5, CREAM, 'c', DRUST);
+    const rd = s.reached || 0; txt('CHAT BEAT ' + rd + (rd === 1 ? ' ROUND' : ' ROUNDS'), W / 2, 54, 2, HEAT, 'c', INK);
+    if (s.newRecord && Math.floor(t / 350) % 2) txt('NEW RECORD!', W / 2, 74, 2, CREAM, 'c', RUST); else if (!s.newRecord && s.record && s.record.round) txt('RECORD: ROUND ' + s.record.round + (s.record.by ? ' - ' + fit(s.record.by, 14) : ''), W / 2, 76, 1, CREAM_D, 'c');
+    if (!ch) { txt('NOBODY SCORED. THANKS FOR WATCHING!', W / 2, 130, 2, CREAM, 'c', INK); return; }
     // a pixel trophy
-    const bob = Math.round(Math.sin(t / 300) * 2), tx = cx - 15, ty = 92 + bob;
+    const bob = Math.round(Math.sin(t / 300) * 2), tx = cx - 15, ty = 108 + bob;
     rect(tx + 4, ty, 22, 4, HEAT_D); rect(tx + 2, ty + 4, 26, 16, HEAT); rect(tx + 4, ty + 20, 22, 4, HEAT_D); rect(tx + 12, ty + 24, 6, 8, HEAT_D); rect(tx + 6, ty + 32, 18, 4, HEAT); rect(tx + 6, ty + 6, 4, 10, '#ffd9a0');
     rect(tx - 4, ty + 6, 4, 10, HEAT_D); rect(tx + 30, ty + 6, 4, 10, HEAT_D);
-    txt('CHAMPION', cx, 66, 2, HEAT, 'c', INK); txt(fit(ch.name, 18), cx, 134, 3, colorOf(ch.name), 'c', INK); txt(ch.pts + ' POINTS', cx, 160, 2, CREAM, 'c', INK);
-    sc.slice(1).forEach((p, i) => txt((i + 2) + '. ' + fit(p.name, 14) + '  ' + p.pts, cx, 184 + i * 12, 1, CREAM_D, 'c'));
+    txt('CHAMPION', cx, 92, 1, HEAT, 'c', INK); txt(fit(ch.name, 12), cx, 150, 3, colorOf(ch.name), 'c', INK); txt(ch.pts + ' POINTS', cx, 176, 2, CREAM, 'c', INK);
+    sc.slice(1, 4).forEach((p, i) => txt((i + 2) + '. ' + fit(p.name, 12) + '  ' + p.pts, cx, 198 + i * 11, 1, CREAM_D, 'c'));
+    if (s.alltime && s.alltime.length) {   // the all-time board
+      const x0 = 312; rect(x0 - 12, 92, 1, 150, '#3d4848'); txt('ALL-TIME POINTS', x0 + 74, 92, 1, HEAT, 'c');
+      s.alltime.forEach((p, i) => { const y = 110 + i * 24; txt(String(i + 1), x0, y, 2, i === 0 ? HEAT : CREAM_D, 'l'); txt(fit(p.name, 11), x0 + 16, y, 1, i === 0 ? CREAM : CREAM_D, 'l'); txt(String(p.pts), x0 + 150, y, 1, AQUA, 'r'); txt('BEST ROUND ' + p.best, x0 + 16, y + 10, 1, '#7d8885', 'l'); });
+    }
     for (let k = 0; k < 18; k++) { const a = (t / 900 + k / 18), px = (k * 97 + Math.floor(t / 40) * (k % 3 + 1)) % W, py = ((a % 1) * H); rect(px, py, 3, 3, PAL[k % PAL.length]); }   // confetti
   }
 
@@ -186,12 +194,12 @@
     if (alpha < 0.01) return;
     g.clearRect(0, 0, W, H); background(t);
     if (!on) return;
-    const s = S, tm = timerBar(s, t);
+    const s = S, tm = s.phase === 'final' ? { sec: 0 } : timerBar(s, t);
     if (s.phase === 'intro') { intro(s, t, tm); return; }
     if (s.phase === 'final') { final(s, t); return; }
     header(s); leftPanel(s, t, tm); board(s, t, 162, 40, 310, 224);
     if (performance.now() - flash < 400) { g.globalAlpha = 0.25 * (1 - (performance.now() - flash) / 400); rect(0, 0, W, H, HEAT); g.globalAlpha = 1; }   // the screen flashes when somebody finds a word with every letter
-    if (s.phase === 'review') { const k = (performance.now() - phaseAt) / 1000; if (k < 2) txt('ROUND ' + s.round + ' OVER', 316, 126, 4, CREAM, 'c', DRUST); }
+    if (s.phase === 'review') { const k = (performance.now() - phaseAt) / 1000; if (k < 2) { const ok = s.results && s.results.beaten; txt(ok ? 'ROUND BEATEN!' : 'ROUND FAILED', 316, 126, 4, ok ? CREAM : RUST, 'c', ok ? DRUST : INK); } }
     if (s.phase === 'round' && performance.now() - phaseAt < 1600) { const a = 1 - (performance.now() - phaseAt) / 1600; g.globalAlpha = clamp(a * 2, 0, 1); txt('ROUND ' + s.round, 316, 126, 5, HEAT, 'c', INK); g.globalAlpha = 1; }
   }
   g.imageSmoothingEnabled = false; requestAnimationFrame(draw);

@@ -3,7 +3,8 @@ const assert = require('assert'), createWords = require('./words');
 // a tiny word list: LISTEN (6 letters) and LISTENS (7) have plenty of words
 const WORDS = ['listens', 'listen', 'silent', 'tinsel', 'enlist', 'inlets', 'lint', 'line', 'lens', 'lent', 'list', 'silt', 'site', 'sine', 'nest', 'net', 'ten', 'tin', 'sit', 'sin', 'set', 'let', 'lie', 'ens', 'ins', 'its', 'nit', 'tie', 'lit', 'els', 'tile', 'tils', 'stile', 'islet', 'inlet', 'least'];
 const said = [], events = [], paid = [], timers = []; let t = 1e6;
-const W = createWords({ words: WORDS, rng: () => 0.01, now: () => t, say: (m) => said.push(m), broadcast: (e, d) => events.push(d), award: (id, name, n, why) => paid.push({ id, name, n, why }), currency: () => 'points', cfg: () => ({ rounds: 2, seconds: 60, letters: 6, perLetter: 2, pangram: 25, mvp: 25 }),
+const CFG = { rounds: 2, seconds: 60, letters: 6, perLetter: 2, pangram: 25, mvp: 25, beat: 1 };
+const W = createWords({ words: WORDS, rng: () => 0.01, now: () => t, say: (m) => said.push(m), broadcast: (e, d) => events.push(d), award: (id, name, n, why) => paid.push({ id, name, n, why }), currency: () => 'points', cfg: () => CFG,
   setTimeout: (f, ms) => { const x = { f, ms }; timers.push(x); return x; }, clearTimeout: (x) => { const i = timers.indexOf(x); if (i >= 0) timers.splice(i, 1); } });
 const fire = () => { const x = timers.sort((a, b) => a.ms - b.ms).shift(); t += x.ms; x.f(); };   // run the next timer
 const last = () => events[events.length - 1].s;
@@ -27,7 +28,7 @@ assert.equal(W.guess({ id: 1, name: 'Ann' }, 'lens'), true);
 fire(); assert.equal(last().hint, true); assert(last().words.some((w) => w.first), 'the hint comes halfway through');
 fire(); s = last(); assert.equal(s.phase, 'review'); assert(s.words.every((w) => w.w), 'the board is revealed'); assert.equal(s.results.paid[0].name, 'Bob');
 assert.deepEqual(paid.map((p) => [p.name, p.n]), [['Bob', 37 + 25], ['Ann', 6 + 8]], 'round points plus the top scorer bonus'); assert(paid.every((p) => p.why === 'words'));
-assert(said.some((m) => m.includes('Round 1 over')));
+assert(said.some((m) => m.includes('Round 1 beaten')));
 fire();   // round 2: one more letter, and one of them is unknown
 s = last(); assert.equal(s.round, 2); assert.equal(s.N, 7); assert.equal(s.letters.length, 7); assert.equal([...s.letters].filter((c) => c === '?').length, 1, 'one letter is hidden'); assert.deepEqual(s.mods, { fake: 0, unknown: 1, hidden: 1 });
 assert.equal(s.scores.find((p) => p.name === 'Bob').pts, 37, 'the match score carries over'); assert(s.round_scores.length === 0, 'but the round score starts again');
@@ -39,16 +40,21 @@ fire(); s = last(); assert.equal(s.phase, 'final'); assert.equal(s.champion.name
 fire(); assert.equal(last().phase, 'idle'); assert(!W.active());
 // stopping mid-round pays what was earned, nobody is stuck, and a new game can start
 W.start({ rounds: 1 }); fire(); W.guess({ id: 9, name: 'Dee' }, 'sit'); const n0 = paid.length; assert(W.stop().ok); assert.equal(paid.length, n0 + 1); assert.equal(paid[n0].n, 6); assert.equal(last().phase, 'idle'); assert(!W.active() && timers.length === 0, 'no timers are left behind');
-// nobody playing for two rounds ends the game
-W.start({ rounds: 5 });
-while (W.active() && timers.length) fire(); assert(!W.active(), 'an empty game stops by itself'); assert(said.some((m) => m.includes('Nobody is playing')));
+// a round chat fails (too few words found) ends the game; a round that is beaten goes on, with no limit on rounds when none is set
+CFG.beat = 50; CFG.rounds = 0; W.start({}); assert(said[said.length - 1].includes('How many rounds can chat beat') && said[said.length - 1].includes('50%'));
+fire(); W.guess({ id: 1, name: 'Ann' }, 'tin'); assert(W.skip().ok); s = last(); assert.equal(s.results.beaten, false); assert(s.results.need > 1 && s.results.found === 1); assert(said.some((m) => /Round 1 failed \(needed \d+\)/.test(m)));
+fire(); s = last(); assert.equal(s.phase, 'final'); assert.equal(s.reached, 0); assert(said.some((m) => m.includes('Chat beat 0 rounds')), 'the game is over'); fire(); assert(!W.active());
+CFG.beat = 1; W.start({}); fire(); assert.equal(last().rounds, 0, 'no round limit');
+for (let r = 1; r <= 4; r++) { if (r > 2) { assert.equal(last().phase, 'round'); } const ans = last(); W.guess({ id: 1, name: 'Ann' }, r === 1 ? 'tin' : ''); if (r > 1) { for (const w of WORDS) if (W.guess({ id: 1, name: 'Ann' }, w)) break; } assert(W.skip().ok); fire(); if (r < 4 && last().phase === 'idle') break; }
+assert(W.active() || last().phase === 'idle'); while (W.active()) { if (last().phase === 'round') W.skip(); else fire(); }
+CFG.rounds = 2; CFG.beat = 1;
 
 // the real word list: every round of a long match has a sensible board, fake tiles are never used by a word, and unknown letters come out
 const real = createWords({ broadcast() {}, say() {}, award() {}, setTimeout: () => ({}), clearTimeout() {} });
 assert(real.answersFor('garden').includes('danger') && real.answersFor('garden').includes('red') && !real.answersFor('garden').includes('gardens'));
 {
   const ev = [], tm = []; let clock = 0;
-  const g = createWords({ broadcast: (e, d) => ev.push(d), say() {}, award() {}, now: () => clock, cfg: () => ({ rounds: 7, seconds: 60, letters: 5, perLetter: 2, pangram: 25, mvp: 25 }), introMs: () => 10, setTimeout: (f, ms) => { const x = { f, ms }; tm.push(x); return x; }, clearTimeout: (x) => { const i = tm.indexOf(x); if (i >= 0) tm.splice(i, 1); } });
+  const g = createWords({ broadcast: (e, d) => ev.push(d), say() {}, award() {}, now: () => clock, cfg: () => ({ rounds: 7, seconds: 60, letters: 5, perLetter: 2, pangram: 25, mvp: 25, beat: 1 }), introMs: () => 10, setTimeout: (f, ms) => { const x = { f, ms }; tm.push(x); return x; }, clearTimeout: (x) => { const i = tm.indexOf(x); if (i >= 0) tm.splice(i, 1); } });
   const step = () => { const x = tm.sort((a, b) => a.ms - b.ms).shift(); clock += x.ms; x.f(); }, cur = () => ev[ev.length - 1].s;
   g.start({ silent: true, rounds: 7 }); step();
   for (let r = 1; r <= 7; r++) {
@@ -62,5 +68,16 @@ assert(real.answersFor('garden').includes('danger') && real.answersFor('garden')
     if (r < 7) step();   // the review ends and the next round starts
   }
   g.stop();
+}
+// all-time stats: every scoring chatter is recorded after each round, and a game that beats more rounds than ever sets the record
+{
+  const st = [], rec = []; let best = 0, tm = []; const ev = []; let clock = 0;
+  const g = createWords({ words: WORDS, rng: () => 0.01, now: () => clock, say() {}, broadcast: (e, d) => ev.push(d), award() {}, introMs: () => 10, cfg: () => ({ rounds: 1, seconds: 60, letters: 6, perLetter: 2, pangram: 25, mvp: 25, beat: 1 }),
+    stats: { player: (id, name, x) => st.push([name, x.pts, x.words, x.round]), record: (r, by) => { rec.push([r, by]); const nr = r > best; best = Math.max(best, r); return nr; }, get: () => ({ record: { round: best, by: 'x' }, top: [{ name: 'A', pts: 5, words: 1, best: 1 }] }) },
+    setTimeout: (f, ms) => { const x = { f, ms }; tm.push(x); return x; }, clearTimeout: (x) => { const i = tm.indexOf(x); if (i >= 0) tm.splice(i, 1); } });
+  const step = () => { const x = tm.sort((a, b) => a.ms - b.ms).shift(); clock += x.ms; x.f(); };
+  g.start({ silent: true }); step(); g.guess({ id: 1, name: 'Ann' }, 'tin'); g.guess({ id: 2, name: 'Bob' }, 'listen'); g.skip();
+  assert.deepEqual(st, [['Bob', 37 + 25, 1, 1], ['Ann', 6, 1, 1]], 'each scorer is recorded with the bonus'); step();
+  const f = ev[ev.length - 1].s; assert.equal(f.phase, 'final'); assert.deepEqual(rec, [[1, 'Bob']]); assert.equal(f.newRecord, true); assert.equal(f.record.round, 1); assert.equal(f.alltime.length, 1); step();
 }
 console.log('words test passed');
