@@ -10,9 +10,10 @@ const adCalls = [], customFires = [], mediaCalls = [], cdCalls = [], ttsCalls = 
 const ttsCfg = { on: true, command: { on: false, level: 'subscriber', cost: 0, userCd: 60 } };
 const mediaState = { status: 'playing', title: 'Midnight City', artist: 'M83', album: 'Hurry Up', link: 'https://open.spotify.com/track/abc', volume: 40 };
 const mediaCfg = { requests: false, requestLevel: 'everyone' };
+let wordsIntro = 6000;
 const bot = createBot({
   DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'icm-bot-')), log: (...a) => { if (process.env.V) console.log(...a); },
-  get state() { return state; }, now: () => T, rng: () => R, gapMs: 0, maxPer30s: 1e9, broadcast: (ev, d) => overlayEvents.push(d),
+  get state() { return state; }, get wordsIntroMs() { return wordsIntro; }, now: () => T, rng: () => R, gapMs: 0, maxPer30s: 1e9, broadcast: (ev, d) => overlayEvents.push(d),
   me: () => ({ id: '1', login: 'itmecasey' }),
   send: async (text, replyTo, announce) => { sent.push({ text, replyTo, announce }); },
   mod: async (kind, body) => { modCalls.push([kind, body]); },
@@ -477,6 +478,22 @@ const MOD = ['moderator'], SUB = ['subscriber'];
   assert.equal(spins()[1].title, 'Next game'); assert.deepStrictEqual(spins()[1].options, ['Doom', 'Quake', 'Duke']); await api('wheel/stop');
   assert.strictEqual(await one('Mod', '!wheel only', MOD), 'The wheel needs at least 2 options.');
   await assert.rejects(api('wheel/spin', { options: ['solo'] }), /at least 2/);
+
+  // word rush: only mods and the streamer start it; the page can start, skip and stop it; settings are kept
+  const wordsEv = () => overlayEvents.filter((e) => e.type === 'state');
+  assert.deepStrictEqual(await say('Viewer', '!words'), [], 'a viewer cannot start words'); assert.deepStrictEqual(await say('Sub', '!words 3', SUB), [], 'nor a subscriber'); assert.equal(wordsEv().length, 0);
+  const wsay = await say('Mod', '!words 2', MOD); assert(wsay.some((m) => /WORD RUSH/.test(m)) && wsay.some((m) => /2 rounds/.test(m)), wsay.join('|')); assert.equal(wordsEv().pop().s.phase, 'intro');
+  assert.strictEqual(await one('Mod', '!words', MOD), 'Word Rush is already running.');
+  assert.strictEqual(await one('Mod', '!words skip', MOD), 'There is no round running.');
+  // a word typed in chat while a round runs earns points, and the round's points are paid out when it ends
+  assert.strictEqual(await one('Mod', '!words stop', MOD), 'Word Rush stopped.'); assert.equal(wordsEv().pop().s.phase, 'idle'); wordsIntro = 20; await api('words/start', { silent: true, rounds: 1 }); await new Promise((r) => setTimeout(r, 120));
+  const rs = (await api('words/state')); assert.equal(rs.phase, 'round'); const ans = require('./words')({}).answersFor(rs.letters.toLowerCase()), pick = ans.find((w) => w.length === 4) || ans[0];
+  const bal = () => (bot.db().points['id-viewer'] || { pts: 0 }).pts, b0 = bal();
+  assert.deepStrictEqual(await say('Viewer', pick), [], 'a word is not a command and gets no reply'); assert.equal((await api('words/state')).found, 1, 'the word counted'); assert.deepStrictEqual(await say('Mod', pick, MOD), [], 'the second finder gets nothing');
+  assert.equal((await api('words/state')).recent[0].name, 'Viewer'); await api('words/skip'); assert.equal(bal() - b0, pick.length * 2, 'the points are paid out after the round'); await api('words/stop');
+  assert.strictEqual(await one('Mod', '!words stop', MOD), 'Word Rush is not running.');
+  assert.equal((await api('words/settings', { rounds: 99, seconds: 5, letters: 7, mvp: -3 })).rounds, 10); assert.deepStrictEqual(bot.view().settings.games.words, { rounds: 10, seconds: 30, letters: 7, perLetter: 2, pangram: 25, mvp: 0 });
+  await api('words/settings', { rounds: 5, seconds: 90, letters: 6, mvp: 25 }); assert.equal((await api('words/start', { silent: true })).ok, true); await assert.rejects(api('words/start', {}), /already running/); assert.equal((await api('words/state')).phase, 'intro'); await api('words/stop');
 
   await api('settings', { enabled: false, prefix: '!', currency: 'coins' });
   assert.deepStrictEqual(await say('Bob', '!lurk'), [], 'bot disabled');

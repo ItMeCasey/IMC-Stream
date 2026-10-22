@@ -3,7 +3,7 @@
     "DesktopAudioDevice1": {
         "prev_ver": 537001986,
         "name": "Desktop Audio",
-        "uuid": "cc5bc181-58ef-4e3d-846b-7742aef89159",
+        "uuid": "f3d21f64-17b2-47be-b180-d7bb3ec4e4d6",
         "id": "wasapi_output_capture",
         "versioned_id": "wasapi_output_capture",
         "settings": {
@@ -29,7 +29,7 @@
             {
                 "prev_ver": 537001986,
                 "name": "Limiter",
-                "uuid": "61c7be4a-431c-4692-a93e-8f7e274b34f0",
+                "uuid": "0205cb7f-e8f7-4a43-9b28-63a2b808fd2a",
                 "id": "limiter_filter",
                 "versioned_id": "limiter_filter",
                 "settings": {
@@ -58,7 +58,7 @@
     "AuxAudioDevice1": {
         "prev_ver": 537001986,
         "name": "Mic/Aux",
-        "uuid": "c443080f-390f-4318-82f2-637d964c60ce",
+        "uuid": "dce2716d-91d3-4b6e-b35e-dfb7ff291748",
         "id": "wasapi_input_capture",
         "versioned_id": "wasapi_input_capture",
         "settings": {
@@ -84,7 +84,7 @@
             {
                 "prev_ver": 537001986,
                 "name": "Noise Suppression",
-                "uuid": "a9a8d36f-989b-4a1a-baee-613ce06b1cd6",
+                "uuid": "dd13b949-6dad-4de0-b3d0-b0e1cd3681eb",
                 "id": "noise_suppress_filter",
                 "versioned_id": "noise_suppress_filter_v2",
                 "settings": {
@@ -110,7 +110,7 @@
             {
                 "prev_ver": 537001986,
                 "name": "Noise Gate",
-                "uuid": "f42a87fa-d223-4451-b04e-e9ebfde02831",
+                "uuid": "cc9caa71-575d-4ae0-ae61-cc1f895a7c51",
                 "id": "noise_gate_filter",
                 "versioned_id": "noise_gate_filter",
                 "settings": {
@@ -137,7 +137,7 @@
             {
                 "prev_ver": 537001986,
                 "name": "Compressor",
-                "uuid": "d082cea1-d721-4099-be5f-1c7cb9aa4e78",
+                "uuid": "03148e71-bb96-4101-b4fe-14e5705b57d3",
                 "id": "compressor_filter",
                 "versioned_id": "compressor_filter",
                 "settings": {
@@ -167,7 +167,7 @@
             {
                 "prev_ver": 537001986,
                 "name": "Limiter",
-                "uuid": "5bad76b6-cc6b-4565-ba54-923718a31dc6",
+                "uuid": "b425c3d0-4b3f-4387-ae07-3f1b258400dd",
                 "id": "limiter_filter",
                 "versioned_id": "limiter_filter",
                 "settings": {
@@ -197,7 +197,7 @@
         {
             "prev_ver": 537001986,
             "name": "Starting Soon",
-            "uuid": "39fce706-ef5e-4d48-9ea5-ee96cad6a3f3",
+            "uuid": "1a3203ae-20f4-4015-b4f0-058e75e1e6a6",
             "id": "scene",
             "versioned_id": "scene",
             "settings": {
@@ -206,7 +206,7 @@
                 "items": [
                     {
                         "name": "BG - Starting Soon",
-                        "source_uuid": "a56a6f36-6d7f-4c62-a6d4-795bc1953688",
+                        "source_uuid": "b9a267af-5151-410d-90bc-6e56f38a9f6c",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -245,7 +245,7 @@
                     },
                     {
                         "name": "Countdown",
-                        "source_uuid": "de54ebbd-eaa5-436c-8a85-2d119cbcd3ba",
+                        "source_uuid": "46bb87fe-b950-4683-8c02-aa5248158a02",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -284,7 +284,7 @@
                     },
                     {
                         "name": "Alerts",
-                        "source_uuid": "b22477a6-0cc3-4624-b349-8a5827e86956",
+                        "source_uuid": "54d2f464-a748-4470-a608-2129513ad7fd",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -323,7 +323,7 @@
                     },
                     {
                         "name": "Dance Party",
-                        "source_uuid": "abb4cb48-83bb-479f-a837-aaf977390318",
+                        "source_uuid": "7e83605e-f56e-4f71-9615-125316e82a52",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -362,7 +362,7 @@
                     },
                     {
                         "name": "Emote Explosion",
-                        "source_uuid": "6dab4ad4-1db1-4027-a44c-ca0bacc694c2",
+                        "source_uuid": "c804bf49-1e63-4b5b-8be5-dcfa86ac8c80",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -421,16 +421,16 @@
         {
             "prev_ver": 537001986,
             "name": "Gameplay",
-            "uuid": "2e86463a-31b9-43ab-8b01-17dafa0e0ec8",
+            "uuid": "2e989961-518c-4db8-80ea-e644fd1f83db",
             "id": "scene",
             "versioned_id": "scene",
             "settings": {
                 "custom_size": false,
-                "id_counter": 17,
+                "id_counter": 18,
                 "items": [
                     {
                         "name": "BG - Iron",
-                        "source_uuid": "47306df2-bb86-40c5-8183-8e1642c6dc53",
+                        "source_uuid": "68be0437-c046-4f0f-ba6e-3cc2eebcb1d0",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -469,7 +469,7 @@
                     },
                     {
                         "name": "Display Capture",
-                        "source_uuid": "820a8926-d3ac-4e1b-94f2-85a1650a84c3",
+                        "source_uuid": "8a0251c2-8205-49b9-8728-da3778c4a5b5",
                         "visible": false,
                         "locked": false,
                         "rot": 0,
@@ -508,7 +508,7 @@
                     },
                     {
                         "name": "Game Capture",
-                        "source_uuid": "473c1303-192f-4b3f-b914-2b5b7525becd",
+                        "source_uuid": "9ea974cb-0cff-4134-a4c7-049f14253eca",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -547,7 +547,7 @@
                     },
                     {
                         "name": "Webcam",
-                        "source_uuid": "6489d91b-f768-458e-b9c6-f742977cbd29",
+                        "source_uuid": "593b7280-bb72-4065-a008-7cab540cf57a",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -586,7 +586,7 @@
                     },
                     {
                         "name": "Overlay - Gameplay",
-                        "source_uuid": "259f74b8-4f5a-455f-aea7-49ad267a6693",
+                        "source_uuid": "fea7c757-fa72-4a65-ba23-1c4f75ef49f3",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -625,7 +625,7 @@
                     },
                     {
                         "name": "Stream Stats",
-                        "source_uuid": "b66d929b-599f-4d0f-b9c6-f088083bf4d4",
+                        "source_uuid": "542d956e-166b-42ae-9d00-e9b8ea18d9e3",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -664,7 +664,7 @@
                     },
                     {
                         "name": "Hype Train",
-                        "source_uuid": "66b1b25c-fd4a-490c-bc8b-62c19517738a",
+                        "source_uuid": "9bbfd23d-6f7a-4707-a88c-209819b83d19",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -703,7 +703,7 @@
                     },
                     {
                         "name": "Poll Overlay",
-                        "source_uuid": "4d02852d-c6cb-4ef4-837a-1e69ef395230",
+                        "source_uuid": "50e91664-7480-4cdd-b2dc-cd7f9ff963d2",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -742,7 +742,7 @@
                     },
                     {
                         "name": "Prediction Overlay",
-                        "source_uuid": "0b3ddf9c-6f51-40ec-a9b1-14f38c7c70ad",
+                        "source_uuid": "ddeca4ca-eea7-4ae3-a970-b03bbe7b4585",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -781,7 +781,7 @@
                     },
                     {
                         "name": "Recent Events",
-                        "source_uuid": "872d6561-f5fa-43b3-9327-022cb79fd4ef",
+                        "source_uuid": "501ff7b2-a8aa-4597-8341-90c2c2335bbb",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -820,7 +820,7 @@
                     },
                     {
                         "name": "Event Ticker",
-                        "source_uuid": "36aad508-7b91-4219-84be-13a8aabb880c",
+                        "source_uuid": "0c5be8c3-582a-4c7b-8a22-1b5054bec3cf",
                         "visible": false,
                         "locked": false,
                         "rot": 0,
@@ -859,7 +859,7 @@
                     },
                     {
                         "name": "Subathon Timer",
-                        "source_uuid": "53e04d61-ab78-4a51-abee-b7fae63aa7c4",
+                        "source_uuid": "92f63a49-4628-412f-9a8b-d82414cd6b3f",
                         "visible": false,
                         "locked": false,
                         "rot": 0,
@@ -898,7 +898,7 @@
                     },
                     {
                         "name": "Now Playing",
-                        "source_uuid": "453199a6-41ce-4215-b1e1-096281826103",
+                        "source_uuid": "10040c0b-62e0-4833-a7c4-d443460a0592",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -937,7 +937,7 @@
                     },
                     {
                         "name": "Game Arena",
-                        "source_uuid": "3b6497b6-09be-45db-b50a-a6ae92eb4af0",
+                        "source_uuid": "b98146fa-39fe-41b0-a379-b490eb2ce9ff",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -975,8 +975,8 @@
                         "private_settings": {}
                     },
                     {
-                        "name": "Alerts",
-                        "source_uuid": "b22477a6-0cc3-4624-b349-8a5827e86956",
+                        "name": "Word Rush",
+                        "source_uuid": "b7961623-e2f6-4072-9bd2-dd0729c4a7cb",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1014,8 +1014,8 @@
                         "private_settings": {}
                     },
                     {
-                        "name": "Dance Party",
-                        "source_uuid": "abb4cb48-83bb-479f-a837-aaf977390318",
+                        "name": "Alerts",
+                        "source_uuid": "54d2f464-a748-4470-a608-2129513ad7fd",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1053,8 +1053,8 @@
                         "private_settings": {}
                     },
                     {
-                        "name": "Emote Explosion",
-                        "source_uuid": "6dab4ad4-1db1-4027-a44c-ca0bacc694c2",
+                        "name": "Dance Party",
+                        "source_uuid": "7e83605e-f56e-4f71-9615-125316e82a52",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1067,6 +1067,45 @@
                         "crop_right": 0,
                         "crop_bottom": 0,
                         "id": 17,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Emote Explosion",
+                        "source_uuid": "c804bf49-1e63-4b5b-8be5-dcfa86ac8c80",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 18,
                         "group_item_backup": false,
                         "pos": {
                             "x": 0,
@@ -1113,16 +1152,16 @@
         {
             "prev_ver": 537001986,
             "name": "Just Chatting",
-            "uuid": "54d8d93b-8ed3-4dfa-b762-543c603e4c5e",
+            "uuid": "ac7959e4-b8d8-4e60-b290-f7b1b83af7ff",
             "id": "scene",
             "versioned_id": "scene",
             "settings": {
                 "custom_size": false,
-                "id_counter": 12,
+                "id_counter": 13,
                 "items": [
                     {
                         "name": "BG - Iron",
-                        "source_uuid": "47306df2-bb86-40c5-8183-8e1642c6dc53",
+                        "source_uuid": "68be0437-c046-4f0f-ba6e-3cc2eebcb1d0",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1161,7 +1200,7 @@
                     },
                     {
                         "name": "Webcam",
-                        "source_uuid": "6489d91b-f768-458e-b9c6-f742977cbd29",
+                        "source_uuid": "593b7280-bb72-4065-a008-7cab540cf57a",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1200,7 +1239,7 @@
                     },
                     {
                         "name": "Overlay - Just Chatting",
-                        "source_uuid": "acb3e628-79b2-4dd3-9961-0c3eb498ead0",
+                        "source_uuid": "8065d4a2-5088-47fa-9036-902e40086be3",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1239,7 +1278,7 @@
                     },
                     {
                         "name": "Chat",
-                        "source_uuid": "6a0e2cd5-631d-4abc-b815-84ab3da98af2",
+                        "source_uuid": "e96d512f-3a2e-4dea-8931-5a96f48d2fd3",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1278,7 +1317,7 @@
                     },
                     {
                         "name": "Hype Train",
-                        "source_uuid": "66b1b25c-fd4a-490c-bc8b-62c19517738a",
+                        "source_uuid": "9bbfd23d-6f7a-4707-a88c-209819b83d19",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1317,7 +1356,7 @@
                     },
                     {
                         "name": "Poll Overlay",
-                        "source_uuid": "4d02852d-c6cb-4ef4-837a-1e69ef395230",
+                        "source_uuid": "50e91664-7480-4cdd-b2dc-cd7f9ff963d2",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1356,7 +1395,7 @@
                     },
                     {
                         "name": "Prediction Overlay",
-                        "source_uuid": "0b3ddf9c-6f51-40ec-a9b1-14f38c7c70ad",
+                        "source_uuid": "ddeca4ca-eea7-4ae3-a970-b03bbe7b4585",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1395,7 +1434,7 @@
                     },
                     {
                         "name": "Subathon Timer",
-                        "source_uuid": "53e04d61-ab78-4a51-abee-b7fae63aa7c4",
+                        "source_uuid": "92f63a49-4628-412f-9a8b-d82414cd6b3f",
                         "visible": false,
                         "locked": false,
                         "rot": 0,
@@ -1434,7 +1473,7 @@
                     },
                     {
                         "name": "Game Arena",
-                        "source_uuid": "3b6497b6-09be-45db-b50a-a6ae92eb4af0",
+                        "source_uuid": "b98146fa-39fe-41b0-a379-b490eb2ce9ff",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1472,8 +1511,8 @@
                         "private_settings": {}
                     },
                     {
-                        "name": "Alerts",
-                        "source_uuid": "b22477a6-0cc3-4624-b349-8a5827e86956",
+                        "name": "Word Rush",
+                        "source_uuid": "b7961623-e2f6-4072-9bd2-dd0729c4a7cb",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -1511,505 +1550,8 @@
                         "private_settings": {}
                     },
                     {
-                        "name": "Dance Party",
-                        "source_uuid": "abb4cb48-83bb-479f-a837-aaf977390318",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 11,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "Emote Explosion",
-                        "source_uuid": "6dab4ad4-1db1-4027-a44c-ca0bacc694c2",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 12,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    }
-                ]
-            },
-            "mixers": 0,
-            "sync": 0,
-            "flags": 0,
-            "volume": 1,
-            "balance": 0.5,
-            "enabled": true,
-            "muted": false,
-            "push-to-mute": false,
-            "push-to-mute-delay": 0,
-            "push-to-talk": false,
-            "push-to-talk-delay": 0,
-            "hotkeys": {},
-            "deinterlace_mode": 0,
-            "deinterlace_field_order": 0,
-            "monitoring_type": 0,
-            "private_settings": {}
-        },
-        {
-            "prev_ver": 537001986,
-            "name": "Full Cam",
-            "uuid": "202edbd4-823b-4384-a162-fcf745e12462",
-            "id": "scene",
-            "versioned_id": "scene",
-            "settings": {
-                "custom_size": false,
-                "id_counter": 13,
-                "items": [
-                    {
-                        "name": "BG - Iron",
-                        "source_uuid": "47306df2-bb86-40c5-8183-8e1642c6dc53",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 1,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "Webcam",
-                        "source_uuid": "6489d91b-f768-458e-b9c6-f742977cbd29",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 3,
-                        "bounds_align": 0,
-                        "bounds_crop": true,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 2,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 40,
-                            "y": 70
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 1840,
-                            "y": 906
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "Overlay - Full Cam",
-                        "source_uuid": "0510bd9d-4665-4df2-a0ed-0adaa2d11563",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 3,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "Stream Stats",
-                        "source_uuid": "b66d929b-599f-4d0f-b9c6-f088083bf4d4",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 4,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 1484,
-                            "y": 12
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "Hype Train",
-                        "source_uuid": "66b1b25c-fd4a-490c-bc8b-62c19517738a",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 5,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 656,
-                            "y": 12
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "Poll Overlay",
-                        "source_uuid": "4d02852d-c6cb-4ef4-837a-1e69ef395230",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 6,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 1424,
-                            "y": 80
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "Prediction Overlay",
-                        "source_uuid": "0b3ddf9c-6f51-40ec-a9b1-14f38c7c70ad",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 7,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 1424,
-                            "y": 80
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "Now Playing",
-                        "source_uuid": "453199a6-41ce-4215-b1e1-096281826103",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 8,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 0,
-                            "y": 869
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "Subathon Timer",
-                        "source_uuid": "53e04d61-ab78-4a51-abee-b7fae63aa7c4",
-                        "visible": false,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 9,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 20,
-                            "y": 130
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
-                        "name": "Game Arena",
-                        "source_uuid": "3b6497b6-09be-45db-b50a-a6ae92eb4af0",
-                        "visible": true,
-                        "locked": false,
-                        "rot": 0,
-                        "align": 5,
-                        "bounds_type": 0,
-                        "bounds_align": 0,
-                        "bounds_crop": false,
-                        "crop_left": 0,
-                        "crop_top": 0,
-                        "crop_right": 0,
-                        "crop_bottom": 0,
-                        "id": 10,
-                        "group_item_backup": false,
-                        "pos": {
-                            "x": 700,
-                            "y": 540
-                        },
-                        "scale": {
-                            "x": 1,
-                            "y": 1
-                        },
-                        "bounds": {
-                            "x": 0,
-                            "y": 0
-                        },
-                        "scale_filter": "disable",
-                        "blend_method": "default",
-                        "blend_type": "normal",
-                        "show_transition": {
-                            "duration": 0
-                        },
-                        "hide_transition": {
-                            "duration": 0
-                        },
-                        "private_settings": {}
-                    },
-                    {
                         "name": "Alerts",
-                        "source_uuid": "b22477a6-0cc3-4624-b349-8a5827e86956",
+                        "source_uuid": "54d2f464-a748-4470-a608-2129513ad7fd",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2048,7 +1590,7 @@
                     },
                     {
                         "name": "Dance Party",
-                        "source_uuid": "abb4cb48-83bb-479f-a837-aaf977390318",
+                        "source_uuid": "7e83605e-f56e-4f71-9615-125316e82a52",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2087,7 +1629,7 @@
                     },
                     {
                         "name": "Emote Explosion",
-                        "source_uuid": "6dab4ad4-1db1-4027-a44c-ca0bacc694c2",
+                        "source_uuid": "c804bf49-1e63-4b5b-8be5-dcfa86ac8c80",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2145,8 +1687,583 @@
         },
         {
             "prev_ver": 537001986,
+            "name": "Full Cam",
+            "uuid": "f989922e-40a9-41ae-aa7e-68320b5eef46",
+            "id": "scene",
+            "versioned_id": "scene",
+            "settings": {
+                "custom_size": false,
+                "id_counter": 14,
+                "items": [
+                    {
+                        "name": "BG - Iron",
+                        "source_uuid": "68be0437-c046-4f0f-ba6e-3cc2eebcb1d0",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 1,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Webcam",
+                        "source_uuid": "593b7280-bb72-4065-a008-7cab540cf57a",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 3,
+                        "bounds_align": 0,
+                        "bounds_crop": true,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 2,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 40,
+                            "y": 70
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 1840,
+                            "y": 906
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Overlay - Full Cam",
+                        "source_uuid": "1d12462e-233c-4405-adfc-94f8902fb82f",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 3,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Stream Stats",
+                        "source_uuid": "542d956e-166b-42ae-9d00-e9b8ea18d9e3",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 4,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 1484,
+                            "y": 12
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Hype Train",
+                        "source_uuid": "9bbfd23d-6f7a-4707-a88c-209819b83d19",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 5,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 656,
+                            "y": 12
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Poll Overlay",
+                        "source_uuid": "50e91664-7480-4cdd-b2dc-cd7f9ff963d2",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 6,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 1424,
+                            "y": 80
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Prediction Overlay",
+                        "source_uuid": "ddeca4ca-eea7-4ae3-a970-b03bbe7b4585",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 7,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 1424,
+                            "y": 80
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Now Playing",
+                        "source_uuid": "10040c0b-62e0-4833-a7c4-d443460a0592",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 8,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0,
+                            "y": 869
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Subathon Timer",
+                        "source_uuid": "92f63a49-4628-412f-9a8b-d82414cd6b3f",
+                        "visible": false,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 9,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 20,
+                            "y": 130
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Game Arena",
+                        "source_uuid": "b98146fa-39fe-41b0-a379-b490eb2ce9ff",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 10,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 700,
+                            "y": 540
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Word Rush",
+                        "source_uuid": "b7961623-e2f6-4072-9bd2-dd0729c4a7cb",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 11,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Alerts",
+                        "source_uuid": "54d2f464-a748-4470-a608-2129513ad7fd",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 12,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Dance Party",
+                        "source_uuid": "7e83605e-f56e-4f71-9615-125316e82a52",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 13,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    },
+                    {
+                        "name": "Emote Explosion",
+                        "source_uuid": "c804bf49-1e63-4b5b-8be5-dcfa86ac8c80",
+                        "visible": true,
+                        "locked": false,
+                        "rot": 0,
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 14,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale": {
+                            "x": 1,
+                            "y": 1
+                        },
+                        "bounds": {
+                            "x": 0,
+                            "y": 0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
+                    }
+                ]
+            },
+            "mixers": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {},
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
             "name": "Be Right Back",
-            "uuid": "00c093d3-a8be-43c9-a0d3-26221078d831",
+            "uuid": "0925be90-2752-4368-99d2-855d271fa77a",
             "id": "scene",
             "versioned_id": "scene",
             "settings": {
@@ -2155,7 +2272,7 @@
                 "items": [
                     {
                         "name": "BG - Be Right Back",
-                        "source_uuid": "52f113da-dacd-4c48-8b7b-af2a4fb94589",
+                        "source_uuid": "36b4880e-1724-4b5e-8803-4f95498e13b5",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2194,7 +2311,7 @@
                     },
                     {
                         "name": "Dance Party",
-                        "source_uuid": "abb4cb48-83bb-479f-a837-aaf977390318",
+                        "source_uuid": "7e83605e-f56e-4f71-9615-125316e82a52",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2233,7 +2350,7 @@
                     },
                     {
                         "name": "Emote Explosion",
-                        "source_uuid": "6dab4ad4-1db1-4027-a44c-ca0bacc694c2",
+                        "source_uuid": "c804bf49-1e63-4b5b-8be5-dcfa86ac8c80",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2292,7 +2409,7 @@
         {
             "prev_ver": 537001986,
             "name": "Ending",
-            "uuid": "16c1ef77-1f5c-4386-aa2b-916efaa94883",
+            "uuid": "7362a1ee-e6c4-46f1-8f91-f942663bf97c",
             "id": "scene",
             "versioned_id": "scene",
             "settings": {
@@ -2301,7 +2418,7 @@
                 "items": [
                     {
                         "name": "BG - Ending",
-                        "source_uuid": "6bf4a3e2-8d00-4d29-b696-f6cb2c31cbe5",
+                        "source_uuid": "a275685e-8acd-4258-8939-650bb6f9f2e1",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2340,7 +2457,7 @@
                     },
                     {
                         "name": "Label - Latest Follower (caption)",
-                        "source_uuid": "7d858f57-d3ed-4f38-82b8-6283e710b2b5",
+                        "source_uuid": "1eaf3400-cb69-446c-ae8f-7f757cc7d916",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2379,7 +2496,7 @@
                     },
                     {
                         "name": "Label - Latest Follower",
-                        "source_uuid": "cfa87fe9-35b1-4eb9-8488-b337599350b7",
+                        "source_uuid": "ba1b64ed-b91c-4531-b6df-7c5811775ac7",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2418,7 +2535,7 @@
                     },
                     {
                         "name": "Label - Latest Subscriber (caption)",
-                        "source_uuid": "d918297a-8be0-46d5-afbd-36350c9cb036",
+                        "source_uuid": "836bf700-1453-440b-935b-426d5f7b4211",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2457,7 +2574,7 @@
                     },
                     {
                         "name": "Label - Latest Subscriber",
-                        "source_uuid": "19b3adf0-82ff-40ff-a91e-a44388e13b93",
+                        "source_uuid": "9afc7c8c-45bd-4ce9-a320-63fb03b39e6f",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2496,7 +2613,7 @@
                     },
                     {
                         "name": "Alerts",
-                        "source_uuid": "b22477a6-0cc3-4624-b349-8a5827e86956",
+                        "source_uuid": "54d2f464-a748-4470-a608-2129513ad7fd",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2535,7 +2652,7 @@
                     },
                     {
                         "name": "Dance Party",
-                        "source_uuid": "abb4cb48-83bb-479f-a837-aaf977390318",
+                        "source_uuid": "7e83605e-f56e-4f71-9615-125316e82a52",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2574,7 +2691,7 @@
                     },
                     {
                         "name": "Emote Explosion",
-                        "source_uuid": "6dab4ad4-1db1-4027-a44c-ca0bacc694c2",
+                        "source_uuid": "c804bf49-1e63-4b5b-8be5-dcfa86ac8c80",
                         "visible": true,
                         "locked": false,
                         "rot": 0,
@@ -2633,11 +2750,11 @@
         {
             "prev_ver": 537001986,
             "name": "Dance Party",
-            "uuid": "abb4cb48-83bb-479f-a837-aaf977390318",
+            "uuid": "7e83605e-f56e-4f71-9615-125316e82a52",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/dance.html?scale=1",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/dance.html?scale=1",
                 "width": 1920,
                 "height": 1080,
                 "fps": 30,
@@ -2674,11 +2791,11 @@
         {
             "prev_ver": 537001986,
             "name": "Game Arena",
-            "uuid": "3b6497b6-09be-45db-b50a-a6ae92eb4af0",
+            "uuid": "b98146fa-39fe-41b0-a379-b490eb2ce9ff",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/arena.html?scale=1",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/arena.html?scale=1",
                 "width": 520,
                 "height": 300,
                 "fps": 30,
@@ -2714,12 +2831,53 @@
         },
         {
             "prev_ver": 537001986,
-            "name": "Subathon Timer",
-            "uuid": "53e04d61-ab78-4a51-abee-b7fae63aa7c4",
+            "name": "Word Rush",
+            "uuid": "b7961623-e2f6-4072-9bd2-dd0729c4a7cb",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/subathon.html",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/words.html",
+                "width": 1920,
+                "height": 1080,
+                "fps": 30,
+                "fps_custom": false,
+                "css": "",
+                "shutdown": false,
+                "restart_when_active": false,
+                "reroute_audio": false,
+                "is_local_file": false
+            },
+            "mixers": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "libobs.mute": [],
+                "libobs.unmute": [],
+                "libobs.push-to-mute": [],
+                "libobs.push-to-talk": [],
+                "ObsBrowser.Refresh": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "Subathon Timer",
+            "uuid": "92f63a49-4628-412f-9a8b-d82414cd6b3f",
+            "id": "browser_source",
+            "versioned_id": "browser_source",
+            "settings": {
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/subathon.html",
                 "width": 512,
                 "height": 152,
                 "fps": 30,
@@ -2756,11 +2914,11 @@
         {
             "prev_ver": 537001986,
             "name": "Emote Explosion",
-            "uuid": "6dab4ad4-1db1-4027-a44c-ca0bacc694c2",
+            "uuid": "c804bf49-1e63-4b5b-8be5-dcfa86ac8c80",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/explosion.html?scale=1",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/explosion.html?scale=1",
                 "width": 1920,
                 "height": 1080,
                 "fps": 30,
@@ -2797,11 +2955,11 @@
         {
             "prev_ver": 537001986,
             "name": "Hype Train",
-            "uuid": "66b1b25c-fd4a-490c-bc8b-62c19517738a",
+            "uuid": "9bbfd23d-6f7a-4707-a88c-209819b83d19",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/hypetrain.html",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/hypetrain.html",
                 "width": 608,
                 "height": 136,
                 "fps": 30,
@@ -2838,11 +2996,11 @@
         {
             "prev_ver": 537001986,
             "name": "Recent Events",
-            "uuid": "872d6561-f5fa-43b3-9327-022cb79fd4ef",
+            "uuid": "501ff7b2-a8aa-4597-8341-90c2c2335bbb",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/events.html",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/events.html",
                 "width": 416,
                 "height": 352,
                 "fps": 30,
@@ -2879,11 +3037,11 @@
         {
             "prev_ver": 537001986,
             "name": "Event Ticker",
-            "uuid": "36aad508-7b91-4219-84be-13a8aabb880c",
+            "uuid": "0c5be8c3-582a-4c7b-8a22-1b5054bec3cf",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/events.html?mode=ticker",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/events.html?mode=ticker",
                 "width": 1920,
                 "height": 50,
                 "fps": 30,
@@ -2920,11 +3078,11 @@
         {
             "prev_ver": 537001986,
             "name": "Stream Stats",
-            "uuid": "b66d929b-599f-4d0f-b9c6-f088083bf4d4",
+            "uuid": "542d956e-166b-42ae-9d00-e9b8ea18d9e3",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/viewers.html",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/viewers.html",
                 "width": 416,
                 "height": 72,
                 "fps": 30,
@@ -2961,11 +3119,11 @@
         {
             "prev_ver": 537001986,
             "name": "Now Playing",
-            "uuid": "453199a6-41ce-4215-b1e1-096281826103",
+            "uuid": "10040c0b-62e0-4833-a7c4-d443460a0592",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/nowplaying.html?scale=0.64",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/nowplaying.html?scale=0.64",
                 "width": 448,
                 "height": 141,
                 "fps": 30,
@@ -3002,11 +3160,11 @@
         {
             "prev_ver": 537001986,
             "name": "Poll Overlay",
-            "uuid": "4d02852d-c6cb-4ef4-837a-1e69ef395230",
+            "uuid": "50e91664-7480-4cdd-b2dc-cd7f9ff963d2",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/poll.html",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/poll.html",
                 "width": 496,
                 "height": 448,
                 "fps": 30,
@@ -3043,11 +3201,11 @@
         {
             "prev_ver": 537001986,
             "name": "Prediction Overlay",
-            "uuid": "0b3ddf9c-6f51-40ec-a9b1-14f38c7c70ad",
+            "uuid": "ddeca4ca-eea7-4ae3-a970-b03bbe7b4585",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/prediction.html",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/prediction.html",
                 "width": 496,
                 "height": 496,
                 "fps": 30,
@@ -3084,11 +3242,11 @@
         {
             "prev_ver": 537001986,
             "name": "BG - Iron",
-            "uuid": "47306df2-bb86-40c5-8183-8e1642c6dc53",
+            "uuid": "68be0437-c046-4f0f-ba6e-3cc2eebcb1d0",
             "id": "image_source",
             "versioned_id": "image_source",
             "settings": {
-                "file": "G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/assets/bg_iron.png"
+                "file": "C:/Users/casey/Dev/ItMeCasey-Stream/assets/bg_iron.png"
             },
             "mixers": 0,
             "sync": 0,
@@ -3110,11 +3268,11 @@
         {
             "prev_ver": 537001986,
             "name": "BG - Starting Soon",
-            "uuid": "a56a6f36-6d7f-4c62-a6d4-795bc1953688",
+            "uuid": "b9a267af-5151-410d-90bc-6e56f38a9f6c",
             "id": "image_source",
             "versioned_id": "image_source",
             "settings": {
-                "file": "G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/assets/scene_starting.png"
+                "file": "C:/Users/casey/Dev/ItMeCasey-Stream/assets/scene_starting.png"
             },
             "mixers": 0,
             "sync": 0,
@@ -3136,11 +3294,11 @@
         {
             "prev_ver": 537001986,
             "name": "BG - Be Right Back",
-            "uuid": "52f113da-dacd-4c48-8b7b-af2a4fb94589",
+            "uuid": "36b4880e-1724-4b5e-8803-4f95498e13b5",
             "id": "image_source",
             "versioned_id": "image_source",
             "settings": {
-                "file": "G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/assets/scene_brb.png"
+                "file": "C:/Users/casey/Dev/ItMeCasey-Stream/assets/scene_brb.png"
             },
             "mixers": 0,
             "sync": 0,
@@ -3162,11 +3320,11 @@
         {
             "prev_ver": 537001986,
             "name": "BG - Ending",
-            "uuid": "6bf4a3e2-8d00-4d29-b696-f6cb2c31cbe5",
+            "uuid": "a275685e-8acd-4258-8939-650bb6f9f2e1",
             "id": "image_source",
             "versioned_id": "image_source",
             "settings": {
-                "file": "G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/assets/scene_ending.png"
+                "file": "C:/Users/casey/Dev/ItMeCasey-Stream/assets/scene_ending.png"
             },
             "mixers": 0,
             "sync": 0,
@@ -3188,7 +3346,7 @@
         {
             "prev_ver": 537001986,
             "name": "Label - Latest Follower (caption)",
-            "uuid": "7d858f57-d3ed-4f38-82b8-6283e710b2b5",
+            "uuid": "1eaf3400-cb69-446c-ae8f-7f757cc7d916",
             "id": "text_gdiplus",
             "versioned_id": "text_gdiplus_v3",
             "settings": {
@@ -3227,7 +3385,7 @@
         {
             "prev_ver": 537001986,
             "name": "Label - Latest Follower",
-            "uuid": "cfa87fe9-35b1-4eb9-8488-b337599350b7",
+            "uuid": "ba1b64ed-b91c-4531-b6df-7c5811775ac7",
             "id": "text_gdiplus",
             "versioned_id": "text_gdiplus_v3",
             "settings": {
@@ -3245,7 +3403,7 @@
                 "extents": false,
                 "outline": false,
                 "read_from_file": true,
-                "file": "G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/data/labels/latest_follower.txt"
+                "file": "C:/Users/casey/Dev/ItMeCasey-Stream/data/labels/latest_follower.txt"
             },
             "mixers": 0,
             "sync": 0,
@@ -3267,7 +3425,7 @@
         {
             "prev_ver": 537001986,
             "name": "Label - Latest Subscriber (caption)",
-            "uuid": "d918297a-8be0-46d5-afbd-36350c9cb036",
+            "uuid": "836bf700-1453-440b-935b-426d5f7b4211",
             "id": "text_gdiplus",
             "versioned_id": "text_gdiplus_v3",
             "settings": {
@@ -3306,7 +3464,7 @@
         {
             "prev_ver": 537001986,
             "name": "Label - Latest Subscriber",
-            "uuid": "19b3adf0-82ff-40ff-a91e-a44388e13b93",
+            "uuid": "9afc7c8c-45bd-4ce9-a320-63fb03b39e6f",
             "id": "text_gdiplus",
             "versioned_id": "text_gdiplus_v3",
             "settings": {
@@ -3324,7 +3482,7 @@
                 "extents": false,
                 "outline": false,
                 "read_from_file": true,
-                "file": "G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/data/labels/latest_subscriber.txt"
+                "file": "C:/Users/casey/Dev/ItMeCasey-Stream/data/labels/latest_subscriber.txt"
             },
             "mixers": 0,
             "sync": 0,
@@ -3346,11 +3504,11 @@
         {
             "prev_ver": 537001986,
             "name": "Overlay - Gameplay",
-            "uuid": "259f74b8-4f5a-455f-aea7-49ad267a6693",
+            "uuid": "fea7c757-fa72-4a65-ba23-1c4f75ef49f3",
             "id": "image_source",
             "versioned_id": "image_source",
             "settings": {
-                "file": "G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/assets/overlay_gameplay.png"
+                "file": "C:/Users/casey/Dev/ItMeCasey-Stream/assets/overlay_gameplay.png"
             },
             "mixers": 0,
             "sync": 0,
@@ -3372,11 +3530,11 @@
         {
             "prev_ver": 537001986,
             "name": "Overlay - Just Chatting",
-            "uuid": "acb3e628-79b2-4dd3-9961-0c3eb498ead0",
+            "uuid": "8065d4a2-5088-47fa-9036-902e40086be3",
             "id": "image_source",
             "versioned_id": "image_source",
             "settings": {
-                "file": "G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/assets/overlay_justchatting.png"
+                "file": "C:/Users/casey/Dev/ItMeCasey-Stream/assets/overlay_justchatting.png"
             },
             "mixers": 0,
             "sync": 0,
@@ -3398,11 +3556,11 @@
         {
             "prev_ver": 537001986,
             "name": "Overlay - Full Cam",
-            "uuid": "0510bd9d-4665-4df2-a0ed-0adaa2d11563",
+            "uuid": "1d12462e-233c-4405-adfc-94f8902fb82f",
             "id": "image_source",
             "versioned_id": "image_source",
             "settings": {
-                "file": "G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/assets/overlay_fullcam.png"
+                "file": "C:/Users/casey/Dev/ItMeCasey-Stream/assets/overlay_fullcam.png"
             },
             "mixers": 0,
             "sync": 0,
@@ -3424,7 +3582,7 @@
         {
             "prev_ver": 537001986,
             "name": "Game Capture",
-            "uuid": "473c1303-192f-4b3f-b914-2b5b7525becd",
+            "uuid": "9ea974cb-0cff-4134-a4c7-049f14253eca",
             "id": "game_capture",
             "versioned_id": "game_capture",
             "settings": {
@@ -3452,7 +3610,7 @@
         {
             "prev_ver": 537001986,
             "name": "Display Capture",
-            "uuid": "820a8926-d3ac-4e1b-94f2-85a1650a84c3",
+            "uuid": "8a0251c2-8205-49b9-8728-da3778c4a5b5",
             "id": "monitor_capture",
             "versioned_id": "monitor_capture",
             "settings": {
@@ -3479,7 +3637,7 @@
         {
             "prev_ver": 537001986,
             "name": "Webcam",
-            "uuid": "6489d91b-f768-458e-b9c6-f742977cbd29",
+            "uuid": "593b7280-bb72-4065-a008-7cab540cf57a",
             "id": "dshow_input",
             "versioned_id": "dshow_input",
             "settings": {},
@@ -3503,11 +3661,11 @@
         {
             "prev_ver": 537001986,
             "name": "Alerts",
-            "uuid": "b22477a6-0cc3-4624-b349-8a5827e86956",
+            "uuid": "54d2f464-a748-4470-a608-2129513ad7fd",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/alerts.html",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/alerts.html",
                 "width": 1920,
                 "height": 1080,
                 "fps": 30,
@@ -3544,11 +3702,11 @@
         {
             "prev_ver": 537001986,
             "name": "Chat",
-            "uuid": "6a0e2cd5-631d-4abc-b815-84ab3da98af2",
+            "uuid": "e96d512f-3a2e-4dea-8931-5a96f48d2fd3",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/chat.html?scale=1",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/chat.html?scale=1",
                 "width": 568,
                 "height": 852,
                 "fps": 30,
@@ -3585,11 +3743,11 @@
         {
             "prev_ver": 537001986,
             "name": "Countdown",
-            "uuid": "de54ebbd-eaa5-436c-8a85-2d119cbcd3ba",
+            "uuid": "46bb87fe-b950-4683-8c02-aa5248158a02",
             "id": "browser_source",
             "versioned_id": "browser_source",
             "settings": {
-                "url": "file:///G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/overlays/countdown.html",
+                "url": "file:///C:/Users/casey/Dev/ItMeCasey-Stream/overlays/countdown.html",
                 "width": 512,
                 "height": 184,
                 "fps": 30,
@@ -3626,7 +3784,7 @@
         {
             "prev_ver": 537001986,
             "name": "Desktop Audio",
-            "uuid": "cc5bc181-58ef-4e3d-846b-7742aef89159",
+            "uuid": "f3d21f64-17b2-47be-b180-d7bb3ec4e4d6",
             "id": "wasapi_output_capture",
             "versioned_id": "wasapi_output_capture",
             "settings": {
@@ -3652,7 +3810,7 @@
                 {
                     "prev_ver": 537001986,
                     "name": "Limiter",
-                    "uuid": "61c7be4a-431c-4692-a93e-8f7e274b34f0",
+                    "uuid": "0205cb7f-e8f7-4a43-9b28-63a2b808fd2a",
                     "id": "limiter_filter",
                     "versioned_id": "limiter_filter",
                     "settings": {
@@ -3681,7 +3839,7 @@
         {
             "prev_ver": 537001986,
             "name": "Mic/Aux",
-            "uuid": "c443080f-390f-4318-82f2-637d964c60ce",
+            "uuid": "dce2716d-91d3-4b6e-b35e-dfb7ff291748",
             "id": "wasapi_input_capture",
             "versioned_id": "wasapi_input_capture",
             "settings": {
@@ -3707,7 +3865,7 @@
                 {
                     "prev_ver": 537001986,
                     "name": "Noise Suppression",
-                    "uuid": "a9a8d36f-989b-4a1a-baee-613ce06b1cd6",
+                    "uuid": "dd13b949-6dad-4de0-b3d0-b0e1cd3681eb",
                     "id": "noise_suppress_filter",
                     "versioned_id": "noise_suppress_filter_v2",
                     "settings": {
@@ -3733,7 +3891,7 @@
                 {
                     "prev_ver": 537001986,
                     "name": "Noise Gate",
-                    "uuid": "f42a87fa-d223-4451-b04e-e9ebfde02831",
+                    "uuid": "cc9caa71-575d-4ae0-ae61-cc1f895a7c51",
                     "id": "noise_gate_filter",
                     "versioned_id": "noise_gate_filter",
                     "settings": {
@@ -3760,7 +3918,7 @@
                 {
                     "prev_ver": 537001986,
                     "name": "Compressor",
-                    "uuid": "d082cea1-d721-4099-be5f-1c7cb9aa4e78",
+                    "uuid": "03148e71-bb96-4101-b4fe-14e5705b57d3",
                     "id": "compressor_filter",
                     "versioned_id": "compressor_filter",
                     "settings": {
@@ -3790,7 +3948,7 @@
                 {
                     "prev_ver": 537001986,
                     "name": "Limiter",
-                    "uuid": "5bad76b6-cc6b-4565-ba54-923718a31dc6",
+                    "uuid": "b425c3d0-4b3f-4387-ae07-3f1b258400dd",
                     "id": "limiter_filter",
                     "versioned_id": "limiter_filter",
                     "settings": {
@@ -3848,7 +4006,7 @@
             "name": "ItMeCasey Stinger",
             "id": "obs_stinger_transition",
             "settings": {
-                "path": "G:/Other computers/My Computer/Projects/ItMeCasey/OBS-Pack/transitions/stinger.mov",
+                "path": "C:/Users/casey/Dev/ItMeCasey-Stream/transitions/stinger.mov",
                 "transition_point": 900,
                 "tp_type": 0,
                 "audio_fade_style": 1,

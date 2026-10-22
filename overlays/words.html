@@ -1,0 +1,201 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>ItMeCasey Word Rush</title>
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* OBS Browser Source: http://localhost:8420/overlays/words.html   (1920 x 1080, full screen)
+     Word Rush: chat makes words from the letters on screen. The server decides every word and every point; this only draws the state it is sent.
+     It covers the whole scene while a game runs and is invisible the rest of the time. ?demo=1 plays a made-up round so you can see it.  Silent. */
+  html, body { background: transparent; overflow: hidden; }
+  canvas { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; image-rendering: pixelated; image-rendering: crisp-edges; }
+</style></head>
+<body><canvas id="cv" width="480" height="270"></canvas>
+<script src="config.js"></script>
+<script>
+(function () {
+  const C = window.CFG || {}, Q = new URLSearchParams(location.search), BASE = icmBase('words', +(Q.get('port') || C.serverPort || 8420));
+  const cv = document.getElementById('cv'), g = cv.getContext('2d'), W = 480, H = 270;
+  const IRON = '#222A2A', IRON_D = '#1A2020', SLOT = '#2d3737', AQUA = '#4FBBBC', AQUA_D = '#2f8a8b', HEAT = '#F39120', HEAT_D = '#c06a0c', RUST = '#EC4624', DRUST = '#B13A22', CREAM = '#E2DAC2', CREAM_D = '#b3ab92', INK = '#14191a';
+  const PAL = [AQUA, HEAT, RUST, CREAM, '#8e7cc3', '#6aa84f'];
+  const hash = (str) => { let h = 2166136261; for (const c of String(str)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
+  const colorOf = (name) => PAL[hash(name) % PAL.length];
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+  // ---- a 5 x 7 pixel font, so the text is as chunky as everything else (each glyph is 7 rows of 5 bits)
+  const F = { A: '01110 10001 10001 11111 10001 10001 10001', B: '11110 10001 10001 11110 10001 10001 11110', C: '01110 10001 10000 10000 10000 10001 01110', D: '11110 10001 10001 10001 10001 10001 11110',
+    E: '11111 10000 10000 11110 10000 10000 11111', F: '11111 10000 10000 11110 10000 10000 10000', G: '01110 10001 10000 10111 10001 10001 01111', H: '10001 10001 10001 11111 10001 10001 10001',
+    I: '01110 00100 00100 00100 00100 00100 01110', J: '00111 00010 00010 00010 00010 10010 01100', K: '10001 10010 10100 11000 10100 10010 10001', L: '10000 10000 10000 10000 10000 10000 11111',
+    M: '10001 11011 10101 10101 10001 10001 10001', N: '10001 11001 10101 10011 10001 10001 10001', O: '01110 10001 10001 10001 10001 10001 01110', P: '11110 10001 10001 11110 10000 10000 10000',
+    Q: '01110 10001 10001 10001 10101 10010 01101', R: '11110 10001 10001 11110 10100 10010 10001', S: '01111 10000 10000 01110 00001 00001 11110', T: '11111 00100 00100 00100 00100 00100 00100',
+    U: '10001 10001 10001 10001 10001 10001 01110', V: '10001 10001 10001 10001 10001 01010 00100', W: '10001 10001 10001 10101 10101 11011 10001', X: '10001 10001 01010 00100 01010 10001 10001',
+    Y: '10001 10001 01010 00100 00100 00100 00100', Z: '11111 00001 00010 00100 01000 10000 11111',
+    0: '01110 10001 10011 10101 11001 10001 01110', 1: '00100 01100 00100 00100 00100 00100 01110', 2: '01110 10001 00001 00010 00100 01000 11111', 3: '11110 00001 00001 01110 00001 00001 11110',
+    4: '00010 00110 01010 10010 11111 00010 00010', 5: '11111 10000 11110 00001 00001 10001 01110', 6: '00110 01000 10000 11110 10001 10001 01110', 7: '11111 00001 00010 00100 01000 01000 01000',
+    8: '01110 10001 10001 01110 10001 10001 01110', 9: '01110 10001 10001 01111 00001 00010 01100',
+    '+': '00000 00100 00100 11111 00100 00100 00000', '-': '00000 00000 00000 11111 00000 00000 00000', ':': '00000 00100 00100 00000 00100 00100 00000', '/': '00001 00010 00010 00100 01000 01000 10000',
+    '.': '00000 00000 00000 00000 00000 01100 01100', '!': '00100 00100 00100 00100 00100 00000 00100', '%': '11001 11010 00010 00100 01000 01011 10011', '?': '01110 10001 00001 00010 00100 00000 00100',
+    "'": '00100 00100 01000 00000 00000 00000 00000', ',': '00000 00000 00000 00000 01100 00100 01000', '*': '00000 10101 01110 11111 01110 10101 00000', '#': '01010 11111 01010 01010 11111 01010 00000' };
+  const GLYPH = {}; for (const k of Object.keys(F)) GLYPH[k] = F[k].split(' ');
+  const textW = (s, sc) => { s = String(s); return s.length ? (s.length * 6 - 1) * sc : 0; };
+  /** draw text with the pixel font: s is the pixel size of one font pixel, align l / c / r, sh a shadow colour */
+  function txt(str, x, y, sc, col, align, sh) {
+    str = String(str).toUpperCase(); const w = textW(str, sc); let ox = align === 'c' ? x - w / 2 : align === 'r' ? x - w : x; ox = Math.round(ox); y = Math.round(y);
+    for (const pass of sh ? [1, 0] : [0]) {
+      g.fillStyle = pass ? sh : col;
+      for (let i = 0; i < str.length; i++) { const gl = GLYPH[str[i]]; if (!gl) continue; const gx = ox + i * 6 * sc + (pass ? sc : 0), gy = y + (pass ? sc : 0);
+        for (let r = 0; r < 7; r++) for (let c = 0; c < 5; c++) if (gl[r][c] === '1') g.fillRect(gx + c * sc, gy + r * sc, sc, sc); }
+    }
+  }
+  const fit = (s, maxChars) => { s = String(s || ''); return s.length > maxChars ? s.slice(0, maxChars - 1) + '.' : s; };
+  const rect = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+
+  // ---- state from the server
+  let S = { phase: 'idle' }, first = true, alpha = 0, foundAt = {}, floats = [], bursts = [], phaseAt = 0, lastPhase = '', roundKey = '', shuffleAt = 0, order = [], flash = 0;
+  const nowMs = () => Date.now();
+  function setState(s, ev) {
+    const prev = S; S = s || { phase: 'idle' };
+    if (S.phase !== lastPhase) { lastPhase = S.phase; phaseAt = performance.now(); }
+    const key = S.phase === 'idle' ? '' : S.round + ':' + (S.letters || '');
+    if (key !== roundKey) { roundKey = key; foundAt = {}; floats = []; bursts = []; order = []; shuffleAt = performance.now(); }
+    if (!first && prev.words && S.words && S.round === prev.round) {
+      S.words.forEach((w, i) => { if (w.w && w.got !== false && !(prev.words[i] && prev.words[i].got) && S.phase === 'round') { foundAt[i] = performance.now(); floats.push({ i, t: performance.now(), text: '+' + (ev && ev.word === w.w ? ev.pts : ''), by: w.by }); } });
+    }
+    if (ev && ev.kind === 'found' && ev.pangram) flash = performance.now();
+    first = false;
+  }
+  const load = () => fetch(BASE + '/api/words').then((r) => r.json()).then((s) => setState(s)).catch(() => { /* the app is not running */ });
+  window.wordsEvent = (d) => { if (d && d.type === 'state') setState(d.s, d.ev); };
+  const es = new EventSource(BASE + '/events'); es.addEventListener('words', (e) => { try { window.wordsEvent(JSON.parse(e.data)); } catch (x) { /* ignore */ } }); es.onopen = load; load(); setInterval(load, 20000);
+
+  // ---- drawing
+  function tile(x, y, w, h, c, shade) { rect(x, y, w, h, INK); rect(x + 1, y + 1, w - 2, h - 2, c); if (shade) rect(x + 1, y + h - 3, w - 2, 2, shade); }
+  const fmtT = (sec) => { sec = Math.max(0, Math.ceil(sec)); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); };
+
+  function background(t) {
+    rect(0, 0, W, H, IRON); for (let y = 0; y < H; y += 8) for (let x = (y / 8 % 2) * 8; x < W; x += 16) rect(x, y, 8, 8, '#262f2f');   // a faint checkerboard
+    const seg = [[AQUA, 0.3], [HEAT, 0.25], [RUST, 0.2], [DRUST, 0.15], [CREAM, 0.1]]; let x = 0; seg.forEach(([c, f]) => { rect(x, 0, Math.ceil(W * f), 3, c); x += W * f; });
+    rect(0, H - 3, W, 3, IRON_D);
+  }
+
+  function header(s) {
+    txt('WORD RUSH', 8, 8, 2, CREAM, 'l', DRUST);
+    if (s.round) txt('ROUND ' + s.round + '/' + s.rounds, W - 8, 8, 2, HEAT, 'r', INK);
+  }
+
+  function timerBar(s, t) {
+    const total = Math.max(1, s.endsAt - s.startedAt), left = (s.endsAt - nowMs()) / total, sec = (s.endsAt - nowMs()) / 1000, low = s.phase === 'round' && sec <= 10, blink = low && Math.floor(t / 250) % 2;
+    rect(8, 26, W - 16, 5, INK); rect(9, 27, W - 18, 3, SLOT); rect(9, 27, Math.round((W - 18) * clamp(left, 0, 1)), 3, blink ? RUST : low ? RUST : s.phase === 'round' ? AQUA : HEAT);
+    return { sec, low, blink };
+  }
+
+  function rack(s, t, x0, y0, w) {
+    const n = s.letters.length, gap = 2, tw = Math.floor((w - (n - 1) * gap) / n), th = tw + 6;
+    if (!order.length || order.length !== n) order = [...Array(n).keys()];
+    for (let i = 0; i < n; i++) {
+      const k = order[i], bob = s.phase === 'round' ? Math.round(Math.sin(t / 380 + i * 1.3) * 1) : 0, x = x0 + i * (tw + gap), y = y0 + bob;
+      tile(x, y, tw, th, CREAM, CREAM_D); txt(s.letters[k], x + tw / 2 + 0.5, y + (th - 14) / 2 - 1, 2, INK, 'c');
+    }
+    return th;
+  }
+
+  function board(s, t, x0, y0, w, h) {
+    const words = s.words, lens = [...new Set(words.map((x) => x.len))].sort((a, b) => a - b), reveal = s.reveal, SIZES = [{ tw: 14, th: 18, sc: 2, gap: 9 }, { tw: 11, th: 13, sc: 1, gap: 8 }, { tw: 9, th: 11, sc: 1, gap: 7 }, { tw: 7, th: 9, sc: 1, gap: 5 }];
+    let T = SIZES[SIZES.length - 1], cols = [];
+    const layout = (z) => { const rows = Math.max(1, Math.floor((h - 9 + 2) / (z.th + 2))), out = []; lens.forEach((L) => { const idx = words.map((x, i) => (x.len === L ? i : -1)).filter((i) => i >= 0); for (let k = 0; k < idx.length; k += rows) out.push({ L, idx: idx.slice(k, k + rows) }); }); return out; };
+    const widthOf = (cs, z) => cs.reduce((a, c) => a + c.L * (z.tw + 1) - 1 + z.gap, -z.gap);
+    for (const z of SIZES) { const cs = layout(z); if (widthOf(cs, z) <= w || z === SIZES[SIZES.length - 1]) { T = z; cols = cs; break; } }
+    const { tw, th, sc, gap } = T, startX = x0 + Math.max(0, Math.floor((w - widthOf(cols, T)) / 2)), colX = []; let x = startX;
+    cols.forEach((col) => { colX.push(x); x += col.L * (tw + 1) - 1 + gap; });
+    const gy = (y) => y + Math.round((th - 7 * sc) / 2), gx = (tx) => tx + Math.round((tw - 5 * sc) / 2);
+    const glyph = (ch, tx, y, c) => { const gl = GLYPH[ch.toUpperCase()]; if (!gl) return; g.fillStyle = c; for (let r = 0; r < 7; r++) for (let q = 0; q < 5; q++) if (gl[r][q] === '1') g.fillRect(gx(tx) + q * sc, gy(y) + r * sc, sc, sc); };
+    cols.forEach((col, ci) => {
+      if (!ci || cols[ci - 1].L !== col.L) txt(String(col.L), colX[ci] + (col.L * (tw + 1) - 1) / 2, y0 - 1, 1, CREAM_D, 'c');
+      col.idx.forEach((i, r) => {
+        const wd = words[i], y = y0 + 9 + r * (th + 2), age = foundAt[i] ? performance.now() - foundAt[i] : 9999, pop = age < 450 ? (1 - age / 450) : 0, lift = pop > 0 ? 1 : 0;
+        for (let c = 0; c < col.L; c++) {
+          const tx = colX[ci] + c * (tw + 1);
+          if (wd.got || (wd.w && !reveal)) { tile(tx, y - lift, tw, th, pop > 0.6 ? '#ffffff' : wd.pangram ? HEAT : colorOf(wd.by || ''), wd.pangram ? HEAT_D : null); glyph(wd.w[c], tx, y - lift, INK); }
+          else if (reveal && wd.w) { tile(tx, y, tw, th, '#3a2a28'); glyph(wd.w[c], tx, y, RUST); }   // missed: shown in rust
+          else { tile(tx, y, tw, th, wd.pangram ? '#3b3226' : SLOT); if (wd.first && c === 0) glyph(wd.first, tx, y, wd.pangram ? HEAT : AQUA_D); }
+        }
+      });
+    });
+    // "+12" floating up from a word that was just found
+    floats = floats.filter((f) => performance.now() - f.t < 1100);
+    floats.forEach((f) => {
+      const ci = cols.findIndex((c) => c.idx.includes(f.i)); if (ci < 0) return;
+      const r = cols[ci].idx.indexOf(f.i), a = (performance.now() - f.t) / 1100; txt(f.text, colX[ci] + 2, y0 + 9 + r * (th + 2) - 8 - a * 10, 1, a > 0.7 ? CREAM_D : CREAM, 'l', INK);
+    });
+  }
+
+  function leftPanel(s, t, tm) {
+    const x0 = 8, w = 146; let y = 38;
+    const th = rack(s, t, x0, y, w); y += th + 8;
+    const showT = s.phase === 'round';
+    if (showT) { txt(fmtT(tm.sec), x0, y, 4, tm.low && tm.blink ? RUST : tm.low ? RUST : CREAM, 'l', INK); txt(s.found + '/' + s.total, x0 + w, y + 6, 2, AQUA, 'r', INK); txt('FOUND', x0 + w, y + 22, 1, CREAM_D, 'r'); y += 34; }
+    else { txt(s.found + '/' + s.total, x0, y, 3, AQUA, 'l', INK); txt('WORDS', x0 + w, y, 1, CREAM_D, 'r'); txt('FOUND', x0 + w, y + 10, 1, CREAM_D, 'r'); y += 28; }
+    rect(x0, y, w, 1, '#3d4848'); y += 5;
+    if (showT) {   // the latest finds
+      txt('LATEST', x0, y, 1, CREAM_D, 'l'); y += 10;
+      const rec = (s.recent || []).slice(-5).reverse(); if (!rec.length) txt('TYPE A WORD IN CHAT!', x0, y, 1, CREAM, 'l');
+      rec.forEach((r, i) => { const c = r.pangram ? HEAT : colorOf(r.name); rect(x0, y + 1, 4, 5, c); txt(fit(r.name, 8), x0 + 7, y, 1, i ? CREAM_D : CREAM, 'l'); txt(r.word, x0 + w - 28, y, 1, i ? CREAM_D : c, 'r'); txt('+' + r.pts, x0 + w, y, 1, r.pangram ? HEAT : AQUA_D, 'r'); y += 9; });
+      y = Math.max(y, 38 + th + 8 + 34 + 6 + 10 + 5 * 9) + 4;
+    } else if (s.results) {   // this round's payout
+      txt('PAID OUT', x0, y, 1, CREAM_D, 'l'); y += 10;
+      s.results.paid.slice(0, 6).forEach((p, i) => { rect(x0, y + 1, 4, 5, colorOf(p.name)); txt(fit(p.name, 9), x0 + 7, y, 1, i ? CREAM : HEAT, 'l'); txt('+' + (p.pts + p.bonus), x0 + w, y, 1, i ? AQUA : HEAT, 'r'); y += 9; });
+      if (!s.results.paid.length) txt('NOBODY FOUND A WORD', x0, y, 1, CREAM_D, 'l');
+      y = Math.max(y, 38 + th + 8 + 18 + 6 + 10 + 6 * 9) + 4;
+    }
+    rect(x0, y, w, 1, '#3d4848'); y += 5; txt('MATCH SCORE', x0, y, 1, CREAM_D, 'l'); y += 10;
+    (s.scores || []).slice(0, Math.max(3, Math.floor((H - 6 - y) / 9))).forEach((p, i) => { txt(String(i + 1), x0, y, 1, i === 0 ? HEAT : CREAM_D, 'l'); txt(fit(p.name, 9), x0 + 9, y, 1, i === 0 ? CREAM : CREAM_D, 'l'); txt(String(p.pts), x0 + w, y, 1, i === 0 ? HEAT : AQUA, 'r'); y += 9; });
+    if (!(s.scores || []).length) txt('NOBODY YET', x0, y, 1, CREAM_D, 'l');
+  }
+
+  function intro(s, t, tm) {
+    const cx = W / 2, p = clamp((performance.now() - phaseAt) / 500, 0, 1);
+    txt('WORD', cx, 26, 8, CREAM, 'c', DRUST); txt('RUSH', cx, 94, 4, HEAT, 'c', INK);
+    const lines = ['MAKE WORDS FROM THE LETTERS', 'JUST TYPE THEM IN CHAT', 'FIRST TO TYPE A WORD GETS IT', 'POINTS ARE PAID AFTER EVERY ROUND']; lines.forEach((l, i) => txt(l, cx, 136 + i * 12, 1, i === 3 ? AQUA : CREAM, 'c'));
+    txt(s.rounds + (s.rounds === 1 ? ' ROUND' : ' ROUNDS'), cx, 192, 2, CREAM, 'c', INK);
+    txt(String(Math.max(0, Math.ceil(tm.sec))), cx, 218, 4, p < 1 ? HEAT : RUST, 'c', INK);
+  }
+
+  function final(s, t) {
+    const cx = W / 2, ch = s.champion, sc = (s.scores || []).slice(0, 5);
+    txt('GAME OVER', cx, 20, 5, CREAM, 'c', DRUST);
+    if (!ch) { txt('NOBODY SCORED. THANKS FOR WATCHING!', cx, 130, 2, CREAM, 'c', INK); return; }
+    // a pixel trophy
+    const bob = Math.round(Math.sin(t / 300) * 2), tx = cx - 15, ty = 92 + bob;
+    rect(tx + 4, ty, 22, 4, HEAT_D); rect(tx + 2, ty + 4, 26, 16, HEAT); rect(tx + 4, ty + 20, 22, 4, HEAT_D); rect(tx + 12, ty + 24, 6, 8, HEAT_D); rect(tx + 6, ty + 32, 18, 4, HEAT); rect(tx + 6, ty + 6, 4, 10, '#ffd9a0');
+    rect(tx - 4, ty + 6, 4, 10, HEAT_D); rect(tx + 30, ty + 6, 4, 10, HEAT_D);
+    txt('CHAMPION', cx, 66, 2, HEAT, 'c', INK); txt(fit(ch.name, 18), cx, 134, 3, colorOf(ch.name), 'c', INK); txt(ch.pts + ' POINTS', cx, 160, 2, CREAM, 'c', INK);
+    sc.slice(1).forEach((p, i) => txt((i + 2) + '. ' + fit(p.name, 14) + '  ' + p.pts, cx, 184 + i * 12, 1, CREAM_D, 'c'));
+    for (let k = 0; k < 18; k++) { const a = (t / 900 + k / 18), px = (k * 97 + Math.floor(t / 40) * (k % 3 + 1)) % W, py = ((a % 1) * H); rect(px, py, 3, 3, PAL[k % PAL.length]); }   // confetti
+  }
+
+  function draw(t) {
+    requestAnimationFrame(draw);
+    const on = S.phase && S.phase !== 'idle'; alpha += ((on ? 1 : 0) - alpha) * 0.12; cv.style.opacity = alpha < 0.01 ? 0 : alpha.toFixed(2);
+    if (alpha < 0.01) return;
+    g.clearRect(0, 0, W, H); background(t);
+    if (!on) return;
+    const s = S, tm = timerBar(s, t);
+    if (s.phase === 'intro') { intro(s, t, tm); return; }
+    if (s.phase === 'final') { final(s, t); return; }
+    header(s); leftPanel(s, t, tm); board(s, t, 162, 40, 310, 224);
+    if (performance.now() - flash < 400) { g.globalAlpha = 0.25 * (1 - (performance.now() - flash) / 400); rect(0, 0, W, H, HEAT); g.globalAlpha = 1; }   // the screen flashes when somebody finds a word with every letter
+    if (s.phase === 'review') { const k = (performance.now() - phaseAt) / 1000; if (k < 2) txt('ROUND ' + s.round + ' OVER', 316, 126, 4, CREAM, 'c', DRUST); }
+    if (s.phase === 'round' && performance.now() - phaseAt < 1600) { const a = 1 - (performance.now() - phaseAt) / 1600; g.globalAlpha = clamp(a * 2, 0, 1); txt('ROUND ' + s.round, 316, 126, 5, HEAT, 'c', INK); g.globalAlpha = 1; }
+  }
+  g.imageSmoothingEnabled = false; requestAnimationFrame(draw);
+
+  // ?demo=1: a made-up round, to see what it looks like
+  if (Q.get('demo')) {
+    const base = ['LISTEN'], ws = ['ELS', 'ENS', 'INS', 'ITS', 'LET', 'LIE', 'LIT', 'NET', 'NIT', 'SET', 'SIN', 'SIT', 'TEN', 'TIE', 'TIN', 'LENS', 'LENT', 'LINE', 'LINT', 'LIST', 'NEST', 'SILT', 'SINE', 'SITE', 'TILE', 'INLET', 'ISLET', 'LINES', 'STILE', 'TINES', 'LISTEN'];
+    const got = new Map(), names = ['RetroRider', 'TealTina', 'ChaosChad', 'BitBaron', 'PixelPat']; const t0 = Date.now(), dur = 60000;
+    const make = (phase) => ({ phase, round: 2, rounds: 5, letters: 'TSINEL', N: 6, startedAt: t0, endsAt: t0 + dur, found: got.size, total: ws.length, hint: Date.now() - t0 > dur / 2, reveal: phase !== 'round',
+      words: ws.map((w) => ({ len: w.length, w: got.has(w) || phase !== 'round' ? w : null, by: got.get(w) || null, got: got.has(w), pangram: w.length === 6, first: !got.has(w) && Date.now() - t0 > dur / 2 ? w[0] : null })),
+      recent: [...got.entries()].slice(-5).map(([w, by]) => ({ name: by, word: w, pts: w.length * 2 + (w.length === 6 ? 25 : 0), pangram: w.length === 6 })), scores: names.map((n, i) => ({ name: n, pts: 90 - i * 17 })), round_scores: [] });
+    setState(make('round'));
+    setInterval(() => { const left = ws.filter((w) => !got.has(w)); if (left.length > 6) { const w = left[Math.floor(Math.random() * left.length)], by = names[Math.floor(Math.random() * 5)]; got.set(w, by); setState(make('round'), { kind: 'found', word: w, pts: w.length * 2, pangram: w.length === 6 }); } }, 1400);
+  }
+})();
+</script></body></html>

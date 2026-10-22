@@ -1464,6 +1464,7 @@ async function route(req, res) {
     return;
   }
   if (p === '/api/bot') return json(res, 200, bot.view());
+  if (p === '/api/words') return json(res, 200, await bot.api('words/state', {}));   // the Word Rush overlay asks for the current game when it loads
   if (p === '/bot' || p === '/bot/') return serveFile(res, path.join(__dirname, 'public', 'bot.html'));
   if (p === '/api/polls') { try { return json(res, 200, await pollsSnapshot()); } catch (e) { return json(res, 200, { error: e.message, presets: { polls: state.pollPresets, predictions: state.predictionPresets } }); } }
   if (p === '/polls' || p === '/polls/') return serveFile(res, path.join(__dirname, 'public', 'polls.html'));
@@ -1670,7 +1671,7 @@ async function route(req, res) {
       }
       if (p === '/api/vm/volume') return json(res, 200, await vmix.setVolume(body.which, body.db));
       if (p === '/api/obs/overlay') {   // add one of the overlays to the CURRENT OBS collection (every scene) without replacing anything
-        const files = { dance: ['Dance Party', 'dance.html?scale=1', 1920, 1080] }, f = files[String(body.which)]; if (!f) throw new Error('Unknown overlay');
+        const files = { dance: ['Dance Party', 'dance.html?scale=1', 1920, 1080], words: ['Word Rush', 'words.html', 1920, 1080] }, f = files[String(body.which)]; if (!f) throw new Error('Unknown overlay');
         const url = 'http://localhost:' + CFG.port + '/overlays/' + f[1];
         const steps = await obsClient.raw(async (call) => {
           const scenes = ((await call('GetSceneList')).scenes || []).map((x) => x.sceneName), have = ((await call('GetInputList')).inputs || []).some((i) => i.inputName === f[0]), out = [];

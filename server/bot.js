@@ -14,7 +14,7 @@ const BUILTIN = ['commands', 'addcom', 'editcom', 'delcom', 'uptime', 'game', 't
   'shop', 'redeem', 'buy', 'send', 'pay', 'setvar', 'listadd', 'announce', 'song', 'skip', 'pause', 'play', 'previous', 'volume', 'sr', 'songrequest',
   'countdown', 'timeleft', 'tts', 'ttsskip', 'alerts', 'clip', 'tip', 'paypal', 'subathon', 'subrules', 'brb', 'back', 'watchtime', 'addpoints',
   'removepoints', 'setpoints', 'bonus', 'approve', 'deny', 'addquote', 'delquote', 'nextad', 'ad', 'snooze', 'setgame', 'settitle', 'gamesearch',
-  'counter', 'points', 'gamble', 'slots', 'duel', 'accept', 'give', 'top', 'leaderboard', 'trivia', 'raffle', 'enter', 'draw', '8ball', 'roll', 'flip'];
+  'counter', 'points', 'gamble', 'slots', 'duel', 'accept', 'give', 'top', 'leaderboard', 'trivia', 'raffle', 'enter', 'draw', '8ball', 'roll', 'flip', 'words', 'wheel'];
 
 const TRIVIA = [
   ['What is the capital of Australia?', 'canberra'], ['How many sides does a hexagon have?', '6|six'], ['What planet is known as the Red Planet?', 'mars'],
@@ -61,6 +61,7 @@ const defaults = () => ({
   extras: { welcome: { on: false, msg: 'Welcome to the stream, $(user)! Glad you are here.', announce: '', onlyLive: true }, raidShout: { on: false }, regulars: { on: false, minutes: 300, messages: 200 } },
   games: { gambleWin: 0.45, maxBet: 0, triviaReward: 100, triviaSeconds: 30, duelSeconds: 60, duelAnim: true, off: [], botDuel: { on: true, below: 1000, house: 50, maxWin: 1000 },
     bits: { boss: 100, royale: 100, race: 100, dance: 1000 },
+    words: { rounds: 5, seconds: 90, letters: 6, perLetter: 2, pangram: 25, mvp: 25 },
     wheel: { title: 'Spin the wheel', options: ['Yes', 'No', 'Ask again'], pct: [34, 33, 33] },
     dance: { seconds: 120, strobe: true },   // a cheer of at least this many bits with the word boss / arena / race in it starts that game (0 = off)
     race: { count: 5, seconds: 90, title: 'Who wins the race?', names: [] },
@@ -428,6 +429,7 @@ module.exports = function createBot(ctx) {
     { id: 'raffle', name: 'Raffle', cmd: 'raffle', how: '!raffle (mods), !enter, !draw', desc: 'Mods open a raffle, viewers enter, mods draw a winner.' },
     { id: '8ball', name: 'Magic 8-ball', cmd: '8ball', how: '!8ball <question>', desc: 'Ask a yes/no question, get a mystical answer.' },
     { id: 'roll', name: 'Dice', cmd: 'roll', how: '!roll [NdM]', desc: 'Roll dice, for example !roll 2d6.' },
+    { id: 'words', name: 'Word Rush', cmd: 'words', how: '!words (mods)', desc: 'Streamer and mods only. A full-screen pixel word game: chat makes words from the letters on screen. Points are paid out after every round.' },
     { id: 'wheel', name: 'Spin the wheel', cmd: 'wheel', how: '!wheel (mods) or !wheel pizza, tacos, sushi', desc: 'Streamer and mods only. A pixel wheel spins on the overlay and picks one option at random from your list.' },
     { id: 'dance', name: 'Dance Party', cmd: 'dance', how: '!dance (mods), or a 1000-bit cheer with "dance"', desc: 'Two minutes of lights, lasers, strobes and pixel dancers (named after chatters) dancing to the current song.' },
     { id: 'race', name: 'Horse race', cmd: 'race', how: '!race (mods)', desc: 'Horses run across the overlay. A Twitch prediction takes channel-point bets, then the winner is picked and the prediction pays out.' },
@@ -436,7 +438,7 @@ module.exports = function createBot(ctx) {
     { id: 'teams', name: 'Team battle', cmd: 'teams', how: '!teams (mods) then !red or !blue', desc: 'Two teams fight; the smaller team hits harder so it stays fair. Winners split the pot.' },
     { id: 'flip', name: 'Coin flip', cmd: 'flip', how: '!flip', desc: 'Heads or tails.' },
   ];
-  const GAME_OF = { wheel: 'wheel', spin: 'wheel', dance: 'dance', race: 'race', hit: 'boss', boss: 'boss', arena: 'royale', join: 'royale', teams: 'teams', red: 'teams', blue: 'teams', gamble: 'gamble', slots: 'slots', duel: 'duel', accept: 'duel', trivia: 'trivia', raffle: 'raffle', enter: 'raffle', draw: 'raffle', '8ball': '8ball', roll: 'roll', flip: 'flip' };
+  const GAME_OF = { words: 'words', wheel: 'wheel', spin: 'wheel', dance: 'dance', race: 'race', hit: 'boss', boss: 'boss', arena: 'royale', join: 'royale', teams: 'teams', red: 'teams', blue: 'teams', gamble: 'gamble', slots: 'slots', duel: 'duel', accept: 'duel', trivia: 'trivia', raffle: 'raffle', enter: 'raffle', draw: 'raffle', '8ball': '8ball', roll: 'roll', flip: 'flip' };
   const rollOutcome = (G, r) => { const total = G.outcomes.reduce((a, o) => a + o.weight, 0); let x = r * total; for (const o of G.outcomes) { if ((x -= o.weight) < 0) return o; } return G.outcomes[G.outcomes.length - 1]; };
   async function playCustom(G, u, reply) {
     const p = pt(u.id, u.name), cost = G.cost || 0;
@@ -507,6 +509,15 @@ module.exports = function createBot(ctx) {
     if (text.toLowerCase() === 'stop') { const r = wheel.cancel(); return reply(r.error || 'Wheel stopped.'); }
     const r = text ? wheel.spin({ title: '', options: text }) : wheel.spin({ title: W.title, options: W.options, pct: W.pct });
     if (r.error) reply(r.error);
+  }
+  // ---- Word Rush: a full-screen word game for chat; only the streamer and mods start it, points are paid out after every round
+  const words = require('./words')({ rng, now, introMs: () => ctx.wordsIntroMs || 6000, cfg: () => db.games.words, currency: () => cur(), broadcast: (ev, d) => (ctx.broadcast ? ctx.broadcast(ev, d) : 0), say: (t) => say(t),
+    award: (id, name, n, why) => addPts(id, name, n, why) });
+  function wordsCmd(args, u, reply) {
+    const a = String(args[0] || '').toLowerCase();
+    if (a === 'stop') { const r = words.stop(); return reply(r.error || 'Word Rush stopped.'); }
+    if (a === 'skip') { const r = words.skip(); return r.error ? reply(r.error) : undefined; }
+    const r = words.start({ by: u && u.name, rounds: /^\d+$/.test(a) ? Number(a) : undefined }); if (r.error) reply(r.error);
   }
   const arenaCmd = (fn) => ({ run: ({ args, u, reply }) => { const r = fn(args, u); if (r) reply(r); } });
 
@@ -770,6 +781,7 @@ module.exports = function createBot(ctx) {
       const a = (args[0] || '').toLowerCase(), r = a === 'cancel' ? await race.cancel() : a === 'now' ? await race.run(args.slice(1).join(' ')) : await race.start({});
       if (r && r.error) reply(r.error);
     } },
+    words: { level: 3, run: ({ args, u, reply }) => wordsCmd(args, u, reply) },
     wheel: { level: 3, run: ({ args, reply }) => wheelCmd(args, reply) },
     spin: { level: 3, run: ({ args, reply }) => wheelCmd(args, reply) },
     dance: { level: 3, run: ({ args, u, reply }) => { if (args[0] === 'stop') { danceStop(); return reply('Party stopped.'); } const r = danceStart(u); if (r) reply(r); } },
@@ -885,6 +897,7 @@ module.exports = function createBot(ctx) {
       clearTimeout(trivia.t); trivia = null; addPts(u.id, u.name, db.games.triviaReward, 'trivia');
       say(u.name + ' got it! +' + db.games.triviaReward + ' ' + cur() + '.', e.message_id); return;
     }
+    if (words.active() && words.guess(u, text)) return;   // a word on the Word Rush board
     if (!text.startsWith(db.prefix)) return;
     const [cmd, ...args] = text.slice(db.prefix.length).trim().split(/\s+/);
     if (cmd) {
@@ -1028,7 +1041,7 @@ module.exports = function createBot(ctx) {
         if (b.bonuses) for (const k of Object.keys(db.bonuses)) if (b.bonuses[k]) { const x = b.bonuses[k], t = db.bonuses[k]; t.on = !!x.on; t.amount = num(x.amount, t.amount, 0, 1e7); if ('perViewer' in t) t.perViewer = num(x.perViewer, t.perViewer, 0, 1e6); }
         if (b.clip) db.clip = { on: !!b.clip.on, level: ['everyone', 'subscriber', 'vip', 'moderator'].includes(b.clip.level) ? b.clip.level : 'everyone' };
         if (b.daily) db.daily = { on: !!b.daily.on, amount: num(b.daily.amount, 100, 0, 1e7), streakBonus: num(b.daily.streakBonus, 25, 0, 1e6), maxStreak: num(b.daily.maxStreak, 10, 0, 365) };
-        if (b.games) db.games = { wheel: db.games.wheel, dance: db.games.dance, bits: db.games.bits, race: db.games.race, arena: db.games.arena, botDuel: db.games.botDuel,
+        if (b.games) db.games = { words: db.games.words, wheel: db.games.wheel, dance: db.games.dance, bits: db.games.bits, race: db.games.race, arena: db.games.arena, botDuel: db.games.botDuel,
           off: db.games.off || [], duelAnim: b.games.duelAnim !== false,
           gambleWin: num(b.games.gambleWin, 0.45, 0.05, 0.95), maxBet: num(b.games.maxBet, 0, 0, 1e9),
           triviaReward: num(b.games.triviaReward, 100, 0, 1e6), triviaSeconds: num(b.games.triviaSeconds, 30, 5, 300),
@@ -1093,6 +1106,16 @@ module.exports = function createBot(ctx) {
       case 'games/bits': { const B = db.games.bits, x = b || {}; for (const k of ['boss', 'royale', 'race', 'dance']) if (x[k] !== undefined) B[k] = Math.floor(num(x[k], 100, 0, 1e6)); save(); return B; }
       case 'games/dance': { const x = b || {}, D = db.games.dance; if (x.seconds !== undefined) D.seconds = Math.floor(num(x.seconds, 120, 20, 600)); if (x.strobe !== undefined) D.strobe = !!x.strobe; save(); return D; }
       case 'games/dancetest': { if (b && b.stop) { danceStop(); return { text: 'Stopped' }; } return { text: danceStart({ name: 'TestViewer' }, true) || 'Party started (silent test)' }; }
+      case 'words/settings': {
+        const x = b || {}, C = db.games.words, n = (v, d, lo, hi) => Math.floor(num(v, d, lo, hi));
+        if (x.rounds !== undefined) C.rounds = n(x.rounds, 5, 1, 10); if (x.seconds !== undefined) C.seconds = n(x.seconds, 90, 30, 300); if (x.letters !== undefined) C.letters = Number(x.letters) === 7 ? 7 : 6;
+        if (x.perLetter !== undefined) C.perLetter = n(x.perLetter, 2, 0, 1000); if (x.pangram !== undefined) C.pangram = n(x.pangram, 25, 0, 10000); if (x.mvp !== undefined) C.mvp = n(x.mvp, 25, 0, 10000);
+        save(); return C;
+      }
+      case 'words/start': { const r = words.start({ by: 'the streamer', rounds: b && b.rounds, silent: !!(b && b.silent) }); if (r.error) throw new Error(r.error); return r; }
+      case 'words/stop': { const r = words.stop(); if (r.error) throw new Error(r.error); return r; }
+      case 'words/skip': { const r = words.skip(); if (r.error) throw new Error(r.error); return r; }
+      case 'words/state': return words.state();
       case 'wheel/save': { const W = db.games.wheel, x = b || {}; if (x.title !== undefined) W.title = oneLine(x.title, 40); if (x.options !== undefined) { const e = wheel.entries(x.options, x.pct); W.options = e.map((o) => o.text); W.pct = wheel.shares(e).map((f) => Math.round(f * 1000) / 10); } save(); return W; }
       case 'wheel/spin': {   // from the Chat Games page (the streamer): the saved list, or the one sent along; silent = no chat message
         const W = db.games.wheel, x = b || {}; const r = wheel.spin({ title: x.title !== undefined ? x.title : W.title, options: x.options !== undefined ? x.options : W.options, pct: x.options !== undefined ? x.pct : W.pct, silent: !!x.silent });
