@@ -1,5 +1,5 @@
 """Animated pixel-art emotes in the same style as the other emotes (28 x 28 grid, flat colours, dark outline, hard-edged scaling): the moves chat uses most.
-jam (bobbing to the beat), clap, pet (a hand petting a head), modcheck (darting eyes), shake (nervous), dance, riot, wave.
+howdy (a cowboy tipping his hat), jam (bobbing to the beat), clap, pet (a hand petting a head), modcheck (darting eyes), shake (nervous), dance, riot, wave.
 Each one is saved as a looping GIF and as an APNG at 28, 56 and 112 px, plus a preview strip of the frames.
 Run:  python _build/make_animated_emotes.py   (needs Pillow). Output: twitch/emotes/animated/<name>_28|56|112.gif|.png and animated_preview.png"""
 import os
@@ -129,7 +129,32 @@ def wave():
     return frames
 
 
-ANIMS = [('jam', jam, 130), ('clap', clap, 110), ('pet', pet, 110), ('modcheck', modcheck, 220), ('shake', shake, 90), ('dance', dance, 150), ('riot', riot, 120), ('wave', wave, 140)]
+F35 = {'H': ['101', '101', '111', '101', '101'], 'O': ['111', '101', '101', '101', '111'], 'W': ['10001', '10001', '10101', '10101', '01010'], 'D': ['110', '101', '101', '101', '110'], 'Y': ['101', '101', '010', '010', '010']}
+
+
+def howdy():
+    """a cowboy face that tips its hat while the letters of HOWDY bounce one after the other"""
+    BR, BR_L, BR_D = '#8b5a2b', '#b5813f', '#5e3c1c'
+    frames = []
+    for i, (lift, bounce) in enumerate([(0, 0), (2, 1), (3, 2), (2, 3), (0, 4), (0, -1)]):
+        c = C(); c.face(14, 14, 7.5)
+        c.rect(10, 12 - (1 if lift else 0), 2, 2, INK); c.rect(16, 12 - (1 if lift else 0), 2, 2, INK)                       # eyes (a brow raise when the hat tips)
+        c.art(9, 16, ['X.....X', '.XXXXX.'], {'X': INK}); c.rect(10, 15, 3, 1, BR_D); c.rect(15, 15, 3, 1, BR_D)           # a smile and a moustache
+        dx = 1 if lift else 0; hy = 7 - lift                                                                                  # the hat: the brim and the crown, lifted when tipped
+        c.rect(4 + dx, hy, 20, 2, BR); c.rect(4 + dx, hy, 20, 1, BR_L); c.rect(8 + dx, hy - 5, 12, 5, BR); c.rect(8 + dx, hy - 5, 12, 1, BR_L); c.rect(8 + dx, hy - 2, 12, 1, RUST)
+        c.rect(8 + dx, hy - 5, 2, 5, BR_L); c.rect(18 + dx, hy - 5, 2, 5, BR_D); c.rect(13 + dx, hy - 5, 2, 1, BR_D)
+        x = 3
+        for k, ch in enumerate('HOWDY'):                                                                                      # the letters, one bouncing at a time
+            up = 1 if k == bounce else 0; col = HEAT_L if k == bounce else CREAM
+            for r, row in enumerate(F35[ch]):
+                for q, bit in enumerate(row):
+                    if bit == '1': c.p(x + q, 22 - up + r, col)
+            x += len(F35[ch][0]) + 1
+        frames.append(c)
+    return frames
+
+
+ANIMS = [('howdy', howdy, 140), ('jam', jam, 130), ('clap', clap, 110), ('pet', pet, 110), ('modcheck', modcheck, 220), ('shake', shake, 90), ('dance', dance, 150), ('riot', riot, 120), ('wave', wave, 140)]
 
 
 # ------------------------------------------------------------------------------------------------------------------ export
