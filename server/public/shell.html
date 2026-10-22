@@ -16,6 +16,7 @@
   #rec { display: none; align-items: center; gap: 7px; margin-left: 14px; padding: 2px 10px 2px 8px; background: rgba(236,70,36,.16); outline: 1px solid var(--rust); font-size: 12px; letter-spacing: 2px; font-weight: 700; color: var(--rust); } #rec.on { display: inline-flex; }
   #rec i { width: 10px; height: 10px; border-radius: 50%; background: var(--rust); animation: recblink 1s steps(1) infinite; } #rec em { font-style: normal; font-variant-numeric: tabular-nums; letter-spacing: 1px; color: var(--cream); }
   @keyframes recblink { 50% { opacity: .15; } }
+  #relogin { margin-left: auto; margin-right: 10px; padding: 2px 10px; background: var(--rust); color: var(--cream); font-size: 12px; font-weight: 700; letter-spacing: 1px; text-decoration: none; -webkit-app-region: no-drag; } #relogin + #upd { margin-left: 0; }
   #upd { margin-left: auto; margin-right: 10px; padding: 2px 10px; background: var(--heat); color: var(--iron); font-size: 12px; font-weight: 700; letter-spacing: 1px; text-decoration: none; -webkit-app-region: no-drag; } #upd + #dot { margin-left: 0; }
   #dot { width: 9px; height: 9px; border-radius: 50%; background: #666; margin-left: auto; -webkit-app-region: no-drag; cursor: pointer; } #dot.green { background: #6fcf6f; } #dot.amber { background: var(--heat); } #dot.red { background: var(--rust); }
   #rail { grid-area: rail; background: var(--iron-d); overflow-y: auto; overflow-x: hidden; padding: 6px 0; border-right: 1px solid var(--line); display: flex; flex-direction: column; }
@@ -46,7 +47,7 @@
   pre { background: #11171a; padding: 10px; font-size: 12px; overflow: auto; color: #cfd6c8; }
   #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 16px; font-weight: 700; display: none; z-index: 9; } #toast.bad { background: var(--rust); color: var(--cream); }
 </style></head><body>
-<div id="top"><img src="/assets/logo.png" alt=""><b>ITMECASEY</b><span class="cur" id="cur"></span><span id="rec" title="You are live on Twitch"><i></i><b>LIVE</b><em id="recT">0:00:00</em></span><a id="upd" href="#" title="A newer version is available" style="display:none"></a><span id="dot" title="Status: click for Setup"></span><button id="tTheme" class="tb" title="Light / dark theme"></button><button id="tDens" class="tb" title="Slim / normal size"></button></div>
+<div id="top"><img src="/assets/logo.png" alt=""><b>ITMECASEY</b><span class="cur" id="cur"></span><span id="rec" title="You are live on Twitch"><i></i><b>LIVE</b><em id="recT">0:00:00</em></span><a id="relogin" href="/setup" title="Your Twitch login stopped working: press Connect Twitch again" style="display:none">Reconnect Twitch</a><a id="upd" href="#" title="A newer version is available" style="display:none"></a><span id="dot" title="Status: click for Setup"></span><button id="tTheme" class="tb" title="Light / dark theme"></button><button id="tDens" class="tb" title="Slim / normal size"></button></div>
 <nav id="rail"></nav>
 <div id="main">
   <iframe id="frame" title="module"></iframe>
@@ -230,7 +231,7 @@ async function paintUpdate() { try { const u = await fetch('/api/update').then((
 paintUpdate(); setInterval(paintUpdate, 15 * 60e3);
 // first run: a guided setup on top of everything until Twitch is connected (or it is skipped)
 (async () => { try { const w = await fetch('/api/welcome').then((r) => r.json()); if (w.done) return; const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#222A2A'; o.innerHTML = '<iframe src="/welcome" style="width:100%;height:100%;border:0"></iframe>'; document.body.appendChild(o); window.addEventListener('message', (e) => { if (e.data && e.data.welcome === 'close') o.remove(); }); } catch (e) { /* server not ready */ } })(); setInterval(() => { paintLive(); if (!(LIVE && LIVE.live)) document.title = 'ItMeCasey Stream'; }, 1000);
-async function pulse() { try { const h = await fetch('/api/health').then((r) => r.json()); $('dot').className = h.light; $('dot').title = 'Status: ' + h.light + ' (click for Setup)'; } catch (e) { $('dot').className = 'red'; } }
+async function pulse() { try { const h = await fetch('/api/health').then((r) => r.json()); $('dot').className = h.light; $('dot').title = 'Status: ' + h.light + ' (click for Setup)'; $('relogin').style.display = h.twitch && h.twitch.expired ? '' : 'none'; } catch (e) { $('dot').className = 'red'; } }
 $('dot').onclick = () => { location.hash = '#/m/setup'; };
 function drawUi() { $('tTheme').textContent = icmUi.theme() === 'light' ? 'Dark' : 'Light'; $('tDens').textContent = icmUi.density() === 'slim' ? 'Normal' : 'Slim'; }
 $('tTheme').onclick = () => { icmUi.set('theme', icmUi.theme() === 'light' ? 'dark' : 'light'); drawUi(); };

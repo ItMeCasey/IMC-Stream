@@ -1096,7 +1096,11 @@ async function pollDevice(code, interval) {
   authState = { status: 'error', message: 'Login code expired - press Connect again' };
   deviceFlow = null; broadcast('status', status());
 }
-async function refreshToken() {
+// A Twitch refresh token works only once, and many requests can find the access token expired at the same moment (the 35 event subscriptions at start-up, for example):
+// they must all share ONE refresh, or the extra ones use the already-spent token and the login is lost.
+let refreshing = null;
+function refreshToken() { return refreshing || (refreshing = refreshTokenOnce().finally(() => { refreshing = null; })); }
+async function refreshTokenOnce() {
   if (!tokens || !tokens.refresh_token) throw new Error('no refresh token');
   const r = await idPost('/token', { client_id: CFG.clientId, grant_type: 'refresh_token', refresh_token: tokens.refresh_token });
   if (!r.ok) { authState = { status: 'error', message: 'Session expired - press Connect Twitch again' }; broadcast('status', status()); throw new Error('refresh failed: ' + (r.json.message || r.status)); }
@@ -1848,7 +1852,7 @@ function health() {
   const bad = logRing.filter((l) => l.bad).slice(-8).map((l) => ({ t: l.t, text: l.text }));
   const e = esStatus, ok = true;
   return { ok, version: APP_VERSION, uptimeSec: Math.round((Date.now() - STARTED_AT) / 1000), port: CFG.port,
-    twitch: { loggedIn: !!tokens, login: tokens ? tokens.login : '', eventsub: e }, clientId: !!CFG.clientId,
+    twitch: { loggedIn: !!tokens, login: tokens ? tokens.login : '', eventsub: e, expired: !!tokens && authState.status === 'error' && /expired/i.test(authState.message) }, clientId: !!CFG.clientId,
     access: access.view(), backups: backup.list().length,
     obs: { configured: !!(state.obsCfg && state.obsCfg.host), connected: Date.now() - obsClient.lastOk() < 10 * 60e3 }, media: { provider: state.mediaCfg.provider, status: media.view().status },
     tts: { kokoro: tts.kokoroInstalled() }, recentErrors: bad, dataDir: DATA, light: !CFG.clientId || !tokens ? 'amber' : e === 'connected' ? 'green' : e === 'partial' || e === 'connecting' ? 'amber' : 'red' };
