@@ -162,7 +162,17 @@ def hi():
 def lurk():
     c = C(); c.face(14, 12, 10)
     c.rect(8, 9, 4, 3, WHITE); c.rect(16, 9, 4, 3, WHITE); c.rect(9, 10, 2, 2, INK); c.rect(17, 10, 2, 2, INK); c.rect(7, 7, 6, 1, INK); c.rect(15, 7, 6, 1, INK)   # eyes glancing sideways
-    c.rect(0, 17, 28, 11, GREY); c.rect(0, 17, 28, 2, GREY_L); c.rect(0, 25, 28, 3, GREY_D)   # hiding behind a wall
+    LEAF, LEAF_L, LEAF_D = '#6aa84f', '#9bd17c', '#3a6b28'   # hiding behind a bush: overlapping round clumps of leaves, lit from the top left
+    for (x, y, r) in [(3, 22, 4.5), (8, 20.5, 4.2), (13, 20, 4.5), (18, 20.5, 4.5), (23, 21.5, 4.5), (27, 24, 4), (10, 25, 5), (17, 25.5, 5.5), (4, 26, 4.5), (24, 26, 4.5)]:
+        c.disc(x, y, r, LEAF)
+    for y in range(G):
+        for x in range(G):
+            if c.g.get((x, y)) == LEAF and y > 16:
+                h = (x * 73856093 ^ y * 19349663) % 11
+                if h == 0 or h == 1: c.p(x, y, LEAF_D)                                  # dark gaps between the leaves
+                elif h == 2 and y < 24: c.p(x, y, LEAF_L)                               # light leaf tips
+                elif y > 24 or x > 23: c.p(x, y, LEAF_D)                                # the shaded lower right
+    c.rect(0, 26, 28, 2, LEAF_D)
     return c
 
 
