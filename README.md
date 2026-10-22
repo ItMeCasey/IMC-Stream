@@ -18,7 +18,7 @@ Everything runs locally. Your Twitch login, settings and data stay on your PC (s
 - Affiliate or Partner is needed only for predictions (horse race), channel-point rewards and bits.
 
 ## Quick start
-1. Run **`ItMeCasey Stream Setup 1.0.0.exe`**. Windows may say "unknown publisher" because the app is not code-signed yet: click **More info, then Run anyway**.
+1. Run **`ItMeCasey Stream Setup <version>.exe`** (for example `2026.10.1`). Windows may say "unknown publisher" because the app is not code-signed yet: click **More info, then Run anyway**.
 2. The app opens to the dashboard. Open **Setup** in the left rail.
 3. **Connect Twitch:** press the button, a browser page opens, approve it. The status light turns green.
 4. **OBS:** in OBS open *Tools, WebSocket Server Settings* and tick *Enable WebSocket server*. Enter the port and password on the Setup page, then press **Test**.
@@ -42,6 +42,9 @@ Copyright (c) 2026 ItMeCasey. All rights reserved. See [LICENSE](LICENSE).
 
 ## Reference
 Palette: Iron Core `#222A2A` · Industrial Aqua `#4FBBBC` · Rust Signal `#EC4624` · Heat Marker `#F39120` · Architectural Cream `#E2DAC2` (+ Dark Rust `#B13A22` from the logo). Font: Bahnschrift (ships with Windows 10/11).
+
+### Versions
+Version numbers are `YYYY.M.Increment` (for example `2026.10.3`: the third release of October 2026). `npm run bump` in `app/` picks the next one: the number after the month goes up by one, and restarts at 1 in a new month.
 
 ### The app
 - Lives in the **system tray** with a status light (green = connected to Twitch, amber = needs attention, red = server problem). Closing the window keeps it running so alerts and overlays keep working; **Quit** is in the tray menu.

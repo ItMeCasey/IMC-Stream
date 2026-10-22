@@ -1,7 +1,7 @@
 {
   "name": "itmecasey-stream",
   "productName": "ItMeCasey Stream",
-  "version": "1.0.0",
+  "version": "2026.10.1",
   "description": "Local Twitch alerts, overlays, chat bot and stream control for ItMeCasey",
   "author": "ItMeCasey",
   "main": "main.js",
@@ -10,7 +10,8 @@
     "start": "electron .",
     "dist": "electron-builder --win nsis",
     "pack": "electron-builder --win --dir",
-    "test": "node supervisor-test.js"
+    "test": "node supervisor-test.js",
+    "bump": "node bump-version.js"
   },
   "devDependencies": {
     "electron": "^39.0.0",
