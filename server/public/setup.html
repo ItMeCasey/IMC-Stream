@@ -107,6 +107,7 @@
   <section>
     <h2>APP</h2>
     <div class="row"><button class="ghost" id="diag">Copy diagnostics</button><button class="ghost" id="restart">Restart the server</button><span class="muted">Applies LAN/restore changes. The app also restarts it automatically if it ever stops.</span></div>
+    <div class="row"><span id="verLine" class="muted"></span><button class="ghost" id="upCheck">Check for updates</button><label class="fld" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="upAuto" style="width:18px;height:18px">Check automatically (contacts GitHub twice a day)</label></div>
     <div class="muted" id="paths"></div>
   </section>
 </main>
@@ -132,6 +133,8 @@ async function refresh() {
 }
 async function loadBackups() { const l = await fetch('/api/backup/list').then((r) => r.json()); $('bkList').innerHTML = l.length ? 'Saved copies: ' + l.slice(0, 5).map((f) => esc(f.name) + ' (' + Math.round(f.size / 1024) + ' KB)').join(', ') : 'No saved copies yet.'; }
 
+async function loadUpdate(force) { const u = force ? await post('/api/update/check') : await fetch('/api/update').then((x) => x.json()); $('upAuto').checked = u.enabled; $('verLine').innerHTML = 'Version <b>' + esc(u.version) + '</b>' + (u.available ? ' &middot; <a href="' + esc(u.url) + '" target="_blank" style="color:var(--heat)">version ' + esc(u.latest) + ' is available</a>' : u.latest ? ' &middot; up to date' : '') + (u.error && force ? ' &middot; ' + esc(u.error) : ''); }
+$('upCheck').onclick = () => loadUpdate(true); $('upAuto').onchange = async () => { await post('/api/update/settings', { enabled: $('upAuto').checked }); loadUpdate(); }; loadUpdate();
 $('diag').onclick = async () => { const r = await fetch('/api/diagnostics').then((x) => x.json()); try { await navigator.clipboard.writeText(r.text); toast('Copied: paste it into your bug report'); } catch (e) { prompt('Copy this into your bug report:', r.text); } };
 $('bTwitch').onclick = async () => { const r = await post('/api/auth/start'); if (r.error) { $('adv').open = true; return toast(r.error, true); } if (r.verification_uri) window.open(r.verification_uri, '_blank'); $('bTwitchMsg').textContent = 'Waiting for you to press Authorize in the browser…'; };
 $('cidSave').onclick = async () => { const r = await post('/api/config', { clientId: $('cid').value }); toast(r.error || 'Saved', !!r.error); refresh(); };

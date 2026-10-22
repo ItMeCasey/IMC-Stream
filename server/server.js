@@ -96,6 +96,8 @@ const defaultState = () => ({
   access: { lan: false, salt: '', hash: '' },
   modules: { links: [], hidden: [] },
   panels: [],
+  updates: { enabled: true },
+  setup: { done: false },
   paypal: { me: '', currency: 'USD', suggest: [5, 10, 20], note: '', since: 0, seen: [], recent: [] },
   overlayCfg: { alerts: { position: 'top', volume: 100 }, explosion: { goal: true, raid: false, hype: false, sub: false, giftsub: false, bits: false, count: 70, seconds: 6, style: 'burst' }, events: { align: 'bottom', grow: 'up', max: 6, mode: 'list', speed: 80, include: { follow: true, sub: true, bits: true, raid: true, tip: true, redeem: false, hype: true, goal: true, custom: false } } },
   home: { pages: [{ id: 'p1', name: 'Home', widgets: [{ id: 'w0', mod: 'golive', size: 's' }, { id: 'w1', mod: 'status', size: 's' }, { id: 'w2', mod: 'ads', size: 's' }, { id: 'w3', mod: 'music', size: 's' }, { id: 'w4', mod: 'scenes', size: 'm' }, { id: 'w5', mod: 'buttons', size: 'm' }, { id: 'w7', mod: 'chat', size: 'l' }, { id: 'w8', mod: 'recent', size: 'm' }] }] },
@@ -1480,6 +1482,9 @@ async function route(req, res) {
   if (p.startsWith('/panel-img/')) return serveFile(res, path.join(DATA, 'panels', path.basename(p)));
   if (p === '/api/panels') return json(res, 200, { panels: state.panels, login: tokens ? tokens.login : '' });
   if (p === '/tips' || p === '/tips/') return serveFile(res, path.join(__dirname, 'public', 'tips.html'));
+  if (p === '/welcome' || p === '/welcome/') return serveFile(res, path.join(__dirname, 'public', 'welcome.html'));
+  if (req.method === 'GET' && p === '/api/welcome') return json(res, 200, { done: !!state.setup.done || !!tokens });   // anyone already logged in to Twitch has been through setup
+  if (req.method === 'GET' && p === '/api/update') return json(res, 200, updateView());
   if (req.method === 'GET' && p === '/api/diagnostics') return json(res, 200, { text: diagnostics() });
   if (req.method === 'GET' && p === '/api/obs/stats') { try { return json(res, 200, await obsStats()); } catch (e) { return json(res, 200, { error: e.message }); } }
   if (req.method === 'GET' && p === '/api/vm') return json(res, 200, vmix.status());
@@ -1655,6 +1660,9 @@ async function route(req, res) {
         });
         return json(res, 200, { ok: true, steps });
       }
+      if (p === '/api/welcome/done') { state.setup.done = true; persist(); return json(res, 200, { ok: true }); }
+      if (p === '/api/update/check') { await checkUpdate(); return json(res, 200, updateView()); }
+      if (p === '/api/update/settings') { state.updates.enabled = !!body.enabled; persist(); return json(res, 200, updateView()); }
       if (p === '/api/vm/download') return json(res, 200, await vmix.download(body.kind));
       if (p === '/api/vm/install') return json(res, 200, vmix.install(body.kind));
       if (p === '/api/vm/configure') return json(res, 200, await vmix.configure(body));
@@ -1836,6 +1844,23 @@ function diagnostics() {
     'Recent problems:'].concat(h.recentErrors.length ? h.recentErrors.map((e) => new Date(e.t).toLocaleTimeString() + ' ' + e.text) : ['(none)'], ['', 'Last log lines:'], logRing.slice(-40).map((l) => new Date(l.t).toLocaleTimeString() + ' ' + l.text));
   return lines.map(scrub).join('\n');
 }
+
+// ------------------------------------------------------------------ update check (GitHub releases): tells you when a newer installer exists, never installs anything itself
+const UPDATE_REPO = 'Drakma/ItMeCasey-Stream';
+let updateInfo = { checkedAt: 0, latest: '', url: '', available: false, error: '' };
+const verParts = (v) => String(v).replace(/^v/, '').split('.').map((x) => parseInt(x, 10) || 0);
+const isNewer = (a, b) => { const x = verParts(a), y = verParts(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
+async function checkUpdate() {
+  try {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 8000), r = await fetch('https://api.github.com/repos/' + UPDATE_REPO + '/releases/latest', { headers: { 'User-Agent': 'ItMeCasey-Stream', Accept: 'application/vnd.github+json' }, signal: ac.signal }); clearTimeout(t);
+    if (r.status === 404) { updateInfo = { checkedAt: Date.now(), latest: '', url: '', available: false, error: 'No public release to compare with yet' }; return updateInfo; }
+    if (!r.ok) throw new Error('GitHub answered ' + r.status); const j = await r.json(), latest = String(j.tag_name || '').replace(/^v/, '');
+    updateInfo = { checkedAt: Date.now(), latest, url: String(j.html_url || ''), available: !!latest && isNewer(latest, APP_VERSION), error: '' };
+  } catch (e) { updateInfo = Object.assign({}, updateInfo, { checkedAt: Date.now(), error: 'Could not check: ' + e.message }); }
+  return updateInfo;
+}
+const updateView = () => Object.assign({ version: APP_VERSION, enabled: state.updates.enabled !== false }, updateInfo);
+setTimeout(() => { if (state.updates.enabled !== false) checkUpdate(); }, 30000).unref(); setInterval(() => { if (state.updates.enabled !== false) checkUpdate(); }, 12 * 3600e3).unref();
 
 function statsView() {
   const st = state.stream, t = state.totals, s = state.session;

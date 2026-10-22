@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Welcome to ItMeCasey Stream</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 14px 28px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 40px; } h1 { font-size: 22px; letter-spacing: 6px; } header button { margin-left: auto; }
+  main { max-width: 760px; margin: 0 auto; padding: 22px 22px 60px; display: grid; gap: 14px; }
+  p.lead { color: #b9c0bb; line-height: 1.55; }
+  .step { background: var(--iron-d); border-left: 6px solid #46504f; padding: 14px 18px; } .step.cur { border-color: var(--heat); } .step.ok { border-color: var(--aqua); }
+  .step h2 { font-size: 15px; letter-spacing: 4px; text-transform: uppercase; display: flex; gap: 10px; align-items: center; } .step h2 i { font-style: normal; width: 24px; height: 24px; display: grid; place-items: center; background: #46504f; color: var(--cream); font-size: 13px; letter-spacing: 0; } .step.cur h2 i { background: var(--heat); color: var(--iron); } .step.ok h2 i { background: var(--aqua); color: var(--iron); }
+  .step .b { margin-top: 10px; display: none; } .step.cur .b { display: block; } .step.ok .b { display: none; }
+  .muted { color: #9aa39f; font-size: 13px; line-height: 1.55; margin: 6px 0; } ol { margin: 6px 0 6px 20px; line-height: 1.7; font-size: 14px; }
+  .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin: 8px 0; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; } .fld input { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 12px; padding: 10px 16px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); } button.alt { background: var(--aqua); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; }
+  .msg { font-size: 13px; color: var(--heat); min-height: 18px; } .msg.bad { color: var(--rust); }
+  code { background: #11171a; padding: 2px 7px; font-size: 13px; }
+</style></head><body>
+<header><img src="/assets/logo.png" alt=""><h1>WELCOME</h1><button class="ghost" id="skip">Skip for now</button></header>
+<main>
+  <p class="lead">Four quick steps and your alerts, chat bot and overlays are live. You can do this later from the <b>Setup</b> page.</p>
+
+  <section class="step" id="s1"><h2><i>1</i>Connect Twitch</h2><div class="b">
+    <p class="muted">A browser page opens. Log in to Twitch if asked and press <b>Authorize</b>. The app only gets the permissions it needs for alerts, chat and your stream tools.</p>
+    <div class="row"><button id="b1">Connect Twitch</button></div><div class="msg" id="m1"></div></div></section>
+
+  <section class="step" id="s2"><h2><i>2</i>Connect OBS</h2><div class="b">
+    <ol><li>In OBS open <b>Tools, WebSocket Server Settings</b>.</li><li>Tick <b>Enable WebSocket server</b> (leave the port as it is). If you set a password, type it below.</li></ol>
+    <div class="row"><label class="fld">Host<input id="oh" value="127.0.0.1" style="width:150px"></label><label class="fld">Port<input id="op" value="4455" style="width:90px"></label><label class="fld">Password (if any)<input id="opw" type="password" autocomplete="off" style="width:200px"></label><button id="b2">Test connection</button></div><div class="msg" id="m2"></div></div></section>
+
+  <section class="step" id="s3"><h2><i>3</i>Install the scenes</h2><div class="b">
+    <p class="muted">Adds the <b>ItMeCasey</b> scene collection to OBS: Starting Soon, Gameplay, Just Chatting, Full Cam, Be Right Back and Ending, with all the overlays in place. It never touches your existing collections.</p>
+    <div class="row"><button id="b3">Install into OBS</button></div><div class="msg" id="m3"></div>
+    <p class="muted">Then in OBS choose <b>Scene Collection, ItMeCasey</b>. Open the Webcam source and pick your camera, and set Game Capture to your game.</p></div></section>
+
+  <section class="step" id="s4"><h2><i>4</i>Try it</h2><div class="b">
+    <p class="muted">Send a test follow alert. If you see it in OBS, everything works.</p>
+    <div class="row"><button id="b4">Send a test alert</button><button class="alt" id="done">All done</button></div><div class="msg" id="m4"></div></div></section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+const ok = { 1: false, 2: false, 3: false, 4: false };
+function paint() { let cur = 0; for (let i = 1; i <= 4; i++) { const el = $('s' + i); el.classList.remove('ok', 'cur'); if (ok[i]) el.classList.add('ok'); else if (!cur) { cur = i; el.classList.add('cur'); } } }
+async function poll() { try { const h = await fetch('/api/health').then((r) => r.json()); ok[1] = !!(h.twitch && h.twitch.loggedIn); if (ok[1]) $('m1').textContent = 'Connected as ' + h.twitch.login; } catch (e) { /* server restarting */ } paint(); }
+$('b1').onclick = async () => { const r = await post('/api/auth/start'); if (r.error) { $('m1').className = 'msg bad'; $('m1').textContent = r.error; return; } if (r.verification_uri) window.open(r.verification_uri, '_blank'); $('m1').className = 'msg'; $('m1').textContent = 'Waiting for you to press Authorize in the browser...' + (r.user_code ? ' (code ' + r.user_code + ')' : ''); };
+$('b2').onclick = async () => { $('m2').className = 'msg'; $('m2').textContent = 'Testing...'; await post('/api/hooks/obs/save', { host: $('oh').value, port: $('op').value, password: $('opw').value || '__keep__' }); const r = await post('/api/hooks/obs/test'); if (r.error) { $('m2').className = 'msg bad'; $('m2').textContent = r.error; return; } ok[2] = true; $('m2').textContent = 'Connected to OBS ' + r.obsVersion; paint(); };
+$('b3').onclick = async () => { let r = await post('/api/obs/install', {}); if (r.error === 'exists') { if (!confirm('An ItMeCasey scene collection already exists in OBS. Replace it? (The old one is kept as a .bak file.)')) return; r = await post('/api/obs/install', { overwrite: true }); } if (r.error) { $('m3').className = 'msg bad'; $('m3').textContent = r.error; return; } ok[3] = true; $('m3').className = 'msg'; $('m3').textContent = 'Installed. In OBS pick Scene Collection, ItMeCasey.'; paint(); };
+$('b4').onclick = async () => { const r = await post('/api/test', { type: 'follow' }); $('m4').className = r.error ? 'msg bad' : 'msg'; $('m4').textContent = r.error || 'Sent. Look at OBS.'; ok[4] = !r.error; };
+async function finish() { await post('/api/welcome/done', {}); try { parent.postMessage({ welcome: 'close' }, '*'); } catch (e) { /* not framed */ } if (parent === window) location.href = '/'; }
+$('done').onclick = finish; $('skip').onclick = finish;
+paint(); poll(); setInterval(poll, 2000);
+</script></body></html>

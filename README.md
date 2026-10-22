@@ -19,7 +19,7 @@ Everything runs locally. Your Twitch login, settings and data stay on your PC (s
 
 ## Quick start
 1. Run **`ItMeCasey Stream Setup <version>.exe`** (for example `2026.10.1`). Windows may say "unknown publisher" because the app is not code-signed yet: click **More info, then Run anyway**.
-2. The app opens to the dashboard. Open **Setup** in the left rail.
+2. The first time, a **welcome guide** opens and walks you through the steps below (you can skip it and use the **Setup** page in the left rail instead).
 3. **Connect Twitch:** press the button, a browser page opens, approve it. The status light turns green.
 4. **OBS:** in OBS open *Tools, WebSocket Server Settings* and tick *Enable WebSocket server*. Enter the port and password on the Setup page, then press **Test**.
 5. **Install the scenes:** press **Install into OBS**, then in OBS pick *Scene Collection, ItMeCasey*.
@@ -35,7 +35,7 @@ Optional: **Audio + VOD** on the Setup page walks you through Voicemeeter so mus
 - **Something else:** on the Setup page press **Copy diagnostics** and include the text when you report a problem.
 
 ## Privacy and your data
-Your settings, bot data, logins and backups live in `%APPDATA%\ItMeCasey Stream\data`. Updating or reinstalling never touches them. The app only talks to: Twitch (login, events, chat), emote lists (BTTV, FrankerFaceZ, 7TV), Apple's iTunes search (album art for songs Windows can't give a cover for), VB-Audio's site (only if you press Download Voicemeeter), and any services you connect yourself (Spotify, PayPal, Stripe). Nothing is sent to the author.
+Your settings, bot data, logins and backups live in `%APPDATA%\ItMeCasey Stream\data`. Updating or reinstalling never touches them. The app only talks to: Twitch (login, events, chat), emote lists (BTTV, FrankerFaceZ, 7TV), Apple's iTunes search (album art for songs Windows can't give a cover for), VB-Audio's site (only if you press Download Voicemeeter), GitHub (a check for newer versions twice a day, which you can switch off on the Setup page), and any services you connect yourself (Spotify, PayPal, Stripe). Nothing is sent to the author.
 
 ## License
 Copyright (c) 2026 ItMeCasey. All rights reserved. See [LICENSE](LICENSE).
