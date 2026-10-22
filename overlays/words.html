@@ -49,13 +49,14 @@
   const rect = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
 
   // ---- state from the server
-  let S = { phase: 'idle' }, first = true, alpha = 0, foundAt = {}, floats = [], bursts = [], phaseAt = 0, lastPhase = '', roundKey = '', shuffleAt = 0, order = [], flash = 0;
+  let revealAt = {}, S = { phase: 'idle' }, first = true, alpha = 0, foundAt = {}, floats = [], bursts = [], phaseAt = 0, lastPhase = '', roundKey = '', shuffleAt = 0, order = [], flash = 0;
   const nowMs = () => Date.now();
   function setState(s, ev) {
     const prev = S; S = s || { phase: 'idle' };
     if (S.phase !== lastPhase) { lastPhase = S.phase; phaseAt = performance.now(); }
-    const key = S.phase === 'idle' ? '' : S.round + ':' + (S.letters || '');
-    if (key !== roundKey) { roundKey = key; foundAt = {}; floats = []; bursts = []; order = []; shuffleAt = performance.now(); }
+    const key = S.phase === 'idle' ? '' : String(S.round);
+    if (S.letters && prev.letters && S.round === prev.round && S.letters.length === prev.letters.length) for (let i = 0; i < S.letters.length; i++) if (prev.letters[i] === '?' && S.letters[i] !== '?') revealAt[i] = performance.now();
+    if (key !== roundKey) { roundKey = key; revealAt = {}; foundAt = {}; floats = []; bursts = []; order = []; shuffleAt = performance.now(); }
     if (!first && prev.words && S.words && S.round === prev.round) {
       S.words.forEach((w, i) => { if (w.w && w.got !== false && !(prev.words[i] && prev.words[i].got) && S.phase === 'round') { foundAt[i] = performance.now(); floats.push({ i, t: performance.now(), text: '+' + (ev && ev.word === w.w ? ev.pts : ''), by: w.by }); } });
     }
@@ -88,11 +89,16 @@
   }
 
   function rack(s, t, x0, y0, w) {
-    const n = s.letters.length, gap = 2, tw = Math.floor((w - (n - 1) * gap) / n), th = tw + 6;
-    if (!order.length || order.length !== n) order = [...Array(n).keys()];
+    const n = s.letters.length, gap = 2, tw = Math.floor((w - (n - 1) * gap) / n), th = tw + 6, sc = tw >= 13 ? 2 : 1, fake = s.fake || [];
     for (let i = 0; i < n; i++) {
-      const k = order[i], bob = s.phase === 'round' ? Math.round(Math.sin(t / 380 + i * 1.3) * 1) : 0, x = x0 + i * (tw + gap), y = y0 + bob;
-      tile(x, y, tw, th, CREAM, CREAM_D); txt(s.letters[k], x + tw / 2 + 0.5, y + (th - 14) / 2 - 1, 2, INK, 'c');
+      const ch = s.letters[i], bob = s.phase === 'round' ? Math.round(Math.sin(t / 380 + i * 1.3) * 1) : 0, x = x0 + i * (tw + gap), y = y0 + bob, age = revealAt[i] ? performance.now() - revealAt[i] : 9999;
+      let col = CREAM, shade = CREAM_D, ink = INK;
+      if (ch === '?') { const b = Math.floor(t / 400) % 2; col = b ? AQUA : AQUA_D; shade = AQUA_D; }                      // an unknown letter
+      else if (age < 700) { col = Math.floor(age / 90) % 2 ? '#ffffff' : AQUA; }                                         // just revealed
+      else if (fake.includes(i)) { col = '#6b3a32'; shade = '#4a2823'; ink = RUST; }                                       // a fake tile, shown after the round
+      tile(x, y, tw, th, col, shade);
+      const gl = GLYPH[ch]; if (gl) { g.fillStyle = ink; const gx = x + Math.round((tw - 5 * sc) / 2), gy = y + Math.round((th - 3 - 7 * sc) / 2) + (sc === 1 ? 0 : 0); for (let r = 0; r < 7; r++) for (let q = 0; q < 5; q++) if (gl[r][q] === '1') g.fillRect(gx + q * sc, gy + r * sc, sc, sc); }
+      if (fake.includes(i)) { g.fillStyle = RUST; for (let k = 0; k < tw - 2; k++) { g.fillRect(x + 1 + k, y + 1 + Math.round(k * (th - 5) / (tw - 3)), 1, 1); } }   // struck through
     }
     return th;
   }
@@ -129,7 +135,10 @@
 
   function leftPanel(s, t, tm) {
     const x0 = 8, w = 146; let y = 38;
-    const th = rack(s, t, x0, y, w); y += th + 8;
+    const th = rack(s, t, x0, y, w); y += th + 6;
+    const md = s.mods || {}, ml = md.unknown || md.fake ? 10 : 0;
+    if (ml) { const bits = []; if (md.unknown) bits.push(md.unknown + ' UNKNOWN'); if (md.fake) bits.push(md.fake + ' FAKE'); txt(bits.join('  '), x0, y, 1, HEAT, 'l'); y += ml; }
+    y += 2;
     const showT = s.phase === 'round';
     if (showT) { txt(fmtT(tm.sec), x0, y, 4, tm.low && tm.blink ? RUST : tm.low ? RUST : CREAM, 'l', INK); txt(s.found + '/' + s.total, x0 + w, y + 6, 2, AQUA, 'r', INK); txt('FOUND', x0 + w, y + 22, 1, CREAM_D, 'r'); y += 34; }
     else { txt(s.found + '/' + s.total, x0, y, 3, AQUA, 'l', INK); txt('WORDS', x0 + w, y, 1, CREAM_D, 'r'); txt('FOUND', x0 + w, y + 10, 1, CREAM_D, 'r'); y += 28; }
@@ -138,12 +147,12 @@
       txt('LATEST', x0, y, 1, CREAM_D, 'l'); y += 10;
       const rec = (s.recent || []).slice(-5).reverse(); if (!rec.length) txt('TYPE A WORD IN CHAT!', x0, y, 1, CREAM, 'l');
       rec.forEach((r, i) => { const c = r.pangram ? HEAT : colorOf(r.name); rect(x0, y + 1, 4, 5, c); txt(fit(r.name, 8), x0 + 7, y, 1, i ? CREAM_D : CREAM, 'l'); txt(r.word, x0 + w - 28, y, 1, i ? CREAM_D : c, 'r'); txt('+' + r.pts, x0 + w, y, 1, r.pangram ? HEAT : AQUA_D, 'r'); y += 9; });
-      y = Math.max(y, 38 + th + 8 + 34 + 6 + 10 + 5 * 9) + 4;
+      y = Math.max(y, 38 + th + 8 + ml + 34 + 6 + 10 + 5 * 9) + 4;
     } else if (s.results) {   // this round's payout
       txt('PAID OUT', x0, y, 1, CREAM_D, 'l'); y += 10;
       s.results.paid.slice(0, 6).forEach((p, i) => { rect(x0, y + 1, 4, 5, colorOf(p.name)); txt(fit(p.name, 9), x0 + 7, y, 1, i ? CREAM : HEAT, 'l'); txt('+' + (p.pts + p.bonus), x0 + w, y, 1, i ? AQUA : HEAT, 'r'); y += 9; });
       if (!s.results.paid.length) txt('NOBODY FOUND A WORD', x0, y, 1, CREAM_D, 'l');
-      y = Math.max(y, 38 + th + 8 + 18 + 6 + 10 + 6 * 9) + 4;
+      y = Math.max(y, 38 + th + 8 + ml + 28 + 6 + 10 + 6 * 9) + 4;
     }
     rect(x0, y, w, 1, '#3d4848'); y += 5; txt('MATCH SCORE', x0, y, 1, CREAM_D, 'l'); y += 10;
     (s.scores || []).slice(0, Math.max(3, Math.floor((H - 6 - y) / 9))).forEach((p, i) => { txt(String(i + 1), x0, y, 1, i === 0 ? HEAT : CREAM_D, 'l'); txt(fit(p.name, 9), x0 + 9, y, 1, i === 0 ? CREAM : CREAM_D, 'l'); txt(String(p.pts), x0 + w, y, 1, i === 0 ? HEAT : AQUA, 'r'); y += 9; });
@@ -153,9 +162,9 @@
   function intro(s, t, tm) {
     const cx = W / 2, p = clamp((performance.now() - phaseAt) / 500, 0, 1);
     txt('WORD', cx, 26, 8, CREAM, 'c', DRUST); txt('RUSH', cx, 94, 4, HEAT, 'c', INK);
-    const lines = ['MAKE WORDS FROM THE LETTERS', 'JUST TYPE THEM IN CHAT', 'FIRST TO TYPE A WORD GETS IT', 'POINTS ARE PAID AFTER EVERY ROUND']; lines.forEach((l, i) => txt(l, cx, 136 + i * 12, 1, i === 3 ? AQUA : CREAM, 'c'));
-    txt(s.rounds + (s.rounds === 1 ? ' ROUND' : ' ROUNDS'), cx, 192, 2, CREAM, 'c', INK);
-    txt(String(Math.max(0, Math.ceil(tm.sec))), cx, 218, 4, p < 1 ? HEAT : RUST, 'c', INK);
+    const lines = ['MAKE WORDS FROM THE LETTERS', 'JUST TYPE THEM IN CHAT', 'EVERY ROUND ADDS A LETTER', 'LATER: UNKNOWN AND FAKE LETTERS', 'POINTS ARE PAID AFTER EVERY ROUND']; lines.forEach((l, i) => txt(l, cx, 130 + i * 11, 1, i === 4 ? AQUA : i === 3 ? HEAT : CREAM, 'c'));
+    txt(s.rounds + (s.rounds === 1 ? ' ROUND' : ' ROUNDS'), cx, 194, 2, CREAM, 'c', INK);
+    txt(String(Math.max(0, Math.ceil(tm.sec))), cx, 220, 4, p < 1 ? HEAT : RUST, 'c', INK);
   }
 
   function final(s, t) {
@@ -191,7 +200,7 @@
   if (Q.get('demo')) {
     const base = ['LISTEN'], ws = ['ELS', 'ENS', 'INS', 'ITS', 'LET', 'LIE', 'LIT', 'NET', 'NIT', 'SET', 'SIN', 'SIT', 'TEN', 'TIE', 'TIN', 'LENS', 'LENT', 'LINE', 'LINT', 'LIST', 'NEST', 'SILT', 'SINE', 'SITE', 'TILE', 'INLET', 'ISLET', 'LINES', 'STILE', 'TINES', 'LISTEN'];
     const got = new Map(), names = ['RetroRider', 'TealTina', 'ChaosChad', 'BitBaron', 'PixelPat']; const t0 = Date.now(), dur = 60000;
-    const make = (phase) => ({ phase, round: 2, rounds: 5, letters: 'TSINEL', N: 6, startedAt: t0, endsAt: t0 + dur, found: got.size, total: ws.length, hint: Date.now() - t0 > dur / 2, reveal: phase !== 'round',
+    const make = (phase) => ({ phase, round: 2, rounds: 5, letters: 'TS?NELX', mods: { fake: 1, unknown: 1, hidden: 1 }, fake: [], N: 6, startedAt: t0, endsAt: t0 + dur, found: got.size, total: ws.length, hint: Date.now() - t0 > dur / 2, reveal: phase !== 'round',
       words: ws.map((w) => ({ len: w.length, w: got.has(w) || phase !== 'round' ? w : null, by: got.get(w) || null, got: got.has(w), pangram: w.length === 6, first: !got.has(w) && Date.now() - t0 > dur / 2 ? w[0] : null })),
       recent: [...got.entries()].slice(-5).map(([w, by]) => ({ name: by, word: w, pts: w.length * 2 + (w.length === 6 ? 25 : 0), pangram: w.length === 6 })), scores: names.map((n, i) => ({ name: n, pts: 90 - i * 17 })), round_scores: [] });
     setState(make('round'));

@@ -61,7 +61,7 @@ const defaults = () => ({
   extras: { welcome: { on: false, msg: 'Welcome to the stream, $(user)! Glad you are here.', announce: '', onlyLive: true }, raidShout: { on: false }, regulars: { on: false, minutes: 300, messages: 200 } },
   games: { gambleWin: 0.45, maxBet: 0, triviaReward: 100, triviaSeconds: 30, duelSeconds: 60, duelAnim: true, off: [], botDuel: { on: true, below: 1000, house: 50, maxWin: 1000 },
     bits: { boss: 100, royale: 100, race: 100, dance: 1000 },
-    words: { rounds: 5, seconds: 90, letters: 6, perLetter: 2, pangram: 25, mvp: 25 },
+    words: { rounds: 5, seconds: 90, letters: 5, perLetter: 2, pangram: 25, mvp: 25 },
     wheel: { title: 'Spin the wheel', options: ['Yes', 'No', 'Ask again'], pct: [34, 33, 33] },
     dance: { seconds: 120, strobe: true },   // a cheer of at least this many bits with the word boss / arena / race in it starts that game (0 = off)
     race: { count: 5, seconds: 90, title: 'Who wins the race?', names: [] },
@@ -1108,7 +1108,7 @@ module.exports = function createBot(ctx) {
       case 'games/dancetest': { if (b && b.stop) { danceStop(); return { text: 'Stopped' }; } return { text: danceStart({ name: 'TestViewer' }, true) || 'Party started (silent test)' }; }
       case 'words/settings': {
         const x = b || {}, C = db.games.words, n = (v, d, lo, hi) => Math.floor(num(v, d, lo, hi));
-        if (x.rounds !== undefined) C.rounds = n(x.rounds, 5, 1, 10); if (x.seconds !== undefined) C.seconds = n(x.seconds, 90, 30, 300); if (x.letters !== undefined) C.letters = Number(x.letters) === 7 ? 7 : 6;
+        if (x.rounds !== undefined) C.rounds = n(x.rounds, 5, 1, 10); if (x.seconds !== undefined) C.seconds = n(x.seconds, 90, 30, 300); if (x.letters !== undefined) C.letters = n(x.letters, 5, 4, 7);
         if (x.perLetter !== undefined) C.perLetter = n(x.perLetter, 2, 0, 1000); if (x.pangram !== undefined) C.pangram = n(x.pangram, 25, 0, 10000); if (x.mvp !== undefined) C.mvp = n(x.mvp, 25, 0, 10000);
         save(); return C;
       }
