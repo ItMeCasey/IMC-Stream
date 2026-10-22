@@ -1,0 +1,62 @@
+name: release
+
+# Push a tag like v2026.10.2 (it must match the version in app/package.json) to build the installer and attach it to a DRAFT GitHub release.
+# You can also run it by hand (Actions > release > Run workflow): that only builds and uploads the installer as a download on the run.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tag must match the app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          v=$(node -p "require('./app/package.json').version")
+          if [ "v$v" != "$GITHUB_REF_NAME" ]; then echo "::error::tag $GITHUB_REF_NAME does not match app/package.json version v$v"; exit 1; fi
+      - name: Server tests
+        shell: bash
+        working-directory: server
+        run: |
+          fail=0
+          for t in selftest bot-test hooks-test scenes-test access-backup-test video-test audio-test paypal-test botaccount-test countdown-test tts-test obs-test media-test arena-test race-test vm-test beat-test test-mock; do
+            if node "$t.js" > /dev/null; then echo "ok: $t"; else echo "::error::$t failed"; fail=1; fi
+          done
+          exit $fail
+      - name: Build the installer
+        working-directory: app
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npm install --no-audit --no-fund
+          npx electron-builder --win nsis --publish never
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem app/dist -Filter *.exe | ForEach-Object { $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(); "$h  $($_.Name)" } | Set-Content app/dist/SHA256SUMS.txt
+          Get-Content app/dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: |
+            app/dist/*.exe
+            app/dist/SHA256SUMS.txt
+      - name: Draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            app/dist/*.exe
+            app/dist/SHA256SUMS.txt
