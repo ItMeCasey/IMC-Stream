@@ -168,11 +168,12 @@ def lurk():
 
 def rip():
     c = C(); c.rect(0, 24, 28, 4, '#43762f'); c.rect(0, 24, 28, 1, '#6aa84f')
-    c.art(3, 2, ['...XXXXXXXXXXXX...', '..XXXXXXXXXXXXXX..', '.XXXXXXXXXXXXXXXX.'] + ['XXXXXXXXXXXXXXXXXX'] * 19, {'X': GREY})
-    c.rect(3, 5, 2, 19, GREY_L); c.rect(19, 6, 2, 18, GREY_D)
+    c.art(4, 2, ['...XXXXXXXXXXXXXX...', '..XXXXXXXXXXXXXXXX..', '.XXXXXXXXXXXXXXXXXX.'] + ['XXXXXXXXXXXXXXXXXXXX'] * 19, {'X': GREY})
+    c.rect(4, 5, 2, 19, GREY_L); c.rect(22, 6, 2, 18, GREY_D)
     c.rect(13, 5, 2, 7, GREY_D); c.rect(11, 7, 6, 2, GREY_D)   # a cross
-    c.text('R', 5, 14, INK, 1); c.text('I', 11, 14, INK, 1); c.text('P', 17, 14, INK, 1)
+    c.text('R', 6, 14, INK, 1); c.text('I', 12, 14, INK, 1); c.text('P', 18, 14, INK, 1)   # RIP, 5 pixels per letter, all on the stone (x 6 to 22)
     return c
+
 
 def rage():
     c = C(); c.face(14, 15, 11, (RUST, RUST_L, RUST_D)); c.brows('angry', 9); c.eyes('dot', 12); c.mouth('teeth')
