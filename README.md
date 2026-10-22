@@ -207,6 +207,7 @@ Replaces Streamlabs/StreamElements: connects to Twitch directly, pushes alerts t
 - Checks: `node bot-test.js` simulates a whole chat (80+ replies) and `node test-mock.js` confirms replies go out through Helix.
 
 **Editable alerts** (dashboard > **ALERTS**)
+- **Bits alerts show the cheer badge:** the Bits alert shows the pixel cheer badge of the tier that was cheered (1, 100, 1,000, 5,000, 10,000, 25,000, 50,000, 75,000, 100,000, 200,000, 300,000, 400,000 or 500,000 bits, the highest tier that fits) in place of the logo. If the Bits rule has its own **image**, that image is used instead. The pictures are `assets/bits/` (made by `_build/make_bit_badges.py`).
 - Every alert type is a *rule* you can edit or add to: Follow, New sub, Resub, Gift subs, Bits, Raid, Channel point redemption, Hype train start/end, Goal reached, Charity, Tip, and **Custom**.
 - Per rule: the **tag** (small badge), **title** (big line) and **message** with variables like `{name} {amount} {months} {tier} {message} {total} {viewers} {reward} {level}`; color (palette swatches or any color); **sound** (pick one or upload .wav/.mp3/.ogg) with volume; seconds on screen; badge **image** (your logo, or upload png/gif/webp/jpg); on/off switch.
 - Tiers by amount: add a second rule with a minimum, e.g. *Bits, min 1000* with a bigger look and sound. The best matching enabled rule wins (higher minimum, or a "reward contains" match for channel points). Turn every rule for an event off to silence it.

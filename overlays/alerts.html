@@ -35,7 +35,7 @@
   .raid { --accent: var(--rust); } .tip { --accent: var(--cream); }
   .raid .tag, .raid .msg { color: var(--cream); } .raid .tag { background: var(--rust); }
   .custom .tag { color: var(--tagfg, var(--iron)); background: var(--accent); } .custom .msg { color: var(--accent); }
-  .badge img { object-fit: contain; }
+  .badge img { object-fit: contain; } .badge img.px { image-rendering: pixelated; image-rendering: crisp-edges; }
   #debug { position: fixed; left: 8px; bottom: 8px; font-size: 14px; color: var(--cream); background: rgba(0,0,0,.6); padding: 4px 8px; display: none; }
 </style></head>
 <body>
@@ -78,6 +78,9 @@
     tip:    { tag: "DONATION",     snd: "alert_tip.wav" }
   };
 
+  // the Bits alert shows the pixel cheer badge of the tier that was cheered (1, 100, 1,000, 5,000 ... 500,000), unless the alert rule has its own image
+  const BIT_TIERS = [1, 100, 1000, 5000, 10000, 25000, 50000, 75000, 100000, 200000, 300000, 400000, 500000];
+  const bitsTier = (n) => BIT_TIERS.reduce((t, x) => (n >= x ? x : t), 1);
   function show(a, done) {
     const k = KINDS[a.kind] || KINDS.follow;
     const base = BASE;
@@ -89,7 +92,7 @@
       el.style.setProperty("--tagfg", lum < 0.4 ? "var(--cream)" : "var(--iron)");
     }
     el.innerHTML =
-      '<div class="badge"><img src="' + esc(a.image ? base + a.image : "../assets/logo.png") + '" alt=""></div>' +
+      '<div class="badge"><img' + (!a.image && a.kind === "bits" && a.bits ? ' class="px"' : '') + ' src="' + esc(a.image ? base + a.image : a.kind === "bits" && a.bits ? "../assets/bits/bits_" + bitsTier(a.bits) + "_180.png" : "../assets/logo.png") + '" alt=""></div>' +
       '<div class="body"><div class="tag"><span>' + esc(a.tag || k.tag) + '</span></div>' +
       '<div class="name">' + esc(a.name) + '</div>' +
       (a.msg ? '<div class="msg">' + esc(a.msg) + '</div>' : '') + '</div><div class="shine"></div>';
@@ -149,7 +152,7 @@
     const demo = [
       { kind: "follow", name: "ItMeCasey Fan", msg: "Thanks for the follow!" },
       { kind: "sub", name: "RetroRider", msg: "Welcome to the crew // Tier 1" },
-      { kind: "bits", tag: "500 BITS", name: "BitBaron", msg: "Take my bits!" },
+      { kind: "bits", tag: "500 BITS", bits: 500, name: "BitBaron", msg: "Take my bits!" },
       { kind: "raid", name: "FriendlyStreamer", msg: "42 raiders incoming" },
       { kind: "tip", tag: "$10 TIP", name: "GenerousGamer", msg: "Keep up the great work" }
     ];

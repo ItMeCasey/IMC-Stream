@@ -2,11 +2,13 @@
 flat rectangles of the theme colours on a tiny grid, scaled with hard edges. Each badge is drawn on 18 x 18 pixels (Twitch's smallest size)
 and saved at 18, 36 and 72 pixels, the three sizes Twitch asks for. One badge per tier: 1, 100, 1,000, 5,000, 10,000, 25,000, 50,000,
 75,000, 100,000, 200,000, 300,000, 400,000 and 500,000 bits. The gem grows and gets more decoration with every tier.
-Run:  python _build/make_bit_badges.py   (needs Pillow). Output: twitch/bit_badges/ (upload them under Viewer Rewards > Bits > Cheer Badges)."""
+Run:  python _build/make_bit_badges.py   (needs Pillow). Output: twitch/bit_badges/ (upload them under Viewer Rewards > Bits > Cheer Badges),
+and assets/bits/bits_<tier>_180.png (18 x 10: the same badge, big and sharp, shown in the Bits alert on stream)."""
 import os
 from PIL import Image, ImageDraw, ImageFont
 
 OUT = os.path.join(os.path.dirname(__file__), '..', 'twitch', 'bit_badges')
+ALERT_OUT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'bits')
 INK = '#14191a'
 GEMS = {   # main, light, dark
     'grey': ('#8a9594', '#c9d1d0', '#5d6867'), 'aqua': ('#4FBBBC', '#a6e6e7', '#2f8a8b'), 'heat': ('#F39120', '#ffd9a0', '#c06a0c'), 'rust': ('#EC4624', '#ff9f8a', '#B13A22'),
@@ -124,12 +126,13 @@ def render(g):
 
 
 def main():
-    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(OUT, exist_ok=True); os.makedirs(ALERT_OUT, exist_ok=True)
     tiles = []
     for i, bits in enumerate(TIERS):
         im = render(tier(i))
         for size in (18, 36, 72):
             im.resize((size, size), Image.NEAREST).save(os.path.join(OUT, 'bits_%d_%d.png' % (bits, size)))
+        im.resize((180, 180), Image.NEAREST).save(os.path.join(ALERT_OUT, 'bits_%d_180.png' % bits))   # for the Bits alert
         tiles.append((bits, im.resize((90, 90), Image.NEAREST)))
     cols = 5; W = cols * 130 + 24; rows = (len(tiles) + cols - 1) // cols; H = rows * 140 + 24
     sheet = Image.new('RGB', (W, H), '#222A2A'); d = ImageDraw.Draw(sheet)

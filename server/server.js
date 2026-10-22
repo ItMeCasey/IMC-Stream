@@ -496,7 +496,7 @@ function pickRule(event, num, vars, key) {
 }
 function buildAlert(rule, vars) {
   return { kind: ALERT_EVENTS[rule.event].kind, event: rule.event, ruleId: rule.id, tag: tpl(rule.tag, vars), name: tpl(rule.title, vars), msg: tpl(rule.msg, vars),
-    accent: rule.color, sound: rule.sound ? '/sounds/' + rule.sound : '', volume: rule.volume, seconds: rule.seconds, image: rule.image ? '/assets/' + rule.image : '', video: rule.video ? '/video/' + rule.video : '' };
+    bits: rule.event === 'bits' ? Math.floor(Number(vars.amount) || 0) : 0, accent: rule.color, sound: rule.sound ? '/sounds/' + rule.sound : '', volume: rule.volume, seconds: rule.seconds, image: rule.image ? '/assets/' + rule.image : '', video: rule.video ? '/video/' + rule.video : '' };
 }
 /** Fire an alert for an event: the best-matching enabled rule decides what it looks and sounds like (no rule = no alert). */
 const EXPLODE_ON = { goal: 'goal', raid: 'raid', hype_start: 'hype', sub: 'sub', resub: 'sub', giftsub: 'giftsub', bits: 'bits' };
