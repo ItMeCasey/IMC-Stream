@@ -9,6 +9,7 @@
   canvas { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; image-rendering: pixelated; image-rendering: crisp-edges; }
 </style></head>
 <body><canvas id="cv" width="480" height="270"></canvas>
+<script>if (!/[?&]scale=/.test(location.search)) history.replaceState(null, "", location.pathname + (location.search ? location.search + "&" : "?") + "scale=1");   // a full-screen overlay is never shrunk by the global overlay scale</script>
 <script src="config.js"></script>
 <script>
 (function () {
@@ -92,7 +93,7 @@
   function rack(s, t, x0, y0, w) {
     const n = s.letters.length, gap = 2, tw = Math.floor((w - (n - 1) * gap) / n), th = tw + 6, sc = tw >= 13 ? 2 : 1, fake = s.fake || [];
     for (let i = 0; i < n; i++) {
-      const ch = s.letters[i], bob = s.phase === 'round' ? Math.round(Math.sin(t / 380 + i * 1.3) * 1) : 0, x = x0 + i * (tw + gap), y = y0 + bob, age = revealAt[i] ? performance.now() - revealAt[i] : 9999;
+      const ch = s.letters[i].toUpperCase(), bob = s.phase === 'round' ? Math.round(Math.sin(t / 380 + i * 1.3) * 1) : 0, x = x0 + i * (tw + gap), y = y0 + bob, age = revealAt[i] ? performance.now() - revealAt[i] : 9999;
       let col = CREAM, shade = CREAM_D, ink = INK;
       if (ch === '?') { const b = Math.floor(t / 400) % 2; col = b ? AQUA : AQUA_D; shade = AQUA_D; }                      // an unknown letter
       else if (age < 700) { col = Math.floor(age / 90) % 2 ? '#ffffff' : AQUA; }                                         // just revealed

@@ -1671,7 +1671,7 @@ async function route(req, res) {
       }
       if (p === '/api/vm/volume') return json(res, 200, await vmix.setVolume(body.which, body.db));
       if (p === '/api/obs/overlay') {   // add one of the overlays to the CURRENT OBS collection (every scene) without replacing anything
-        const files = { dance: ['Dance Party', 'dance.html?scale=1', 1920, 1080], words: ['Word Rush', 'words.html', 1920, 1080] }, f = files[String(body.which)]; if (!f) throw new Error('Unknown overlay');
+        const files = { dance: ['Dance Party', 'dance.html?scale=1', 1920, 1080], words: ['Word Rush', 'words.html?scale=1', 1920, 1080] }, f = files[String(body.which)]; if (!f) throw new Error('Unknown overlay');
         const url = 'http://localhost:' + CFG.port + '/overlays/' + f[1];
         const steps = await obsClient.raw(async (call) => {
           const scenes = ((await call('GetSceneList')).scenes || []).map((x) => x.sceneName), have = ((await call('GetInputList')).inputs || []).some((i) => i.inputName === f[0]), out = [];
@@ -1683,7 +1683,7 @@ async function route(req, res) {
           }
           // these overlays cover the whole picture: make the source as big as the OBS canvas and stretch it over the canvas in every scene
           const vs = await call('GetVideoSettings'), cw = vs.baseWidth || f[2], ch = vs.baseHeight || f[3];
-          try { await call('SetInputSettings', { inputName: f[0], inputSettings: { width: cw, height: ch }, overlay: true }); } catch (e) { /* keep the size it has */ }
+          try { await call('SetInputSettings', { inputName: f[0], inputSettings: { url, width: cw, height: ch }, overlay: true }); } catch (e) { /* keep the size it has */ }
           for (const sc of scenes) {
             try {
               const id = (await call('GetSceneItemId', { sceneName: sc, sourceName: f[0] })).sceneItemId;
