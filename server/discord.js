@@ -35,7 +35,7 @@ module.exports = function createDiscord(ctx) {
   const save = () => { try { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(S, null, 2)); } catch (e) { log('discord save failed:', e.message); } };
 
   async function api(method, p, body, retried) {
-    const r = await doFetch(API + p, { method, headers: { Authorization: 'Bot ' + S.token, 'Content-Type': 'application/json', 'User-Agent': 'ItMeCaseyStream (https://github.com, 1)' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const r = await doFetch(API + p, { method, headers: { Authorization: 'Bot ' + S.token, 'Content-Type': 'application/json', 'User-Agent': 'IMC-Stream (https://github.com/Drakma/IMC-Stream, 1)' }, body: body === undefined ? undefined : JSON.stringify(body) });
     if (r.status === 429 && !retried) { const j = await r.json().catch(() => ({})); await sleep(Math.min(10000, Math.ceil((j.retry_after || 1) * 1000))); return api(method, p, body, true); }
     if (r.status === 204) return null;
     const j = await r.json().catch(() => null);
