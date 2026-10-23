@@ -6,7 +6,7 @@
  */
 (function (root, factory) { root.AvatarRender = factory(); })(typeof self !== 'undefined' ? self : this, function () {
   const W = 80, H = 96, CX = 40;
-  const DEFAULT_STYLE = { skin: '#E8B88F', hair: '#3b2a22', hairStyle: 'short', eyes: '#2e86c1', shirt: '#4FBBBC', outfit: 'hoodie', glasses: false, headphones: false, blush: true, gender: 'neutral', facialHair: 'none', lips: '#b9575c', bg: 'transparent', room: 'room', blur: 4, rgb: 'rainbow', neon: 'LIVE', zoom: 1.4, pets: [], petFreq: 'normal' };
+  const DEFAULT_STYLE = { skin: '#E8B88F', hair: '#3b2a22', hairStyle: 'short', eyes: '#2e86c1', shirt: '#4FBBBC', outfit: 'hoodie', glasses: false, headphones: false, blush: true, gender: 'neutral', facialHair: 'none', lips: '#b9575c', bg: 'transparent', room: 'room', blur: 4, rgb: 'rainbow', neon: '', zoom: 1.4, pets: [], petFreq: 'normal' };
   const shade = (hex, f) => { const n = parseInt(hex.slice(1), 16), c = (v) => Math.max(0, Math.min(255, Math.round(v * f))); return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => c(v).toString(16).padStart(2, '0')).join(''); };
   const mixHex = (a, b, f) => { const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16), c = (s) => Math.round(((pa >> s) & 255) * (1 - f) + ((pb >> s) & 255) * f); return '#' + [16, 8, 0].map((s) => c(s).toString(16).padStart(2, '0')).join(''); };
   const hueOf = (hex) => { const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (!d) return 0; return 60 * (mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4); };

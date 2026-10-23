@@ -53,7 +53,7 @@
       else { px(x + 2, y + 2, w - 4, h - 4, '#111a2b'); for (let r = 0; r < 3; r++) for (let q = 0; q < 4; q++) px(x + 3 + q * 4, y + 4 + r * 4, 2, 2, ['#5ef2b0', '#f25ea1', '#5ec8f2'][r]); px(x + 6, y + h - 6, 6, 2, '#5ef2b0'); }
     }
     function neon(text, x, y, rgb, t) {
-      text = String(text || 'LIVE').toUpperCase().replace(/[^A-Z0-9 !?-]/g, '').slice(0, 9) || 'LIVE'; const col = rgb === 'off' ? '#9aa4c0' : rgb === 'rainbow' ? hsl(300 + Math.sin(t * 0.5) * 40, 100, 70) : hsl(hexHue(rgb), 100, 70), glow = rgb === 'off' ? 'rgba(150,160,190,0.18)' : rgb === 'rainbow' ? hsl(300 + Math.sin(t * 0.5) * 40, 100, 60, 0.22) : hsl(hexHue(rgb), 100, 60, 0.22);
+      text = String(text || '').toUpperCase().replace(/[^A-Z0-9 !?-]/g, '').slice(0, 9).trim(); if (!text) return;   // no sign unless one is typed const col = rgb === 'off' ? '#9aa4c0' : rgb === 'rainbow' ? hsl(300 + Math.sin(t * 0.5) * 40, 100, 70) : hsl(hexHue(rgb), 100, 70), glow = rgb === 'off' ? 'rgba(150,160,190,0.18)' : rgb === 'rainbow' ? hsl(300 + Math.sin(t * 0.5) * 40, 100, 60, 0.22) : hsl(hexHue(rgb), 100, 60, 0.22);
       const flick = Math.sin(t * 23) * Math.sin(t * 7.3) > 0.93 ? 0.35 : 1, w = text.length * 4 - 1; c.globalAlpha = flick;
       px(x - 3, y - 3, w + 6, 11, 'rgba(0,0,0,0.28)');   // the sign's backing
       let cx = x; for (const ch of text) { const g = GLYPH[ch] || GLYPH[' ']; for (let r = 0; r < 5; r++) for (let q = 0; q < 3; q++) if (g[r][q] === '#') { px(cx + q - 1, y + r * 1.0 - 1, 3, 3, glow); } cx += 4; }
