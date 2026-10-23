@@ -3,7 +3,7 @@
  * Channel point reward hooks: when a reward is redeemed, run a list of actions
  * (show an alert, post in chat, run a chat command, call a webhook, drive OBS, adjust currency / counters, mark fulfilled).
  */
-const TYPES = ['alert', 'chat', 'command', 'webhook', 'obs-source', 'obs-scene', 'points', 'counter', 'status', 'countdown', 'tts', 'ad', 'clip', 'alerts', 'media', 'obs-stream', 'obs-record', 'emote7tv'];
+const TYPES = ['alert', 'chat', 'command', 'webhook', 'obs-source', 'obs-scene', 'points', 'counter', 'status', 'countdown', 'tts', 'ad', 'clip', 'alerts', 'media', 'obs-stream', 'obs-record', 'emote7tv', 'ttsreward'];
 const ANN = ['primary', 'blue', 'green', 'orange', 'purple'];
 
 module.exports = function createHooks(ctx) {
@@ -72,6 +72,25 @@ module.exports = function createHooks(ctx) {
         if (!r.ok) throw new Error(((r.json && r.json.message) || 'HTTP ' + r.status) + ' (Twitch only lets an app update redemptions of rewards that app created: use "Create reward" on this page)');
         return a.status === 'CANCELED' ? 'cancelled + refunded' : 'marked fulfilled';
       }
+      case 'ttsreward': {   // a viewer typed a message into a text-to-speech reward: read it out loud, then fulfil the redemption (or refund it and say why when it cannot be read)
+        const setStatus = async (status) => {
+          if (!rd.redemptionId) return; const me = ctx.me();
+          const r = await ctx.helix('PATCH', '/channel_points/custom_rewards/redemptions?id=' + encodeURIComponent(rd.redemptionId) + '&broadcaster_id=' + me.id + '&reward_id=' + encodeURIComponent(rd.vars.rewardid), { status });
+          if (!r.ok) throw new Error((r.json && r.json.message) || 'HTTP ' + r.status);
+        };
+        let said;
+        try {
+          const t = await ex(a.text || '{name} says {input}'); if (!rd.vars.input || !String(rd.vars.input).trim()) throw new Error('Nothing to say');
+          said = await ctx.tts.say(t, { voice: a.voice || undefined, by: rd.user.name });
+        } catch (e) {
+          const why = e.message === 'blocked' ? 'that message cannot be read out loud' : e.message === 'Nothing to say' ? 'there was nothing to read' : e.message;
+          if (a.say !== false) ctx.bot.say('@' + rd.user.name + ' ' + why + (rd.redemptionId ? ' (your points are refunded)' : ''));
+          if (rd.redemptionId) await setStatus('CANCELED').catch((x) => log('could not refund the redemption:', x.message));
+          throw e;
+        }
+        let note = ''; await setStatus('FULFILLED').catch((x) => { note = ' (could not mark the redemption fulfilled: ' + x.message + ')'; });
+        return 'said "' + said.text + '"' + note;
+      }
       case 'emote7tv': {   // a viewer pasted a 7TV emote link: add it to the channel's 7TV set for a while, say so in chat, and fulfil the redemption (or refund it when the emote could not be added)
         if (!ctx.seventv) throw new Error('7TV emote rewards are not available');
         const setStatus = async (status) => {
@@ -139,6 +158,7 @@ module.exports = function createHooks(ctx) {
       if (a.type === 'obs-stream' || a.type === 'obs-record') o.op = ['start', 'stop', 'toggle'].includes(a.op) ? a.op : 'toggle';
       if (a.type === 'clip') o.say = !!a.say;
       if (a.type === 'emote7tv') o.say = a.say !== false;
+      if (a.type === 'ttsreward') { o.text = raw(a.text, 300) || '{name} says {input}'; o.voice = str(a.voice, 100); o.say = a.say !== false; }
       if (a.type === 'alerts') o.op = ['pause', 'resume', 'mute', 'unmute', 'skip', 'clear'].includes(a.op) ? a.op : 'skip';
       if (a.type === 'media') o.op = ['toggle', 'play', 'pause', 'next', 'previous'].includes(a.op) ? a.op : 'toggle';
       if (a.type === 'status') o.status = a.status === 'CANCELED' ? 'CANCELED' : 'FULFILLED';

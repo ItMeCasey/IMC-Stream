@@ -88,6 +88,18 @@ def dance():
     return g
 
 
+def emote():
+    """a smiley with a plus: add an emote"""
+    face = ['', '', '..hhhhh..', '.hyhhhhh.', 'hyhhhhhhH', 'hhkhhhkhH', 'hhkhhhkhH', 'hhhhhhhhH', 'hkhhhhhkH', 'hhkkkkkHH', '.hhhhHHH.', '..HHHHH..']
+    plus = ['.a.', 'aaa', '.a.'] + [''] * 9
+    return grid([(f or '.' * 9) + (pl or '...') for f, pl in zip(face, plus)])
+
+
+def tts():
+    """a speech bubble with sound waves: text-to-speech"""
+    return grid(['............', '.ccccccc....', 'ccccccccc.a.', 'ckkkkkkkc..a', 'ccccccccc..a', 'ckkkkkcc...a', 'ccccccccc.a.', '.ccccccc....', '..cc........', '.c..........', '............', '............'])
+
+
 # ---------------------------------------------------------------- power-ups
 def bolt():
     g = grid(['............', '......yhh...', '.....yhh....', '....yhh.....', '...yhhhhhh..', '...yhhhhhh..', '......hh....', '.....hh.....', '....hh......', '...hh.......', '...h........', '............'])
@@ -131,7 +143,7 @@ def coin():
     return g
 
 
-ICONS = [('reward_boss', 'Summon a Boss', boss), ('reward_arena', 'Open the Arena', arena), ('reward_race', 'Horse Race', race), ('reward_dance', 'Dance Party', dance),
+ICONS = [('reward_boss', 'Summon a Boss', boss), ('reward_arena', 'Open the Arena', arena), ('reward_race', 'Horse Race', race), ('reward_dance', 'Dance Party', dance), ('reward_emote', 'Add a 7TV emote', emote), ('reward_tts', 'Text-to-speech', tts),
          ('powerup_double', 'Double damage', bolt), ('powerup_shield', 'Shield', shield), ('powerup_heal', 'Heal', heal), ('powerup_crit', 'Critical hit', crit), ('powerup_bomb', 'Bomb', bomb), ('powerup_coin', 'Bonus coins', coin)]
 
 

@@ -53,6 +53,9 @@
       <label class="fld">Who can use it<select id="cmdLvl"><option value="everyone">Everyone</option><option value="subscriber">Subscribers+</option><option value="vip">VIPs+</option><option value="moderator">Mods only</option></select></label>
       <label class="fld">Cost (your chat currency)<input id="cmdCost" type="number" min="0"></label><label class="fld">Wait between uses (s)<input id="cmdCd" type="number" min="0"></label></div>
     <button id="saveCmd">Save</button>
+    <h2 style="margin-top:22px">TEXT-TO-SPEECH REWARD (CHANNEL POINTS)</h2>
+    <p class="muted" style="margin-bottom:6px">A reward with a box for the message: when a viewer redeems it, their message is read out loud with the voice above (blocked words are never read) and the redemption is fulfilled. If the message cannot be read, the viewer is told why and the points are refunded. Needs Affiliate or Partner.</p>
+    <div class="row"><label class="fld">Title<input id="rwTitle" maxlength="45" value="Text-to-speech"></label><label class="fld" style="max-width:150px">Cost (points)<input id="rwCost" type="number" min="1" value="1000"></label><label class="fld" style="max-width:190px">Cooldown (seconds)<input id="rwCd" type="number" min="0" value="60"></label><button id="mkReward" type="button">Create the reward on Twitch</button></div>
     <p class="muted" style="margin-top:10px">Other ways to use the voice: in <b>Alerts</b>, edit an alert and tick <b>Read it aloud</b> (e.g. bits and tips read the viewer's message). In <b>Reward hooks</b>, add a <b>Speak aloud</b> action so a channel point reward reads what the viewer typed. Mods can type <code>!ttsskip</code> to cut off the current speech.</p>
   </section>
 
@@ -63,6 +66,7 @@
 <div id="toast"></div>
 <script>
 const $ = (id) => document.getElementById(id);
+$('mkReward') && ($('mkReward').onclick = async () => { const r = await post('reward', { title: $('rwTitle').value, cost: +$('rwCost').value, cooldown: +$('rwCd').value }); toast(r.error || 'Reward created on Twitch', !!r.error); });
 const post = (p, b) => fetch('/api/tts/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
 const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3200); }

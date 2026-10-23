@@ -1655,6 +1655,12 @@ async function route(req, res) {
         if (a === 'preview') return json(res, 200, await tts.speak(body.text, { voice: body.voice || undefined, rate: body.rate, pitch: body.pitch }));   // plays only in this browser tab
         if (a === 'skip' || a === 'clear') return json(res, 200, tts.ctl(a));
         if (a === 'voices') return json(res, 200, await tts.voices(true));
+        if (a === 'reward') {   // the channel point reward on Twitch (with a box for the message) and the hook that reads it out loud, in one go
+          const title = String(body.title || 'Text-to-speech').slice(0, 45);
+          const rw = await hooks.api('reward/create', { title, cost: body.cost || 1000, cooldown: body.cooldown || 0, input: true, prompt: 'Type what you want read out loud on stream.' });
+          await hooks.api('save', { name: 'Text-to-speech: ' + title, enabled: true, match: { rewardId: rw.id }, actions: [{ type: 'ttsreward', text: '{name} says {input}' }] });
+          return json(res, 200, { ok: true, rewardId: rw.id, title });
+        }
         throw new Error('unknown action');
       }
       if (p.startsWith('/api/subathon/')) { const a = p.slice(14); if (!['start', 'pause', 'resume', 'reset', 'add', 'set', 'show', 'hide', 'visible', 'settings'].includes(a)) throw new Error('unknown action'); const r = subathon[a](body); return json(res, 200, Object.assign({}, r, { rules: subathon.rules() })); }

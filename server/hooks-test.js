@@ -21,7 +21,7 @@ const hooks = createHooks({
   state, persist: () => { persisted++; }, log: () => {}, bot, obs, me: () => ({ id: '1', login: 'itmecasey' }),
   helix: async (m, p, b) => { helixCalls.push([m, p, b]); if (p.startsWith('/channel_points/custom_rewards?')) { return m === 'GET' ? { ok: true, json: { data: [{ id: 'r1', title: 'Hydrate!', cost: 200, is_enabled: true, is_user_input_required: false }] } } : { ok: true, json: { data: [{ id: 'new1', title: b.title }] } }; } return p.includes('fail') ? { ok: false, status: 403, json: { message: 'The broadcaster is not the owner of this reward' } } : { ok: true, json: {} }; },
   fireCustom: (key, vars, n) => { customFires.push([key, vars, n]); return key === 'confetti'; },
-  tts: { say: async (text, o) => { ttsSaid.push([text, o.voice, o.by]); return { text }; } },
+  tts: { say: async (text, o) => { if (/blockme/.test(text)) throw new Error('blocked'); ttsSaid.push([text, o.voice, o.by]); return { text }; } },
   countdown: new Proxy({}, { get: (_, op) => (b) => { cdOps.push([op, b]); } }),
   seventv: { add: async ({ url, by }) => { sevenAdds.push([url, by]); if (/bad/.test(url)) throw new Error('that emote does not exist on 7TV'); return { name: 'KEKW', days: 30 }; } },
   fetch: async (url, o) => { fetchCalls.push([url, o]); return { ok: !/bad/.test(url), status: /bad/.test(url) ? 500 : 200 }; },
@@ -102,6 +102,16 @@ const redemption = (over = {}) => Object.assign({ id: 'red1', user_id: 'u9', use
   await hooks.onRedemption(redemption({ id: 'red8', user_input: 'https://bad.example', reward: { id: 'r7', title: 'Add an emote', cost: 5000 } })); await bot._flush();
   assert.strictEqual(helixCalls[1][2].status, 'CANCELED'); assert.match(sent.pop().text, /that emote could not be added: that emote does not exist on 7TV \(your points are refunded\)/); assert.strictEqual(hooks.view().runs[0].results[0].ok, false);
   await hooks.api('delete', { id: h7.id });
+
+  // ---- the text-to-speech reward: the message is read out loud and the redemption fulfilled; a message that cannot be read is refunded and the viewer is told why
+  const hT = await hooks.api('save', { name: 'TTS reward', match: { rewardId: 'rt' }, actions: [{ type: 'ttsreward' }] }); assert.strictEqual(hT.actions[0].text, '{name} says {input}');
+  helixCalls.length = 0; sent.length = 0; ttsSaid.length = 0;
+  await hooks.onRedemption(redemption({ id: 'redT1', user_input: 'hello stream', reward: { id: 'rt', title: 'Text-to-speech', cost: 1000 } })); await bot._flush();
+  assert.deepStrictEqual(ttsSaid.pop().slice(0, 1), ['Sam says hello stream']); assert.strictEqual(helixCalls[0][2].status, 'FULFILLED'); assert.match(helixCalls[0][1], /id=redT1.*reward_id=rt/);
+  await hooks.onRedemption(redemption({ id: 'redT2', user_input: 'blockme please', reward: { id: 'rt', title: 'Text-to-speech', cost: 1000 } })); await bot._flush();
+  assert.strictEqual(helixCalls[1][2].status, 'CANCELED'); assert.match(sent.pop().text, /@Sam that message cannot be read out loud \(your points are refunded\)/); assert.strictEqual(ttsSaid.length, 0);
+  await hooks.onRedemption(redemption({ id: 'redT3', user_input: '   ', reward: { id: 'rt', title: 'Text-to-speech', cost: 1000 } })); await bot._flush();
+  assert.strictEqual(helixCalls[2][2].status, 'CANCELED'); assert.match(sent.pop().text, /there was nothing to read/); await hooks.api('delete', { id: hT.id });
 
   // ---- status action explains Twitch's app-ownership rule
   await hooks.api('save', { id: h2.id, name: 'Resilient', match: { title: 'Sing' }, actions: [{ type: 'status', status: 'FULFILLED' }] });
