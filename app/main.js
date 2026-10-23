@@ -1,5 +1,5 @@
 'use strict';
-/** ItMeCasey Stream: the desktop app. Runs the local stream server in the background, shows the dashboard, lives in the tray. */
+/** IMC-Stream: the desktop app. Runs the local stream server in the background, shows the dashboard, lives in the tray. */
 const { app, BrowserWindow, Tray, Menu, nativeImage, shell, dialog, Notification, session, desktopCapturer } = require('electron');
 const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs'), path = require('node:path');
@@ -10,6 +10,8 @@ const RES = PACKED ? process.resourcesPath : path.join(__dirname, '..');       /
 const SERVER_DIR = path.join(RES, 'server');
 const BUILD = path.join(__dirname, 'build');
 
+// The app is called IMC-Stream now, but its profile folder keeps the old name so nothing (logins, settings, bot data) has to move.
+if (!app.isPackaged || !process.env.ICM_NEW_PROFILE) app.setPath('userData', path.join(app.getPath('appData'), 'ItMeCasey Stream'));
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 let win = null, tray = null, sup = null, quitting = false, port = 8420, light = 'grey', settings = null;
@@ -53,7 +55,7 @@ function openWindow(pathName) {
   if (!win) {
     const ws = settings.window || {}, screens = require('electron').screen.getAllDisplays();
     const onScreen = ws.x != null && screens.some((d) => ws.x >= d.bounds.x - 50 && ws.x < d.bounds.x + d.bounds.width - 100 && ws.y >= d.bounds.y - 50 && ws.y < d.bounds.y + d.bounds.height - 100);   // ignore a saved spot on a monitor that is gone
-    win = new BrowserWindow({ width: ws.width || 1280, height: ws.height || 860, x: onScreen ? ws.x : undefined, y: onScreen ? ws.y : undefined, minWidth: 900, minHeight: 600, backgroundColor: '#222A2A', title: 'ItMeCasey Stream', icon: path.join(BUILD, 'icon.png'), autoHideMenuBar: true, show: false,
+    win = new BrowserWindow({ width: ws.width || 1280, height: ws.height || 860, x: onScreen ? ws.x : undefined, y: onScreen ? ws.y : undefined, minWidth: 900, minHeight: 600, backgroundColor: '#222A2A', title: 'IMC-Stream', icon: path.join(BUILD, 'icon.png'), autoHideMenuBar: true, show: false,
       titleBarStyle: 'hidden', titleBarOverlay: { color: '#1A2020', symbolColor: '#E2DAC2', height: 32 } });   // slim title bar: the page's own top strip is the drag area
     if (ws.maximized) win.maximize();
     const remember = () => { if (!win || win.isMinimized() || win.isFullScreen()) return; settings.window = Object.assign({}, win.isMaximized() ? settings.window : win.getNormalBounds(), { maximized: win.isMaximized() }); };
@@ -114,7 +116,7 @@ const LIGHT_TEXT = { green: 'All good', amber: 'Needs attention (see Setup)', re
 function refreshTray() {
   if (!tray) return;
   tray.setImage(icon('tray-' + light + '.png').resize({ width: 24, height: 24 }));
-  tray.setToolTip('ItMeCasey Stream: ' + LIGHT_TEXT[light]);
+  tray.setToolTip('IMC-Stream: ' + LIGHT_TEXT[light]);
   const toggle = (label, key, after) => ({ label, type: 'checkbox', checked: !!settings[key], click: (m) => { settings[key] = m.checked; saveSettings(); if (after) after(); } });
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Status: ' + LIGHT_TEXT[light], enabled: false },

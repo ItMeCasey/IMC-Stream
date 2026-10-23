@@ -1,4 +1,4 @@
-// ItMeCasey overlay settings -- edit here, then right-click the browser source in OBS > Refresh.
+// IMC-Stream overlay settings -- edit here, then right-click the browser source in OBS > Refresh.
 window.CFG = {
   channel: "itmecasey",     // your Twitch channel (lowercase) -- used by chat.html
   serverPort: 8420,         // port of the local stream server (server/config.json) -- used by alerts.html

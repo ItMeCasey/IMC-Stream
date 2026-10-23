@@ -1,6 +1,6 @@
 # Artwork, sounds and branding
 
-The **source code** of ItMeCasey Stream is licensed under the GNU General Public License v3.0 or later (see [LICENSE](LICENSE)).
+The **source code** of IMC-Stream is licensed under the GNU General Public License v3.0 or later (see [LICENSE](LICENSE)).
 
 The following are **not** covered by the GPL. They are copyright (c) 2026 ItMeCasey, all rights reserved:
 

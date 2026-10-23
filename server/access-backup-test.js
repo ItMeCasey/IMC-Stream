@@ -61,7 +61,7 @@ acc.setSettings({ clearPassword: true }); assert.deepStrictEqual([acc.view().lan
   // refuses things that are not our backups
   const evil = path.join(DATA, 'evil.zip'); fs.mkdirSync(path.join(DATA, 'x')); fs.writeFileSync(path.join(DATA, 'x', 'notes.txt'), 'hi');
   require('node:child_process').spawnSync(process.platform === 'win32' ? path.join(process.env.SystemRoot, 'System32', 'tar.exe') : 'tar', ['-a', '-c', '-f', evil, 'x'], { cwd: DATA });
-  assert.throws(() => bk.restore(evil), /does not look like an ItMeCasey backup/);
+  assert.throws(() => bk.restore(evil), /does not look like an IMC-Stream backup/);
   fs.writeFileSync(path.join(DATA, 'junk.zip'), 'not a zip'); assert.throws(() => bk.restore(path.join(DATA, 'junk.zip')), /zip tool failed/);
   // daily automatic backup keeps the newest 7
   bk.auto(); assert.ok(bk.list().some((f) => f.name.startsWith('auto-' + new Date().toISOString().slice(0, 10)))); const n = bk.list().length; bk.auto(); assert.strictEqual(bk.list().length, n, 'only one automatic backup per day');

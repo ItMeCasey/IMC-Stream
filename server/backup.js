@@ -37,7 +37,7 @@ module.exports = function createBackup(ctx) {
     const ok = new Set(['state.json', 'bot.json', 'config.json', 'tokens.json', 'spotify.json', 'bot-account.json', 'paypal.json', 'custom', 'modules']);
     for (const n of names) {
       const top = n.replace(/\\/g, '/').split('/')[0];
-      if (n.includes('..') || path.isAbsolute(n) || /^[a-zA-Z]:/.test(n) || !ok.has(top)) throw new Error('That does not look like an ItMeCasey backup (unexpected file: ' + n + ')');
+      if (n.includes('..') || path.isAbsolute(n) || /^[a-zA-Z]:/.test(n) || !ok.has(top)) throw new Error('That does not look like an IMC-Stream backup (unexpected file: ' + n + ')');
     }
     create({ out: path.join(DIR, 'before-restore-' + stamp() + '.zip'), includeLogins: true });   // always keep a way back
     const tmp = fs.mkdtempSync(path.join(DIR, 'restore-'));

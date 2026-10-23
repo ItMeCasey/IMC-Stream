@@ -1,5 +1,5 @@
 @echo off
-title ItMeCasey Stream Server
+title IMC-Stream Server
 cd /d "%~dp0"
 where node >nul 2>nul || (echo Node.js 22 or newer is required: https://nodejs.org & pause & exit /b 1)
 start "" http://localhost:8420/

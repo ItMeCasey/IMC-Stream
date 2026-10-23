@@ -1,5 +1,5 @@
 {
-  "name": "itmecasey-stream-dev",
+  "name": "imc-stream-dev",
   "private": true,
   "description": "Development tooling for the repository (the app itself is in app/)",
   "license": "GPL-3.0-or-later",

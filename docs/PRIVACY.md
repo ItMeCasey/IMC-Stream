@@ -1,6 +1,6 @@
 # Privacy
 
-ItMeCasey Stream runs on your own PC. It does not have an account system, does not collect analytics and does not send anything to the author.
+IMC-Stream runs on your own PC. It does not have an account system, does not collect analytics and does not send anything to the author.
 
 ## What stays on your PC
 Settings, the chat bot's data (commands, points, quotes), your Twitch login, any bot account, PayPal or Spotify details you add, uploaded sounds and videos, panels and backups are stored in `%APPDATA%\ItMeCasey Stream\data` (or `Documents\ItMeCasey Stream\data` in the Microsoft Store version). Logins are kept in files on your PC and are left out of backups unless you choose to include them.

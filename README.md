@@ -1,4 +1,4 @@
-# ItMeCasey Stream
+# IMC-Stream
 
 A Windows desktop app and OBS pack for Twitch streamers. It replaces Streamlabs / StreamElements and a separate chat bot with one app that runs on your own PC: alerts, a chat bot with games, channel-point reward actions, goals, tips, a subathon timer, an audio mixer, pixel-art mini-games and a Dance Party, all themed (palette below) and shown through ordinary OBS browser sources.
 
@@ -18,7 +18,7 @@ Everything runs locally. Your Twitch login, settings and data stay on your PC (s
 - Affiliate or Partner is needed only for predictions (horse race), channel-point rewards and bits.
 
 ## Quick start
-1. Run **`ItMeCasey Stream Setup <version>.exe`** (for example `2026.10.2`). Windows may say "unknown publisher" because the app is not code-signed yet: click **More info, then Run anyway**.
+1. Run **`IMC-Stream Setup <version>.exe`** (for example `2026.10.2`). Windows may say "unknown publisher" because the app is not code-signed yet: click **More info, then Run anyway**.
 2. The first time, a **welcome guide** opens and walks you through the steps below (you can skip it and use the **Setup** page in the left rail instead).
 3. **Connect Twitch:** press the button, a browser page opens, approve it. The status light turns green.
 4. **OBS:** in OBS open *Tools, WebSocket Server Settings* and tick *Enable WebSocket server*. Enter the port and password on the Setup page, then press **Test**.
@@ -154,7 +154,7 @@ Replaces Streamlabs/StreamElements: connects to Twitch directly, pushes alerts t
 
 **Chat recap** at http://localhost:8420/recap (left rail: Chat recap)
 - Summaries of your chat written by **Claude**, through the Claude Code program on this PC and your own Claude login (no separate bill), always with the cheapest model (`haiku`, changeable on the page). Needs Claude Code installed and logged in once (`claude`, then `/login`); the page has a **Check Claude** button.
-- **End-of-stream recap:** what chat talked about, funny moments, unanswered questions, regulars. Made on demand or automatically 2 minutes after the stream ends, saved in `Documents\ItMeCasey Streamecaps`, optionally posted in the Discord #announcements channel.
+- **End-of-stream recap:** what chat talked about, funny moments, unanswered questions, regulars. Made on demand or automatically 2 minutes after the stream ends, saved in `Documents\ItMeCasey Stream\recaps`, optionally posted in the Discord #announcements channel.
 - **`!recap`** (mods): one line on what chat has been talking about, at most one Claude call every 5 minutes.
 - Privacy: the chat text (deleted messages, commands and bots left out) is sent to Anthropic; "send chatter names" off replaces names with Viewer1, Viewer2... Check: `node recap-test.js`.
 

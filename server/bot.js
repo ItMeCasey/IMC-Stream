@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Chat bot for the ItMeCasey server (Nightbot-style): custom commands with $(variables), timers,
+ * Chat bot for IMC-Stream (Nightbot-style): custom commands with $(variables), timers,
  * spam filters, loyalty points + chat games, quotes, counters, event messages.
  * Reads chat from the server's EventSub feed and replies through Helix (as you, or as an optional bot account).
  */
@@ -300,7 +300,7 @@ module.exports = function createBot(ctx) {
         const url = rest[0] || ''; if (!/^https?:\/\//i.test(url)) return null;
         try {
           const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 5000);
-          const r = await fetchFn(url, { signal: ac.signal, headers: { 'User-Agent': 'ItMeCasey-Bot' } }); clearTimeout(t);
+          const r = await fetchFn(url, { signal: ac.signal, headers: { 'User-Agent': 'IMC-Stream-Bot' } }); clearTimeout(t);
           return oneLine(await r.text(), 300);
         } catch (e) { return '(fetch failed)'; }
       }

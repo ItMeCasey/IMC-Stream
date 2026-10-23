@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * ItMeCasey local stream server (no dependencies, needs Node 22+).
+ * IMC-Stream local server (no dependencies, needs Node 22+).
  *  - Logs into Twitch with the Device Code flow and listens to EventSub over WebSocket
  *  - Pushes alerts to overlays (Server-Sent Events at /events)
  *  - Writes Stream Labels-style text files to ../data/labels/
@@ -593,7 +593,7 @@ let emotes = {}, emotesUpdated = 0, badges = {};
 try { const c = JSON.parse(fs.readFileSync(path.join(DATA, 'emotes.json'), 'utf8')); emotes = c.emotes || {}; emotesUpdated = c.updated || 0; } catch (e) { /* no cache yet */ }
 const BTTV_ZERO_WIDTH = new Set(['SoSnowy', 'IceCold', 'SantaHat', 'TopHat', 'ReinDeer', 'CandyCane', 'cvMask', 'cvHazmat']);
 async function getJson(url) {
-  const r = await fetch(url, { headers: { 'User-Agent': 'ItMeCasey-OBS-Pack' } });
+  const r = await fetch(url, { headers: { 'User-Agent': 'IMC-Stream' } });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
@@ -1550,7 +1550,7 @@ async function route(req, res) {
   if (p === '/api/backup/list') return json(res, 200, backup.list());
   if (p === '/api/backup/download') {
     const f = backup.create({ out: path.join(os.tmpdir(), 'icm-backup-' + Date.now() + '.zip'), includeLogins: u.searchParams.get('includeLogins') === '1' }).file;
-    res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="ItMeCasey-backup-' + new Date().toISOString().slice(0, 10) + '.zip"' });
+    res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="IMC-Stream-backup-' + new Date().toISOString().slice(0, 10) + '.zip"' });
     const rs = fs.createReadStream(f); rs.on('close', () => { try { fs.unlinkSync(f); } catch (e) { /* gone */ } });
     return rs.pipe(res); }
   if (p === '/api/health') return json(res, 200, health());
@@ -2007,7 +2007,7 @@ function diagnostics() {
   const os = require('node:os'), h = health();
   const scrub = (t) => String(t).replace(/(access_token|refresh_token|authorization|bearer|api[_-]?key|secret|password|client_secret|code)(["':=\s]+)([A-Za-z0-9._\-]{6,})/gi, '$1$2***').replace(/oauth:[A-Za-z0-9]+/gi, 'oauth:***');
   const lines = [
-    'ItMeCasey Stream ' + h.version, 'Windows ' + os.release() + ' (' + os.arch() + '), Node ' + process.versions.node + (process.versions.electron ? ', Electron ' + process.versions.electron : ''),
+    'IMC-Stream ' + h.version, 'Windows ' + os.release() + ' (' + os.arch() + '), Node ' + process.versions.node + (process.versions.electron ? ', Electron ' + process.versions.electron : ''),
     'Running for ' + h.uptimeSec + ' s, port ' + h.port, 'Twitch: ' + (h.twitch.loggedIn ? 'logged in' : 'not logged in') + ', EventSub ' + h.twitch.eventsub + ', light ' + h.light,
     'Own Client ID set: ' + !!(CFG.clientId), 'Bot account: ' + (bot.hasAccount() ? 'yes' : 'no'), 'OBS configured: ' + h.obs.configured, 'Music source: ' + h.media.provider + ' (' + h.media.status + ')',
     'Voicemeeter: ' + (['banana', 'potato'].filter((k) => vmix.status()[k].installed).join(', ') || 'not installed'), 'Realistic voices: ' + h.tts.kokoro, 'LAN access: ' + h.access.lan, 'Backups: ' + h.backups, '',
@@ -2016,13 +2016,13 @@ function diagnostics() {
 }
 
 // ------------------------------------------------------------------ update check (GitHub releases): tells you when a newer installer exists, never installs anything itself
-const UPDATE_REPO = 'Drakma/ItMeCasey-Stream';
+const UPDATE_REPO = 'Drakma/IMC-Stream';
 let updateInfo = { checkedAt: 0, latest: '', url: '', available: false, error: '' };
 const verParts = (v) => String(v).replace(/^v/, '').split('.').map((x) => parseInt(x, 10) || 0);
 const isNewer = (a, b) => { const x = verParts(a), y = verParts(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
 async function checkUpdate() {
   try {
-    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 8000), r = await fetch('https://api.github.com/repos/' + UPDATE_REPO + '/releases/latest', { headers: { 'User-Agent': 'ItMeCasey-Stream', Accept: 'application/vnd.github+json' }, signal: ac.signal }); clearTimeout(t);
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 8000), r = await fetch('https://api.github.com/repos/' + UPDATE_REPO + '/releases/latest', { headers: { 'User-Agent': 'IMC-Stream', Accept: 'application/vnd.github+json' }, signal: ac.signal }); clearTimeout(t);
     if (r.status === 404) { updateInfo = { checkedAt: Date.now(), latest: '', url: '', available: false, error: 'No public release to compare with yet' }; return updateInfo; }
     if (!r.ok) throw new Error('GitHub answered ' + r.status); const j = await r.json(), latest = String(j.tag_name || '').replace(/^v/, '');
     updateInfo = { checkedAt: Date.now(), latest, url: String(j.html_url || ''), available: !!latest && isNewer(latest, APP_VERSION), error: '' };

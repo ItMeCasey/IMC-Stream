@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ItMeCasey Stream</title>
+<title>IMC-Stream</title>
 <script src="/ui-theme.js"></script>
 <style>
   :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; --rail:200px; }
@@ -224,14 +224,14 @@ let LIVE = null;
 function paintLive() {
   const on = !!(LIVE && LIVE.live); $('rec').classList.toggle('on', on); if (!on) return;
   const s = Math.max(0, Math.floor((Date.now() - (Date.parse(LIVE.startedAt) || Date.now())) / 1000)); $('recT').textContent = Math.floor(s / 3600) + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
-  document.title = '● LIVE ' + $('recT').textContent + ' - ItMeCasey Stream';
+  document.title = '● LIVE ' + $('recT').textContent + ' - IMC-Stream';
 }
 window.__icmBus.on(window, 'stats', (e) => { try { LIVE = JSON.parse(e.data); paintLive(); } catch (x) { /* ignore */ } });
 fetch('/api/stats').then((r) => r.json()).then((j) => { LIVE = j; paintLive(); }).catch(() => {});
 async function paintUpdate() { try { const u = await fetch('/api/update').then((r) => r.json()), a = document.getElementById('upd'); if (u.available && u.enabled) { a.style.display = ''; a.textContent = 'Update ' + u.latest; a.href = u.url || '#'; a.target = '_blank'; } else a.style.display = 'none'; } catch (e) { /* offline */ } }
 paintUpdate(); setInterval(paintUpdate, 15 * 60e3);
 // first run: a guided setup on top of everything until Twitch is connected (or it is skipped)
-(async () => { try { const w = await fetch('/api/welcome').then((r) => r.json()); if (w.done) return; const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#222A2A'; o.innerHTML = '<iframe src="/welcome" style="width:100%;height:100%;border:0"></iframe>'; document.body.appendChild(o); window.addEventListener('message', (e) => { if (e.data && e.data.welcome === 'close') o.remove(); }); } catch (e) { /* server not ready */ } })(); setInterval(() => { paintLive(); if (!(LIVE && LIVE.live)) document.title = 'ItMeCasey Stream'; }, 1000);
+(async () => { try { const w = await fetch('/api/welcome').then((r) => r.json()); if (w.done) return; const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#222A2A'; o.innerHTML = '<iframe src="/welcome" style="width:100%;height:100%;border:0"></iframe>'; document.body.appendChild(o); window.addEventListener('message', (e) => { if (e.data && e.data.welcome === 'close') o.remove(); }); } catch (e) { /* server not ready */ } })(); setInterval(() => { paintLive(); if (!(LIVE && LIVE.live)) document.title = 'IMC-Stream'; }, 1000);
 async function pulse() { try { const h = await fetch('/api/health').then((r) => r.json()); $('dot').className = h.light; $('dot').title = 'Status: ' + h.light + ' (click for Setup)'; $('relogin').style.display = h.twitch && h.twitch.expired ? '' : 'none'; } catch (e) { $('dot').className = 'red'; } }
 $('dot').onclick = () => { location.hash = '#/m/setup'; };
 function drawUi() { $('tTheme').textContent = icmUi.theme() === 'light' ? 'Dark' : 'Light'; $('tDens').textContent = icmUi.density() === 'slim' ? 'Normal' : 'Slim'; }
