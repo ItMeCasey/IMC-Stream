@@ -1017,8 +1017,30 @@ module.exports = function createBot(ctx) {
     add(gOn('royale'), 'Games', 'join', 'Everyone', 'Join the arena when it is open');
     add(gOn('teams'), 'Games', 'red / !blue', 'Everyone', 'Pick a side in a team battle');
     add(gOn('words'), 'Games', 'wordtop', 'Everyone', 'The all-time Word Rush leaderboard');
+    // everything the mods and the streamer can type (the ones that need the moderator level)
+    const mods = [
+      ['addcom <name> <text>', 'Add a command (add -ul=subscriber or -cd=30 to set who can use it and the wait)'], ['editcom <name> <text>', 'Change a command'], ['delcom <name>', 'Delete a command'],
+      ['title <new title>', 'Change the stream title (also !settitle)'], ['game <category>', 'Change the category (also !setgame); !gamesearch <name> lists categories without changing anything'],
+      ['so <user>', 'Give a streamer a shoutout'], ['announce [color] <message>', 'Post a highlighted announcement in chat (blue, green, orange, purple)'], ['permit <user>', 'Let one person post a link for the next 60 seconds'],
+      ['addquote <text>', 'Save a quote'], ['delquote <number>', 'Remove a quote'], ['counter <name> [+ | - | set N | reset]', 'Show or change a counter'], ['setvar <name> <text>', 'Set a variable'], ['listadd <name> <item>', 'Add an item to a list variable'],
+      ['brb / !back', 'Switch to the Be Right Back scene, and back'], ['ad <30-180>', 'Run an ad break (seconds)'], ['snooze', 'Push the next ad back'],
+      ['alerts pause|resume|skip|clear|mute|unmute', 'Control the stream alerts'], ['countdown <10 | +5 | -30s | pause | resume | reset | hide | show>', 'Control the countdown timer'],
+      ['skip / !previous / !pause / !play', 'Control the music'], ['volume <0-100>', 'Set the music volume'],
+      ['approve <number> / !deny <number>', 'Approve or deny a shop redemption (deny refunds it)'], ['addpoints <user> <amount> / !removepoints / !setpoints', 'Give, take or set someone\'s ' + cs], ['bonus <amount>', 'Give everyone who chatted in the last 10 minutes some ' + cs],
+    ];
+    if (ctx.tts && ctx.tts.cfg().on) mods.push(['ttsskip', 'Skip the text-to-speech message that is playing']);
+    if (gOn('trivia')) mods.push(['trivia [stop]', 'Start a trivia question (the first right answer wins)']);
+    if (gOn('raffle')) mods.push(['raffle open | cancel | draw', 'Open a raffle (viewers type !enter), close it, or draw the winner (!draw works too)']);
+    if (gOn('words')) mods.push(['words [number | skip | stop]', 'Start Word Rush (a number sets the rounds), end the round, or stop the game']);
+    if (gOn('wheel')) mods.push(['wheel [options | stop]', 'Spin the wheel: your saved list, or options typed here like !wheel pizza, tacos, sushi (also !spin)']);
+    if (gOn('dance')) mods.push(['dance [stop]', 'Start the Dance Party']);
+    if (gOn('race')) mods.push(['race [now | cancel]', 'Open a horse race (a prediction); now runs it, cancel refunds']);
+    if (gOn('boss')) mods.push(['boss [name | status | stop]', 'Summon the boss (optionally with a name), check on it, or stop it']);
+    if (gOn('royale')) mods.push(['arena [stop]', 'Open the arena royale, or stop it']);
+    if (gOn('teams')) mods.push(['teams [stop]', 'Open a team battle, or stop it']);
     const channel = (ctx.me() && ctx.me().login) || 'the stream', groups = {};
     for (const x of builtin) (groups[x[0]] = groups[x[0]] || []).push(x.slice(1));
+    groups['Mods & streamer'] = mods.map((r) => [P + r[0], 'Mods', r[1]]);
     const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const table = (rows) => '<table>' + rows.map((r) => '<tr><td class="c">' + esc(r[0]) + '</td><td class="w">' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td></tr>').join('') + '</table>';
     const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(channel) + ' chat commands</title><style>' +
@@ -1030,7 +1052,7 @@ module.exports = function createBot(ctx) {
     const md = ['# ' + channel + ' chat commands', ''].concat(custom.length ? ['## Fun & info', '', ...custom.map((r) => '**' + r[0] + '** (' + r[1] + '): ' + r[2]), ''] : [],
       ...Object.keys(groups).map((g) => ['## ' + g, '', ...groups[g].map((r) => '**' + r[0] + '** (' + r[1] + '): ' + r[2]), ''].join('\n'))).join('\n');
     const text = custom.concat(...Object.keys(groups).map((g) => groups[g])).map((r) => r[0] + ' - ' + r[2]).join('\n');
-    return { html, md, text, count: custom.length + builtin.length, custom, groups };
+    return { html, md, text, count: custom.length + builtin.length + mods.length, custom, groups };
   }
   const view = () => ({
     settings: { clip: db.clip, enabled: db.enabled, prefix: db.prefix, currency: db.currency, pointsPerMin: db.pointsPerMin, subMultiplier: db.subMultiplier, awardOffline: db.awardOffline, games: db.games, extras: db.extras },

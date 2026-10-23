@@ -283,9 +283,10 @@ const MOD = ['moderator'], SUB = ['subscriber'];
   assert.ok(!ex.html.includes('!secret') && !ex.md.includes('!secret'), 'hidden commands are left out');
   assert.match(ex.md, /\*\*!lurk\*\* \(Everyone\): … is now lurking\. Thanks for hanging out!/, 'variables are shown as … when there is no description');
   assert.match(ex.md, /\*\*!tts <message>\*\* \(Subscribers\): Have your message read out loud on stream \(costs 25 points\)/);
+  assert.ok(ex.groups['Mods & streamer'].length >= 25 && ex.groups['Mods & streamer'].every((r) => r[1] === 'Mods'), 'the mod commands are listed too'); for (const c of ['!addcom', '!permit <user>', '!words', '!wheel', '!ad <30-180>', '!approve', '!bonus']) assert.ok(ex.groups['Mods & streamer'].some((r) => r[0].startsWith(c)), c); assert.ok(/Mods & streamer/.test(ex.md) && ex.html.includes('Mods &amp; streamer') && ex.text.includes('addcom'), 'in the page, the markdown and the text'); assert.ok(ex.count >= 50);
   assert.match(ex.md, /\*\*!clip\*\* \(Everyone\)/); assert.match(ex.md, /\*\*!shop \/ !redeem <item>\*\* \(Everyone\): Spend points on rewards: .*Hydrate \(100\)/); assert.match(ex.md, /## Games/);
   assert.ok(ex.text.split('\n').includes('!discord - Our Discord server link') && ex.count > 15);
-  ttsCfg.command.on = false; assert.ok(!bot.exportCommands().md.includes('!tts'), 'features that are off are not advertised');
+  ttsCfg.command.on = false; assert.ok(!bot.exportCommands().md.includes('!tts <message>'), 'features that are off are not advertised');
   await api('command/delete', { id: bot.db().commands.find((c) => c.name === 'discord').id }); await api('command/delete', { id: bot.db().commands.find((c) => c.name === 'secret').id });
 
   // ---- text-to-speech chat command + alert controls

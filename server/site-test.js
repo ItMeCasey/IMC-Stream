@@ -4,7 +4,7 @@ const assert = require('assert'), fs = require('fs'), os = require('os'), path =
 const createSite = require('./site'), createPublisher = require('./site-publish');
 
 const bot = {
-  exportCommands: () => ({ count: 3, custom: [['!discord', 'Everyone', 'Join <our> Discord & chat']], groups: { Games: [['!gamble <amount|all>', 'Everyone', 'Bet your coins'], ['!wordtop', 'Everyone', 'The all-time Word Rush leaderboard']] } }),
+  exportCommands: () => ({ count: 3, custom: [['!discord', 'Everyone', 'Join <our> Discord & chat']], groups: { Games: [['!gamble <amount|all>', 'Everyone', 'Bet your coins'], ['!wordtop', 'Everyone', 'The all-time Word Rush leaderboard']], 'Mods & streamer': [['!addcom <name> <text>', 'Mods', 'Add a command']] } }),
   view: () => ({ games: { prefix: '!', currency: 'coins', builtin: [
     { id: 'gamble', name: 'Gamble', how: '!gamble <amount|all>', desc: 'Bet points on a coin flip.', on: true }, { id: 'slots', name: 'Slots', how: '!slots <amount>', desc: 'Three reels.', on: false },
     { id: 'words', name: 'Word Rush', how: '!words (mods)', desc: 'A full-screen word game.', on: true }, { id: 'boss', name: 'Boss raid', how: '!boss (mods) then everyone !hit', desc: 'A monster appears.', on: true }],
@@ -20,7 +20,7 @@ const site = createSite({ bot, tts, hooks: () => hooks, channel: () => 'ItMeCase
   const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'icm-site-')), 'website'), files = site.build(out);
   for (const f of ['index.html', 'commands.html', 'games.html', 'tts.html', 'logo.png', '_headers', 'sounds/tts/ding.wav', 'sounds/tts/boom.wav']) assert.ok(fs.existsSync(path.join(out, f)) && files.includes(f), f);
   const read = (f) => fs.readFileSync(path.join(out, f), 'utf8');
-  const c = read('commands.html'); assert.ok(c.includes('!discord') && c.includes('Join &lt;our&gt; Discord &amp; chat') && !c.includes('<our>'), 'commands are listed and escaped'); assert.ok(c.includes('!wordtop') && c.includes('Fun &amp; info'));
+  const c = read('commands.html'); assert.ok(c.includes('!discord') && c.includes('Join &lt;our&gt; Discord &amp; chat') && !c.includes('<our>'), 'commands are listed and escaped'); assert.ok(c.includes('!wordtop') && c.includes('Fun &amp; info')); assert.ok(c.includes('Mods &amp; streamer') && c.includes('!addcom &lt;name&gt; &lt;text&gt;') && c.includes('Add a command'), 'the mod commands are on the page');
   const g = read('games.html'); assert.ok(g.includes('Gamble') && g.includes('Bet coins on a coin flip') && g.includes('Word Rush') && g.includes('Boss raid') && g.includes('Go Fishing'), 'active games are listed, with your currency'); assert.ok(!g.includes('Slots') && !g.includes('Hidden'), 'games that are off are left out');
   assert.ok(g.includes('Play any time') && g.includes('Stream events') && g.includes('!wordtop'), 'sections and the Word Rush note'); assert.ok(/!boss \(mods\) then everyone !hit/.test(g));
   const t = read('tts.html'); assert.ok(t.includes('Talk &lt;b&gt;to&lt;/b&gt; me') && !t.includes('<b>to</b>'), 'the reward name is escaped'); assert.ok(t.includes('[ding]') && t.includes('data-s="boom"') && t.includes('sounds/tts/'), 'sound effects with play buttons');
