@@ -1010,6 +1010,7 @@ function handleEventInner(type, e, opts = {}) {
       return true;
     case 'stream.online':
       if (live) { state.stream.live = true; state.stream.startedAt = e.started_at || new Date().toISOString(); if (CFG.resetSessionOnStreamOnline) resetSession(); pollStream(); scenes.fire('online').catch(() => {}); }
+      if (live) setTimeout(() => discord.announceLive({ title: state.stream.title, game: state.stream.game }).catch((err) => log('discord go-live post failed:', err.message)), 20000);   // a moment later, so the title and game are known
       systemLog('Stream went online');
       break;
     case 'stream.offline':
@@ -1517,6 +1518,7 @@ async function route(req, res) {
   if (p === '/api/hooks') return json(res, 200, hooks.view());
   if (p === '/api/hooks/rewards') { try { return json(res, 200, { rewards: await hooks.rewards(false) }); } catch (e) { return json(res, 200, { rewards: [], error: e.message }); } }
   if (p === '/hooks' || p === '/hooks/') return serveFile(res, path.join(__dirname, 'public', 'hooks.html'));
+  if (p === '/discord' || p === '/discord/') return serveFile(res, path.join(__dirname, 'public', 'discord.html'));
   if (p === '/site' || p === '/site/') return serveFile(res, path.join(__dirname, 'public', 'site.html'));
   if (p.startsWith('/site-preview/')) {   // a look at the built website before it is uploaded
     const rel = decodeURIComponent(p.slice(14)) || 'index.html', f = path.resolve(siteDir(), rel);
@@ -1723,6 +1725,16 @@ async function route(req, res) {
         });
         return json(res, 200, { ok: true, steps });
       }
+      if (p.startsWith('/api/discord/')) {
+        const op = p.slice(13);
+        if (op === 'status') return json(res, 200, discord.view());
+        if (op === 'settings') { const v = discord.configure(body); if (body.commands !== undefined || body.token || body.clearToken) { discord.stopGateway(); if (v.commands && v.hasToken) discord.startGateway(); } return json(res, 200, v); }
+        if (op === 'connect') return json(res, 200, await discord.connect());
+        if (op === 'plan') return json(res, 200, await discord.plan(body.guildId));
+        if (op === 'setup') { const r = await discord.setup(body.guildId); await discord.registerCommands().catch((e) => log('discord commands:', e.message)); discord.startGateway(); return json(res, 200, r); }
+        if (op === 'test') return json(res, 200, await discord.test());
+        throw new Error('unknown Discord action');
+      }
       if (p === '/api/site/status') { const w = await sitePublisher.whoami(); return json(res, 200, Object.assign({ cloudflare: w }, sitePublisher.view())); }
       if (p === '/api/site/login') return json(res, 200, sitePublisher.login());
       if (p === '/api/site/settings') return json(res, 200, sitePublisher.settings(body));
@@ -1906,6 +1918,10 @@ const vmix = require('./voicemeeter.js')({ DATA, obs: obsClient, log });
 const site = require('./site')({ bot, tts, hooks: () => state.rewardHooks, channel: () => (tokens ? tokens.login : ''), assetsDir: path.join(ROOT, 'assets'), sfxDir: path.join(ROOT, 'sounds', 'tts') });   // the viewers' website (static pages for a free host)
 const siteDir = () => path.join(process.env.ICM_DOCS || path.join(require('node:os').homedir(), 'Documents', 'ItMeCasey Stream'), 'website');
 const sitePublisher = require('./site-publish')({ state, persist, log, site, tts, siteDir, channel: () => (tokens ? tokens.login : '') });   // puts that website on Cloudflare Pages by itself
+const discord = require('./discord')({ file: path.join(DATA, 'discord.json'), log, channel: () => (tokens ? tokens.login : ''), website: () => (state.site && state.site.lastUrl) || '',
+  data: { commands: () => bot.exportCommands(), top: () => (bot.view().top || []).slice(0, 10), stream: () => state.stream,
+    games: () => { const g = bot.view().games, P = g.prefix || '!'; return g.builtin.filter((x) => x.on).map((x) => ({ name: x.name, how: String(x.how).replace(/!(?=[a-z0-9])/gi, P) })).concat(g.custom.filter((x) => x.enabled).map((x) => ({ name: x.name, how: P + x.command }))); },
+    tts: () => { const c = tts.cfg(), P = (bot.view().games || {}).prefix || '!'; return 'Redeem the text-to-speech reward and type your message' + (c.command && c.command.on ? ', or type `' + P + 'tts your message`' : '') + '. Add sound effects with their name in square brackets, like `good luck [airhorn] you will need it`. ' + tts.view().sfx.map((x) => '`[' + x.name + ']`').join(' '); } } });   // the Discord bot
 const extraBadges = require('./extrabadges')({ log });   // BetterTTV and FrankerFaceZ chat badges
 const seventv = require('./seventv')({ file: path.join(DATA, 'emotes7tv.json'), log, twitchId: () => (tokens ? tokens.user_id : '') });   // viewers add 7TV emotes to the channel with channel points
 const hooks = createHooks({
@@ -1985,7 +2001,7 @@ function main() {
     log('Label files:', LABELS);
     renderLabels();
     media.start();
-    sitePublisher.start();
+    sitePublisher.start(); if (discord.view().hasToken && discord.view().commands) discord.startGateway();
     backup.auto(); const bk = setInterval(() => backup.auto(), 6 * 3600e3); if (bk.unref) bk.unref();
     const e7 = setInterval(() => seventv.expireDue().catch((e) => log('7tv expiry:', e.message)), 30 * 60e3); if (e7.unref) e7.unref(); setTimeout(() => seventv.expireDue().catch(() => {}), 60e3).unref();   // borrowed emotes whose time is up are taken away again
     if (tts.kokoroInstalled() && !state.ttsCfg.voice && !state.ttsCfg.chosen) { state.ttsCfg.voice = 'af_heart'; persist(true); log('Kokoro found: using the realistic voice af_heart by default (change it on the Speech page).'); }

@@ -22,7 +22,7 @@ jobs:
         working-directory: server
         run: |
           fail=0
-          for t in selftest bot-test hooks-test scenes-test access-backup-test video-test audio-test paypal-test relay-deploy-test botaccount-test countdown-test tts-test obs-test media-test arena-test race-test wheel-test words-test seventv-test extrabadges-test site-test vm-test beat-test packaged-test refresh-test test-mock; do
+          for t in selftest bot-test hooks-test scenes-test access-backup-test video-test audio-test paypal-test relay-deploy-test botaccount-test countdown-test tts-test obs-test media-test arena-test race-test wheel-test words-test seventv-test extrabadges-test site-test discord-test vm-test beat-test packaged-test refresh-test test-mock; do
             echo "::group::$t"
             if node "$t.js"; then echo "ok: $t"; else echo "::error::$t failed"; fail=1; fi
             echo "::endgroup::"
