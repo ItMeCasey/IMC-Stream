@@ -20,7 +20,8 @@ const loadSettings = () => {
   try { return Object.assign(d, JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'))); } catch (e) { return d; }
 };
 const saveSettings = () => { try { fs.mkdirSync(userData, { recursive: true }); fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2)); } catch (e) { /* read-only profile */ } };
-const log = (...a) => { const line = new Date().toISOString() + ' ' + a.join(' '); try { fs.mkdirSync(DATA, { recursive: true }); fs.appendFileSync(path.join(DATA, 'app.log'), line + '\n'); } catch (e) { /* ignore */ } if (!PACKED) console.log(line); };
+const log = (...a) => { const line = new Date().toISOString() + ' ' + a.join(' '); try { fs.mkdirSync(DATA, { recursive: true }); fs.appendFileSync(path.join(DATA, 'app.log'), line + '\n'); } catch (e) { /* ignore */ } if (!PACKED) { try { console.log(line); } catch (e) { /* the terminal that started the app is gone */ } } };
+for (const st of [process.stdout, process.stderr]) if (st && st.on) st.on('error', () => { /* a closed terminal must never crash the app (EPIPE) */ });
 
 function readPort() {
   for (const f of [path.join(DATA, 'config.json'), path.join(SERVER_DIR, 'config.json')]) { try { const p = Number(JSON.parse(fs.readFileSync(f, 'utf8')).port); if (p > 0) return p; } catch (e) { /* next */ } }
