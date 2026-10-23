@@ -6,7 +6,7 @@
  */
 (function (root, factory) { root.AvatarRender = factory(); })(typeof self !== 'undefined' ? self : this, function () {
   const W = 80, H = 96, CX = 40;
-  const DEFAULT_STYLE = { skin: '#E8B88F', hair: '#3b2a22', hairStyle: 'short', eyes: '#2e86c1', shirt: '#4FBBBC', outfit: 'hoodie', glasses: false, headphones: false, blush: true, gender: 'neutral', facialHair: 'none', lips: '#b9575c', bg: 'transparent', room: 'room', blur: 4, rgb: 'rainbow', neon: 'LIVE' };
+  const DEFAULT_STYLE = { skin: '#E8B88F', hair: '#3b2a22', hairStyle: 'short', eyes: '#2e86c1', shirt: '#4FBBBC', outfit: 'hoodie', glasses: false, headphones: false, blush: true, gender: 'neutral', facialHair: 'none', lips: '#b9575c', bg: 'transparent', room: 'room', blur: 4, rgb: 'rainbow', neon: 'LIVE', zoom: 1.4, pets: [], petFreq: 'normal' };
   const shade = (hex, f) => { const n = parseInt(hex.slice(1), 16), c = (v) => Math.max(0, Math.min(255, Math.round(v * f))); return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => c(v).toString(16).padStart(2, '0')).join(''); };
   const mixHex = (a, b, f) => { const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16), c = (s) => Math.round(((pa >> s) & 255) * (1 - f) + ((pb >> s) & 255) * f); return '#' + [16, 8, 0].map((s) => c(s).toString(16).padStart(2, '0')).join(''); };
   const hueOf = (hex) => { const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (!d) return 0; return 60 * (mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4); };
@@ -14,7 +14,7 @@
 
   function create(canvas) {
     const lo = document.createElement('canvas'), hd = document.createElement('canvas'); lo.width = hd.width = W; lo.height = hd.height = H;
-    const L = lo.getContext('2d'), Hd = hd.getContext('2d'), out = canvas.getContext('2d'), room = (typeof AvatarRoom !== 'undefined') ? AvatarRoom.create() : null;
+    const L = lo.getContext('2d'), Hd = hd.getContext('2d'), out = canvas.getContext('2d'), room = (typeof AvatarRoom !== 'undefined') ? AvatarRoom.create() : null, pets = (typeof AvatarPets !== 'undefined') ? AvatarPets.create() : null; let lastT = null;
     let C = Hd;
     const px = (x, y, w, h, col) => { C.fillStyle = col; C.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); };
     /** a rounded block, built row by row so the corners are stepped like pixel art */
@@ -135,14 +135,19 @@
       C = L; const ang = Math.round(p.roll * 0.32 / 0.045) * 0.045; L.save(); L.imageSmoothingEnabled = false; L.translate(CX, 70 + bob); L.rotate(ang); L.translate(-CX, -(70 + bob)); L.drawImage(hd, 0, bob); L.restore();
 
       // ---------------------------------------------------------------- to the screen
-      const s = Math.max(1, Math.min(canvas.width / W, canvas.height / H)), sc = s >= 2 ? Math.floor(s) : s, dw = W * sc, dh = H * sc, ox = Math.round((canvas.width - dw) / 2), oy = Math.round(canvas.height - dh);
+      // the avatar fills the frame: scaled up (in whole pixel steps) so the head and shoulders take most of it, with the head kept in view and the body cropped at the bottom
+      const zoom = Math.max(0.6, Math.min(2.2, +st.zoom || 1.4)), s = Math.max(1, Math.min(canvas.width / W, canvas.height / H) * zoom), sc = s >= 2 ? Math.floor(s) : s, dw = W * sc, dh = H * sc, ox = Math.round((canvas.width - dw) / 2), oy = Math.round(Math.max(canvas.height - dh, canvas.height * 0.05 - 8 * sc));
+      const view = { left: -ox / sc, right: (canvas.width - ox) / sc, top: -oy / sc, bottom: (canvas.height - oy) / sc, cx: CX, shoulderY: 72 + bob };
+      if (pets) { pets.setConfig(st.pets, st.petFreq); pets.update(lastT == null ? 0.033 : Math.max(0.001, Math.min(0.25, t - lastT)), view); lastT = t; }
+      const petPx = (x, y, w, h, col) => { out.fillStyle = col; out.fillRect(Math.round(ox + x * sc), Math.round(oy + y * sc), Math.round(w * sc), Math.round(h * sc)); };
+      const drawPets = (layer) => { if (pets) for (const p of pets.visible()) if (p.layer === layer) AvatarPets.drawPet(petPx, p, t); };
       out.setTransform(1, 0, 0, 1, 0, 0); out.globalAlpha = 1; out.filter = 'none'; out.imageSmoothingEnabled = false; out.clearRect(0, 0, canvas.width, canvas.height);
       if (st.bg && st.bg !== 'transparent') { out.fillStyle = st.bg; out.fillRect(0, 0, canvas.width, canvas.height); }
       if (room && st.room !== 'none') {   // the room, filling the picture, softened
         const bg = room.draw(t, st), k = Math.max(canvas.width / bg.width, canvas.height / bg.height), bw = bg.width * k, bh = bg.height * k; out.imageSmoothingEnabled = true; out.imageSmoothingQuality = 'high';
         const blur = Math.max(0, Math.min(12, +st.blur || 0)) * canvas.width / 900 * 1.1; out.filter = blur > 0.2 ? 'blur(' + blur.toFixed(1) + 'px)' : 'none'; out.drawImage(bg, Math.round((canvas.width - bw) / 2), Math.round(canvas.height - bh), bw, bh); out.filter = 'none'; out.imageSmoothingEnabled = false;
       }
-      out.drawImage(lo, ox, oy, dw, dh);
+      drawPets('behind'); out.imageSmoothingEnabled = false; out.drawImage(lo, ox, oy, dw, dh); drawPets('front');
     }
     return { draw, W, H };
   }

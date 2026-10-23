@@ -64,15 +64,22 @@
         <label class="chk"><input id="glasses" type="checkbox"> Glasses</label><label class="chk"><input id="headphones" type="checkbox"> Headphones</label><label class="chk"><input id="blush" type="checkbox"> Blush</label></div>
     </section>
 
+    <section class="h">
+      <h2>4. PETS AND SIZE</h2>
+      <div class="row"><label class="fld">How big you are in the frame<input id="zoom" type="range" min="0.8" max="2" step="0.1"></label><label class="fld">Pets visit<select id="petFreq"><option value="rare">Rarely</option><option value="normal">Now and then</option><option value="often">Often</option></select></label></div>
+      <div class="row" id="petRows"></div>
+      <p class="muted">Pets wander in at random: they walk or hop along the bottom behind you, sit, peek up from below, race across, hop onto your lap for a nap, or (a parrot) land on your shoulder.</p>
+    </section>
+
     <section>
-      <h2>4. BACKGROUND</h2>
-      <div class="row"><label class="fld">Behind you<select id="room"><option value="room">Streamer's room (shelves, neon, RGB)</option><option value="cozy">Cosy room (window, fairy lights, lamp)</option><option value="cyber">Cyber room (neon tubes, rainy skyline)</option><option value="none">Nothing (transparent)</option></select></label>
+      <h2>5. BACKGROUND</h2>
+      <div class="row"><label class="fld">Behind you<select id="room"><option value="room">Streamer's room (shelves, neon, RGB)</option><option value="cozy">Cosy room (window, fairy lights, lamp)</option><option value="cyber">Cyber room (neon tubes, rainy skyline)</option><option value="space">Spaceship bridge (planet window, hologram)</option><option value="library">Library (bookcases, ladder, globe)</option><option value="arcade">Arcade (cabinets, neon, star carpet)</option><option value="beach">Beach deck at sunset (palm, tiki torch)</option><option value="none">Nothing (transparent)</option></select></label>
         <label class="fld">Blur<input id="blur" type="range" min="0" max="12" step="1"></label></div>
       <div class="row"><label class="fld">Light colour<select id="rgbMode"><option value="rainbow">Rainbow</option><option value="color">One colour</option><option value="off">Off</option></select></label><label class="fld">Colour<input id="rgbColor" type="color"></label><label class="fld">Neon sign<input id="neon" type="text" maxlength="9" placeholder="LIVE"></label></div>
     </section>
 
     <section class="h">
-      <h2>5. USE IT</h2>
+      <h2>6. USE IT</h2>
       <p class="muted">The avatar is 16:9 like your webcam windows. <b>Add over my Webcam</b> puts it in every scene that has a <b>Webcam</b> source, exactly the size and place of that webcam (right above it, so it covers it; hide the Avatar source when you want your real camera). Or add a <b>Browser</b> source (1280 x 720) by hand with this address:</p>
       <div class="row"><code id="url"></code><button class="ghost" id="copy">Copy</button><button id="addObs">Add over my Webcam</button></div>
       <div class="row"><button class="ghost" id="vOn">Start OBS Virtual Camera</button><button class="ghost" id="vOff">Stop it</button></div>
@@ -87,17 +94,22 @@
   </div>
 </main>
 <div id="toast"></div>
-<script src="/overlays/avatar-core.js"></script><script src="/overlays/avatar-room.js"></script><script src="/overlays/avatar-render.js"></script>
+<script src="/overlays/avatar-core.js"></script><script src="/overlays/avatar-room.js"></script><script src="/overlays/avatar-pets.js"></script><script src="/overlays/avatar-render.js"></script>
 <script>
 const $ = (id) => document.getElementById(id), esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const post = (op, b) => fetch('/api/avatar/' + op, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
 function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 4200); }
 const av = AvatarCore.createAvatar({ cfg: {} }), rend = AvatarRender.create($('cv')), t0 = performance.now(), nowS = () => (performance.now() - t0) / 1000; let style = {}, V = null, filled = false, mic = 0;
 const CHK = ['on', 'mirror', 'idleMove', 'invertYaw', 'invertPitch', 'invertRoll'], RNG = ['smooth', 'sens', 'micSens'], COL = ['skin', 'hair', 'eyes', 'shirt', 'lips'], SCHK = ['glasses', 'headphones', 'blush'];
+const PETS = { cat: ['orange', 'black', 'gray', 'white', 'tuxedo'], dog: ['brown', 'golden', 'black', 'white'], bunny: ['white', 'gray', 'brown'], parrot: ['green', 'red', 'blue'] };
+$('petRows').innerHTML = Object.keys(PETS).map((k) => '<label class="chk"><input type="checkbox" id="pet_' + k + '"> ' + k[0].toUpperCase() + k.slice(1) + '</label><select id="petc_' + k + '">' + PETS[k].map((c) => '<option>' + c + '</option>').join('') + '</select>').join('');
+const sendPets = () => save({ pets: Object.keys(PETS).filter((k) => $('pet_' + k).checked).map((k) => ({ type: k, color: $('petc_' + k).value })) });
+for (const k of Object.keys(PETS)) { $('pet_' + k).onchange = sendPets; $('petc_' + k).onchange = sendPets; }
+$('zoom').oninput = () => { style.zoom = +$('zoom').value; clearTimeout(save.z); save.z = setTimeout(() => save({ style: { zoom: +$('zoom').value } }), 300); }; $('petFreq').onchange = () => save({ style: { petFreq: $('petFreq').value } });
 const sendRgb = () => save({ style: { rgb: $('rgbMode').value === 'color' ? $('rgbColor').value : $('rgbMode').value } });
 function fill(v) {
   for (const k of ['mode', 'mouthSrc']) $(k).value = v[k]; for (const k of CHK) $(k).checked = !!v[k]; for (const k of RNG) $(k).value = v[k];
-  for (const k of COL) $(k).value = v.style[k]; $('hairStyle').value = v.style.hairStyle; $('outfit').value = v.style.outfit; $('gender').value = v.style.gender; $('facialHair').value = v.style.facialHair; $('room').value = v.style.room; $('blur').value = v.style.blur; $('neon').value = v.style.neon; const rg = v.style.rgb; $('rgbMode').value = rg === 'rainbow' || rg === 'off' ? rg : 'color'; if (/^#/.test(rg)) $('rgbColor').value = rg; for (const k of SCHK) $(k).checked = !!v.style[k];
+  for (const k of COL) $(k).value = v.style[k]; $('hairStyle').value = v.style.hairStyle; $('zoom').value = v.style.zoom; $('petFreq').value = v.style.petFreq; for (const k of Object.keys(PETS)) { const p = (v.style.pets || []).find((x) => x.type === k); $('pet_' + k).checked = !!p; if (p) $('petc_' + k).value = p.color; } $('outfit').value = v.style.outfit; $('gender').value = v.style.gender; $('facialHair').value = v.style.facialHair; $('room').value = v.style.room; $('blur').value = v.style.blur; $('neon').value = v.style.neon; const rg = v.style.rgb; $('rgbMode').value = rg === 'rainbow' || rg === 'off' ? rg : 'color'; if (/^#/.test(rg)) $('rgbColor').value = rg; for (const k of SCHK) $(k).checked = !!v.style[k];
 }
 function options(sel, list, cur, none) { const h = '<option value="">' + none + '</option>' + list.map((d) => '<option value="' + esc(d.id) + '">' + esc(d.label) + '</option>').join(''); if (sel.dataset.h !== h) { sel.innerHTML = h; sel.dataset.h = h; } sel.value = cur; }
 function draw(v) {
@@ -110,7 +122,7 @@ function draw(v) {
   $('devHint').innerHTML = t.error ? '<span class="bad">' + esc(t.error) + '</span>' : v.devices.cams.length || v.devices.mics.length ? 'Pick another device if it is the wrong one.' : 'The lists fill in once the avatar is running.';
 }
 async function load() { draw(await post('status')); }
-function save(b) { return post('settings', b).then((v) => { V = v; av.setConfig(v); }); }
+function save(b) { if (b.pets) { b = { style: { pets: b.pets } }; } return post('settings', b).then((v) => { V = v; av.setConfig(v); }); }
 for (const k of ['mode', 'mouthSrc', 'camId', 'micId']) $(k).onchange = () => save({ [k]: $(k).value });
 for (const k of CHK) $(k).onchange = () => save({ [k]: $(k).checked });
 for (const k of RNG) $(k).onchange = () => save({ [k]: +$(k).value });

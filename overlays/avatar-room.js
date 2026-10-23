@@ -1,6 +1,6 @@
 'use strict';
 /**
- * The room behind the avatar (three to choose from: the streamer's room, a cosy room, a cyber room). The streamer's room is a wall with acoustic panels, a neon sign, framed posters, shelves with books, plants, figures and a console,
+ * The room behind the avatar (seven to choose from: the streamer's room, cosy, cyber, space, library, arcade and beach). The streamer's room is a wall with acoustic panels, a neon sign, framed posters, shelves with books, plants, figures and a console,
  * and RGB light strips that cycle through the rainbow. Drawn at 192x108 (16:9, like the webcam windows in the scenes) "pixels"; the renderer blurs it a little so the avatar stands out (like a camera's shallow focus).
  * AvatarRoom.create() -> { draw(t, style) -> canvas }
  */
@@ -21,6 +21,7 @@
   })();
   const hsl = (h, s, l, a) => 'hsla(' + (((h % 360) + 360) % 360).toFixed(0) + ',' + s + '%,' + l + '%,' + (a == null ? 1 : a) + ')';
   const mix = (a, b, f) => { const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16), c = (s) => Math.round(((pa >> s) & 255) * (1 - f) + ((pb >> s) & 255) * f); return '#' + [16, 8, 0].map((s) => c(s).toString(16).padStart(2, '0')).join(''); };
+  const shade = (hex, f) => mix('#000000', hex, Math.min(1, f));
   const hexHue = (hex) => { const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (!d) return 0; const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return h * 60; };
 
   function create() {
@@ -112,7 +113,53 @@
       strip(0, 2, W, false, rgb, t); strip(W - 3, 6, 88, true, rgb, t); strip(2, 6, 88, true, rgb, t); strip(110, 76, 80, false, rgb, t);
       glow(150, 50, 60, rgb === 'off' ? 'rgba(0,0,0,0)' : spill(rgb, t, 40)); px(0, 98, W, 10, '#0c0a18'); px(0, 98, W, 1, '#251d44'); vignette(0.55);
     }
-    function draw(t, st) { st = st || {}; const rgb = st.rgb || 'rainbow', room = st.room === 'cozy' ? cozy : st.room === 'cyber' ? cyber : streamer; room(t, st, rgb); return cv; }
+    const disc = (cx, cy, r, col) => { for (let y = -r; y <= r; y++) { const w = Math.round(Math.sqrt(r * r - y * y)); px(cx - w, cy + y, w * 2 + 1, 1, col); } };
+    // ---- 4. a spaceship bridge: a window on a ringed planet, blinking consoles and a hologram
+    function space(t, st, rgb) {
+      wall('#0a1020', '#141c38', 48); for (let x = 0; x < W; x += 16) px(x, 0, 1, 98, 'rgba(120,160,255,0.08)');
+      const wx = 112, wy = 10, ww = 72, wh = 56; px(wx - 2, wy - 2, ww + 4, wh + 4, '#2a3250'); px(wx, wy, ww, wh, '#03050f');
+      c.save(); c.beginPath(); c.rect(wx, wy, ww, wh); c.clip(); stars(t, 90, 108); glow(wx + 20, wy + 36, 36, 'rgba(120,70,200,0.30)'); disc(wx + 48, wy + 24, 13, '#d9825a'); disc(wx + 44, wy + 21, 10, '#e89a6c'); px(wx + 30, wy + 24, 36, 2, 'rgba(255,230,200,0.7)'); px(wx + 34, wy + 26, 28, 1, 'rgba(255,230,200,0.4)'); disc(wx + 14, wy + 12, 3, '#9ab6ff'); c.restore();
+      px(wx - 2, wy + wh / 2, ww + 4, 2, '#2a3250'); px(wx + ww / 2, wy, 2, wh, '#2a3250');
+      for (let i = 0; i < 6; i++) { const x = 6 + i * 11; px(x, 52, 10, 40, '#161d38'); px(x, 52, 10, 1, '#2a3558'); for (let k = 0; k < 6; k++) { const on = Math.sin(t * (1.5 + k * 0.4) + i * 2.1 + k) > 0.1; px(x + 2 + (k % 2) * 4, 56 + k * 5, 3, 2, on ? ['#5ef2ff', '#ff5ea1', '#5ef2b0', '#ffd27a'][(i + k) % 4] : '#2a3558'); } }
+      const hx = 78, hy = 38; glow(hx, hy, 18, 'rgba(94,242,255,0.16)'); for (let i = 0; i < 4; i++) { const ph = t * 1.2 + i * 0.8, w = Math.abs(Math.cos(ph)) * 11; px(hx - w, hy - 12 + i * 0, w * 2, 1, 'rgba(94,242,255,0.0)'); }
+      for (let y = -11; y <= 11; y += 3) { const w = Math.round(Math.sqrt(121 - y * y)); px(hx - w, hy + y, w * 2, 1, 'rgba(94,242,255,0.35)'); } for (let i = 0; i < 4; i++) { const x = Math.round(Math.sin(t * 1.3 + i * 0.8) * 10); px(hx + x, hy - 10, 1, 21, 'rgba(94,242,255,0.5)'); }
+      strip(0, 2, W, false, rgb === 'rainbow' ? '#5ef2ff' : rgb, t); strip(0, 96, W, false, rgb === 'rainbow' ? '#5ef2ff' : rgb, t); px(0, 98, W, 10, '#0c1226'); for (let x = 0; x < W; x += 8) px(x, 98, 1, 10, '#1b2442'); vignette(0.5);
+    }
+    // ---- 5. a library: wooden bookcases floor to ceiling, a ladder, a globe and a green reading lamp
+    function library(t, st, rgb) {
+      wall('#3a261c', '#4a3226', 50); for (let x = 0; x < W; x += 8) px(x, 0, 1, 98, 'rgba(0,0,0,0.12)');
+      const case_ = (x0, w) => { px(x0, 0, w, 98, '#2b1b13'); for (let sy = 0; sy < 4; sy++) { const y = 4 + sy * 23; px(x0, y + 20, w, 3, '#5a3b2b'); px(x0, y + 20, w, 1, '#7a5440'); let x = x0 + 2, k = sy * 7 + (x0 > 90 ? 3 : 0); while (x < x0 + w - 4) { const bw = 3 + (k % 3), bh = 12 + ((k * 5) % 8); px(x, y + 20 - bh, bw, bh, hsl((k * 47) % 360, 38, 36 + (k % 3) * 4)); px(x, y + 20 - bh, bw, 1, 'rgba(255,255,255,0.22)'); px(x + 1, y + 20 - bh + 3, bw - 2, 1, '#e0c070'); x += bw + 1; k++; } } };
+      case_(0, 50); case_(142, 50);
+      px(118, 20, 2, 80, '#6b4a30'); px(126, 20, 2, 80, '#6b4a30'); for (let y = 28; y < 96; y += 9) px(118, y, 10, 2, '#6b4a30');   // the ladder
+      disc(62, 80, 9, '#2a6b8a'); disc(61, 79, 7, '#3a8aaa'); px(54, 80, 18, 1, 'rgba(255,255,255,0.25)'); px(60, 88, 3, 8, '#3a2a20'); px(55, 95, 13, 2, '#3a2a20');   // a globe
+      px(104, 70, 12, 3, '#1f6b4a'); px(108, 73, 2, 22, '#3a2a20'); px(102, 95, 14, 3, '#3a2a20'); glow(110, 74, 40, 'rgba(255,214,140,0.25)'); px(103, 70, 14, 2, '#f4d98a');
+      px(60, 14, 30, 24, '#2a1c14'); px(62, 16, 26, 20, '#1d2b3a'); disc(75, 28, 5, '#e6b93a'); px(62, 32, 26, 4, '#2a4a3a');   // a painting
+      px(0, 98, W, 10, '#2a1a12'); px(0, 98, W, 1, '#4a3226'); strip(52, 3, 88, false, rgb === 'rainbow' ? '#ffb45e' : rgb, t); vignette(0.5);
+    }
+    // ---- 6. an arcade: cabinets with moving screens, neon stripes and a star carpet
+    function arcade(t, st, rgb) {
+      wall('#120a24', '#1d1038', 46); const na = rgb === 'off' ? '#7a84a8' : rgb === 'rainbow' ? hsl(320 + Math.sin(t) * 25, 100, 62) : accent(rgb, t, 0), nb = rgb === 'off' ? '#7a84a8' : rgb === 'rainbow' ? hsl(180 + Math.sin(t * 0.8) * 25, 100, 60) : accent(rgb, t, 40);
+      px(0, 20, W, 2, na); px(0, 24, W, 1, nb); px(0, 66, W, 2, nb); px(0, 70, W, 1, na); glow(96, 22, 60, 'rgba(255,80,170,0.10)');
+      neon(st.neon, 12, 36, rgb === 'rainbow' ? '#ff4fa0' : rgb, t);
+      [[132, '#e0558f'], [152, '#2e86c1'], [172, '#4a8f4a']].forEach(([x0, col], i) => {
+        px(x0, 30, 18, 68, shade(col, 0.45)); px(x0, 30, 18, 3, col); px(x0 + 2, 36, 14, 12, '#05060e'); for (let r = 0; r < 12; r += 2) { const hue = (t * 80 + r * 20 + i * 90) % 360; px(x0 + 2, 36 + r, 14, 1, hsl(hue, 90, 40, 0.5)); }
+        const bx = x0 + 3 + Math.round((Math.sin(t * 2 + i) + 1) * 4), by2 = 38 + Math.round((Math.cos(t * 1.7 + i * 2) + 1) * 3); px(bx, by2, 2, 2, '#fff'); px(x0 + 2, 52, 14, 5, '#1a1a2a'); px(x0 + 4, 53, 2, 2, '#e44'); px(x0 + 8, 53, 2, 2, '#4c4'); px(x0 + 12, 53, 2, 2, '#44e'); glow(x0 + 9, 42, 16, 'rgba(120,160,255,0.16)');
+      });
+      px(0, 88, W, 20, '#1a0f2e'); for (let y = 90; y < 108; y += 6) for (let x = (y / 6) % 2 ? 2 : 8; x < W; x += 12) px(x, y, 2, 2, ['#ff5ea1', '#5ef2ff', '#ffd27a'][(x + y) % 3]); strip(0, 2, W, false, rgb, t); vignette(0.5);
+    }
+    // ---- 7. a beach deck at sunset: sea, sun, a palm, a tiki torch and string lights
+    function beach(t, st, rgb) {
+      for (let y = 0; y < 62; y++) px(0, y, W, 1, mix('#2a1f5e', '#ff9a5e', y / 62)); disc(98, 56, 16, '#ffd98a'); disc(98, 56, 12, '#fff1b8');
+      c.save(); c.beginPath(); c.rect(0, 0, W, 62); c.clip(); stars(t, 24, 30); c.restore();
+      for (let y = 56; y < 80; y++) px(0, y, W, 1, mix('#e86a7a', '#1c3a6e', (y - 56) / 24)); for (let i = 0; i < 40; i++) { const x = (i * 29 + Math.floor(t * 8 * (1 + (i % 3) * 0.3))) % W, y = 58 + (i * 7) % 20; px(x, y, 5 + (i % 4), 1, 'rgba(255,220,170,0.35)'); } px(90, 57, 16, 1, 'rgba(255,240,200,0.7)'); px(86, 62, 24, 1, 'rgba(255,240,200,0.5)'); px(82, 68, 32, 1, 'rgba(255,240,200,0.3)');
+      px(0, 80, W, 28, '#caa56a'); px(0, 80, W, 1, '#e8cf93'); for (let x = 0; x < W; x += 5) px(x, 84 + (x % 3) * 3, 2, 1, '#b08a52');
+      px(26, 30, 3, 56, '#6b4a2b'); px(27, 30, 1, 56, '#8a6a43'); for (const [dx, dy, w, h] of [[-16, 26, 18, 4], [-10, 22, 14, 4], [4, 26, 18, 4], [2, 22, 14, 4], [-6, 20, 14, 4], [-2, 30, 10, 5]]) { px(27 + dx, dy, w, h, '#2f7a3a'); px(27 + dx, dy, w, 1, '#4fa65a'); }
+      px(158, 40, 3, 50, '#6b4a2b'); px(156, 36, 7, 5, '#3a2a20'); const f = Math.sin(t * 9) > 0 ? 1 : 0; px(158, 28 - f, 3, 8 + f, '#ff9a2e'); px(159, 26 - f, 1, 6, '#ffd27a'); glow(159, 32, 36, 'rgba(255,170,70,0.28)');
+      for (let i = 0; i < 18; i++) { const x = 4 + i * 11, y = 5 + Math.round(Math.sin(i / 18 * Math.PI * 3) * 2); px(x, y, 1, 1, '#3a3036'); px(x - 1, y + 1, 3, 3, i % 2 ? '#ffd27a' : '#ff8aa8'); }
+      px(0, 96, W, 12, '#7a5a3a'); for (let x = 0; x < W; x += 24) px(x, 96, 1, 12, '#5a3f28'); px(0, 96, W, 1, '#9a7a56'); vignette(0.35);
+    }
+    const ROOMS = { room: streamer, cozy, cyber, space, library, arcade, beach };
+    function draw(t, st) { st = st || {}; const rgb = st.rgb || 'rainbow', room = ROOMS[st.room] || streamer; room(t, st, rgb); return cv; }
     return { draw, W, H };
   }
   return { create, W, H };
