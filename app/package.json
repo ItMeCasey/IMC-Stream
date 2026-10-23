@@ -1,7 +1,7 @@
 {
   "name": "imc-stream",
   "productName": "IMC-Stream",
-  "version": "2026.10.14",
+  "version": "2026.10.15",
   "description": "Local Twitch alerts, overlays, chat bot and stream control for streamers",
   "author": "ItMeCasey",
   "license": "GPL-3.0-or-later",
