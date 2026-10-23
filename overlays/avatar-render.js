@@ -146,6 +146,7 @@
       if (room && st.room !== 'none') {   // the room, filling the picture, softened
         const bg = room.draw(t, st), k = Math.max(canvas.width / bg.width, canvas.height / bg.height), bw = bg.width * k, bh = bg.height * k; out.imageSmoothingEnabled = true; out.imageSmoothingQuality = 'high';
         const blur = Math.max(0, Math.min(12, +st.blur || 0)) * canvas.width / 900 * 1.1; out.filter = blur > 0.2 ? 'blur(' + blur.toFixed(1) + 'px)' : 'none'; out.drawImage(bg, Math.round((canvas.width - bw) / 2), Math.round(canvas.height - bh), bw, bh); out.filter = 'none'; out.imageSmoothingEnabled = false;
+        if (room.hasSign()) out.drawImage(room.sign, Math.round((canvas.width - bw) / 2), Math.round(canvas.height - bh), bw, bh);   // the neon sign: sharp, not blurred
       }
       drawPets('behind'); out.imageSmoothingEnabled = false; out.drawImage(lo, ox, oy, dw, dh); drawPets('front');
     }

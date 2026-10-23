@@ -25,7 +25,7 @@
   const hexHue = (hex) => { const n = parseInt(hex.slice(1), 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (!d) return 0; const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return h * 60; };
 
   function create() {
-    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+    const cv = document.createElement('canvas'), sv = document.createElement('canvas'); cv.width = sv.width = W; cv.height = sv.height = H; const mainCtx = cv.getContext('2d'), signCtx = sv.getContext('2d'); let c = mainCtx, pendingSign = null;   // the neon sign is drawn on a layer of its own, so it stays sharp when the room is blurred
     const px = (x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); };
     let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     // the books on each shelf are chosen once, so they do not change from frame to frame
@@ -52,8 +52,9 @@
       if (kind === 0) { for (let i = 0; i < h; i++) px(x, y + i, w, 1, mix('#ff7a59', '#3b2a6e', i / h)); px(x + 2, y + h - 7, w - 4, 7, '#1a1230'); px(x + 4, y + h - 10, 6, 3, '#1a1230'); px(x + w - 8, y + 3, 4, 4, '#ffe08a'); }
       else { px(x + 2, y + 2, w - 4, h - 4, '#111a2b'); for (let r = 0; r < 3; r++) for (let q = 0; q < 4; q++) px(x + 3 + q * 4, y + 4 + r * 4, 2, 2, ['#5ef2b0', '#f25ea1', '#5ec8f2'][r]); px(x + 6, y + h - 6, 6, 2, '#5ef2b0'); }
     }
-    function neon(text, x, y, rgb, t) {
-      text = String(text || '').toUpperCase().replace(/[^A-Z0-9 !?-]/g, '').slice(0, 9).trim(); if (!text) return;   // no sign unless one is typed const col = rgb === 'off' ? '#9aa4c0' : rgb === 'rainbow' ? hsl(300 + Math.sin(t * 0.5) * 40, 100, 70) : hsl(hexHue(rgb), 100, 70), glow = rgb === 'off' ? 'rgba(150,160,190,0.18)' : rgb === 'rainbow' ? hsl(300 + Math.sin(t * 0.5) * 40, 100, 60, 0.22) : hsl(hexHue(rgb), 100, 60, 0.22);
+    function neon(text, x, y, rgb, t) { pendingSign = [text, x, y, rgb, t]; }   // the rooms say where it goes; draw() paints it afterwards, on the sharp layer
+    function neonDraw(text, x, y, rgb, t) {
+      text = String(text || '').toUpperCase().replace(/[^A-Z0-9 !?-]/g, '').slice(0, 9).trim(); if (!text) return; /* no sign unless one is typed */ const col = rgb === 'off' ? '#9aa4c0' : rgb === 'rainbow' ? hsl(300 + Math.sin(t * 0.5) * 40, 100, 70) : hsl(hexHue(rgb), 100, 70), glow = rgb === 'off' ? 'rgba(150,160,190,0.18)' : rgb === 'rainbow' ? hsl(300 + Math.sin(t * 0.5) * 40, 100, 60, 0.22) : hsl(hexHue(rgb), 100, 60, 0.22);
       const flick = Math.sin(t * 23) * Math.sin(t * 7.3) > 0.93 ? 0.35 : 1, w = text.length * 4 - 1; c.globalAlpha = flick;
       px(x - 3, y - 3, w + 6, 11, 'rgba(0,0,0,0.28)');   // the sign's backing
       let cx = x; for (const ch of text) { const g = GLYPH[ch] || GLYPH[' ']; for (let r = 0; r < 5; r++) for (let q = 0; q < 3; q++) if (g[r][q] === '#') { px(cx + q - 1, y + r * 1.0 - 1, 3, 3, glow); } cx += 4; }
@@ -159,8 +160,12 @@
       px(0, 96, W, 12, '#7a5a3a'); for (let x = 0; x < W; x += 24) px(x, 96, 1, 12, '#5a3f28'); px(0, 96, W, 1, '#9a7a56'); vignette(0.35);
     }
     const ROOMS = { room: streamer, cozy, cyber, space, library, arcade, beach };
-    function draw(t, st) { st = st || {}; const rgb = st.rgb || 'rainbow', room = ROOMS[st.room] || streamer; room(t, st, rgb); return cv; }
-    return { draw, W, H };
+    function draw(t, st) {
+      st = st || {}; const rgb = st.rgb || 'rainbow', room = ROOMS[st.room] || streamer; c = mainCtx; pendingSign = null; room(t, st, rgb);
+      signCtx.clearRect(0, 0, W, H); if (pendingSign) { c = signCtx; neonDraw(...pendingSign); c = mainCtx; }
+      return cv;
+    }
+    return { draw, sign: sv, hasSign: () => !!pendingSign, W, H };
   }
   return { create, W, H };
 });
