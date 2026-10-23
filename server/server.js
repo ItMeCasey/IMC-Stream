@@ -1739,6 +1739,25 @@ async function route(req, res) {
         if (op === 'settings') return json(res, 200, avatar.configure(body));
         if (op === 'devices') return json(res, 200, avatar.report(body));
         if (op === 'command') { if (['calibrate', 'reset'].includes(body.cmd)) broadcast('avatarcmd', { cmd: body.cmd }); return json(res, 200, { ok: true }); }
+        if (op === 'obs') {   // the avatar goes into every scene that has a Webcam, exactly where the webcam is, just above it
+          const steps = await obsClient.raw(async (call) => {
+            const NAME = 'Avatar', url = 'http://localhost:' + CFG.port + '/overlays/avatar.html', out = [], list = async (sc) => (await call('GetSceneItemList', { sceneName: sc })).sceneItems || [];
+            const targets = []; for (const sc of ((await call('GetSceneList')).scenes || []).map((x) => x.sceneName)) { const cam = (await list(sc)).find((i) => i.sourceName === 'Webcam'); if (cam) targets.push({ sc, cam }); }
+            if (!targets.length) throw new Error('No scene has a source called Webcam to put the avatar over');
+            if (!((await call('GetInputList')).inputs || []).some((i) => i.inputName === NAME)) { await call('CreateInput', { sceneName: targets[0].sc, inputName: NAME, inputKind: 'browser_source', inputSettings: { url, width: 1280, height: 720, fps: 30, reroute_audio: false, shutdown: false, restart_when_active: false }, sceneItemEnabled: true }); out.push('created "' + NAME + '"'); }
+            for (const t of targets) {
+              let mine = (await list(t.sc)).filter((i) => i.sourceName === NAME);
+              if (!mine.length) { await call('CreateSceneItem', { sceneName: t.sc, sourceName: NAME, sceneItemEnabled: true }); mine = (await list(t.sc)).filter((i) => i.sourceName === NAME); out.push('added to ' + t.sc); }
+              for (const extra of mine.slice(1)) { try { await call('RemoveSceneItem', { sceneName: t.sc, sceneItemId: extra.sceneItemId }); } catch (e) { /* leave it */ } }
+              const tr = t.cam.sceneItemTransform || {}, none = tr.boundsType === 'OBS_BOUNDS_NONE', w = Math.round(none ? tr.width : tr.boundsWidth), h = Math.round(none ? tr.height : tr.boundsHeight);
+              await call('SetSceneItemTransform', { sceneName: t.sc, sceneItemId: mine[0].sceneItemId, sceneItemTransform: { positionX: tr.positionX, positionY: tr.positionY, alignment: tr.alignment, boundsType: 'OBS_BOUNDS_SCALE_OUTER', boundsAlignment: 0, boundsWidth: w, boundsHeight: h } });   // fills the webcam's box without stretching
+              try { await call('SetSceneItemIndex', { sceneName: t.sc, sceneItemId: mine[0].sceneItemId, sceneItemIndex: t.cam.sceneItemIndex + 1 }); } catch (e) { /* the order stays */ }
+              out.push('placed over the webcam in ' + t.sc);
+            }
+            return out;
+          });
+          return json(res, 200, { ok: true, steps });
+        }
         if (op === 'vcam') { const r = await obsClient.raw(async (call) => { await call(body.on ? 'StartVirtualCam' : 'StopVirtualCam'); return true; }); return json(res, 200, { ok: !!r }); }
         throw new Error('unknown avatar action');
       }

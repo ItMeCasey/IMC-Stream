@@ -8,7 +8,7 @@
   header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
   header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
   header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
-  main { max-width: 1000px; margin: 0 auto; padding: 18px 24px 50px; display: grid; grid-template-columns: 340px 1fr; gap: 16px; align-items: start; } @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+  main { max-width: 1100px; margin: 0 auto; padding: 18px 24px 50px; display: grid; grid-template-columns: 420px 1fr; gap: 16px; align-items: start; } @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
   section, .side { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); }
   .side { position: sticky; top: 12px; border-color: var(--aqua); } .col { display: grid; gap: 16px; }
   h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
@@ -19,7 +19,8 @@
   .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; flex: 1; min-width: 150px; }
   .fld select, .fld input[type=text] { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; }
   .fld input[type=range] { width: 100%; accent-color: var(--heat); } .fld input[type=color] { width: 100%; height: 34px; padding: 0; border: 2px solid #46504f; background: var(--iron); }
-  #cv { width: 100%; aspect-ratio: 5 / 6; image-rendering: pixelated; image-rendering: crisp-edges; background: repeating-conic-gradient(#202828 0 25%, #1a2020 0 50%) 0 0 / 24px 24px; display: block; }
+  #cv { width: 100%; aspect-ratio: 16 / 9; image-rendering: pixelated; image-rendering: crisp-edges; background: repeating-conic-gradient(#202828 0 25%, #1a2020 0 50%) 0 0 / 24px 24px; display: block; }
+  .sw { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; } .sw i { width: 18px; height: 18px; cursor: pointer; border: 2px solid #46504f; } .sw i:hover { border-color: var(--cream); }
   .meter { height: 8px; background: #151b1b; margin-top: 6px; } .meter i { display: block; height: 100%; width: 0; background: var(--aqua); }
   .dot { display: inline-block; width: 9px; height: 9px; margin-right: 6px; background: #46504f; } .dot.on { background: var(--aqua); } .dot.warn { background: var(--heat); }
   details { margin-top: 10px; } summary { cursor: pointer; letter-spacing: 3px; font-size: 12px; text-transform: uppercase; color: #9aa39f; padding: 4px 0; }
@@ -29,7 +30,7 @@
 <header><img src="/assets/logo.png" alt=""><h1>AVATAR</h1><a href="/">&larr; Dashboard</a></header>
 <main>
   <div class="side">
-    <h2>PREVIEW</h2><canvas id="cv" width="400" height="480"></canvas>
+    <h2>PREVIEW</h2><canvas id="cv" width="640" height="360"></canvas>
     <div class="meter" title="microphone"><i id="lvl"></i></div>
     <p class="muted" style="margin-top:10px"><span class="dot" id="dTr"></span><span id="tr">Tracker off</span><br><span class="dot" id="dCam"></span><span id="cam">Camera off</span><br><span class="dot" id="dMic"></span><span id="mic">Microphone off</span></p>
   </div>
@@ -54,15 +55,26 @@
 
     <section class="r">
       <h2>3. LOOK</h2>
-      <div class="row"><label class="fld">Skin<input id="skin" type="color"></label><label class="fld">Hair<input id="hair" type="color"></label><label class="fld">Eyes<input id="eyes" type="color"></label><label class="fld">Shirt<input id="shirt" type="color"></label></div>
-      <div class="row"><label class="fld">Hair style<select id="hairStyle"><option value="short">Short</option><option value="long">Long</option><option value="bun">Bun</option><option value="none">None</option></select></label>
+      <div class="row"><label class="fld">Gender<select id="gender"><option value="neutral">Neutral</option><option value="feminine">Feminine</option><option value="masculine">Masculine</option></select></label>
+        <label class="fld">Facial hair<select id="facialHair"><option value="none">None</option><option value="stubble">Stubble</option><option value="mustache">Moustache</option><option value="goatee">Goatee</option><option value="beard">Beard</option></select></label></div>
+      <div class="row"><label class="fld">Hair style<select id="hairStyle"><option value="short">Short</option><option value="long">Long</option><option value="bob">Bob</option><option value="ponytail">Ponytail</option><option value="bun">Bun</option><option value="spiky">Spiky</option><option value="afro">Afro</option><option value="mohawk">Mohawk</option><option value="buzz">Buzz cut</option><option value="none">Bald</option></select></label>
+        <label class="fld">Shirt style<select id="outfit"><option value="hoodie">Hoodie</option><option value="tee">T-shirt</option><option value="collared">Collared shirt</option><option value="tank">Tank top</option><option value="turtleneck">Turtleneck</option></select></label></div>
+      <div class="row"><label class="fld">Skin<input id="skin" type="color"><span class="sw" data-for="skin" data-c="#FFDFC4,#F3CBA5,#E8B88F,#D39A6A,#B87A4B,#8D5A3B,#6B4128,#4A2C1D"></span></label><label class="fld">Hair<input id="hair" type="color"><span class="sw" data-for="hair" data-c="#1b1512,#3b2a22,#6b4a2b,#a9743a,#d9b36a,#b5412a,#8a8f99,#e8e8e8,#7b4bc4,#2ea3d8,#e0558f"></span></label></div>
+      <div class="row"><label class="fld">Eyes<input id="eyes" type="color"><span class="sw" data-for="eyes" data-c="#2e86c1,#4a8f4a,#6b4a2b,#222a2a,#8a8f99,#9a4bc4,#d4a017"></span></label><label class="fld">Lips<input id="lips" type="color"><span class="sw" data-for="lips" data-c="#b9575c,#d06a7a,#a23b4c,#c88a7a,#8a4a3a,#7b3a8a,#2a2a2a"></span></label><label class="fld">Shirt<input id="shirt" type="color"><span class="sw" data-for="shirt" data-c="#4FBBBC,#F39120,#EC4624,#E2DAC2,#2e86c1,#4a8f4a,#7b4bc4,#e0558f,#2a3434"></span></label></div>
         <label class="chk"><input id="glasses" type="checkbox"> Glasses</label><label class="chk"><input id="headphones" type="checkbox"> Headphones</label><label class="chk"><input id="blush" type="checkbox"> Blush</label></div>
     </section>
 
+    <section>
+      <h2>4. BACKGROUND</h2>
+      <div class="row"><label class="fld">Behind you<select id="room"><option value="room">Streamer's room (shelves, neon, RGB)</option><option value="cozy">Cosy room (window, fairy lights, lamp)</option><option value="cyber">Cyber room (neon tubes, rainy skyline)</option><option value="none">Nothing (transparent)</option></select></label>
+        <label class="fld">Blur<input id="blur" type="range" min="0" max="12" step="1"></label></div>
+      <div class="row"><label class="fld">Light colour<select id="rgbMode"><option value="rainbow">Rainbow</option><option value="color">One colour</option><option value="off">Off</option></select></label><label class="fld">Colour<input id="rgbColor" type="color"></label><label class="fld">Neon sign<input id="neon" type="text" maxlength="9" placeholder="LIVE"></label></div>
+    </section>
+
     <section class="h">
-      <h2>4. USE IT</h2>
-      <p class="muted">In OBS add a <b>Browser</b> source (transparent, 600 x 720) with this address, or press the button:</p>
-      <div class="row"><code id="url"></code><button class="ghost" id="copy">Copy</button><button id="addObs">Add to OBS</button></div>
+      <h2>5. USE IT</h2>
+      <p class="muted">The avatar is 16:9 like your webcam windows. <b>Add over my Webcam</b> puts it in every scene that has a <b>Webcam</b> source, exactly the size and place of that webcam (right above it, so it covers it; hide the Avatar source when you want your real camera). Or add a <b>Browser</b> source (1280 x 720) by hand with this address:</p>
+      <div class="row"><code id="url"></code><button class="ghost" id="copy">Copy</button><button id="addObs">Add over my Webcam</button></div>
       <div class="row"><button class="ghost" id="vOn">Start OBS Virtual Camera</button><button class="ghost" id="vOff">Stop it</button></div>
       <p class="muted"><b>As a webcam in Discord, Zoom, etc.:</b> in OBS press <b>Start Virtual Camera</b>, then pick "OBS Virtual Camera" in that program. Put the avatar on a scene of its own (or over a green background: <code>?bg=%2300ff00</code> on the address).</p>
       <details><summary>Tracking tuning</summary>
@@ -75,20 +87,21 @@
   </div>
 </main>
 <div id="toast"></div>
-<script src="/overlays/avatar-core.js"></script><script src="/overlays/avatar-render.js"></script>
+<script src="/overlays/avatar-core.js"></script><script src="/overlays/avatar-room.js"></script><script src="/overlays/avatar-render.js"></script>
 <script>
 const $ = (id) => document.getElementById(id), esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const post = (op, b) => fetch('/api/avatar/' + op, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
 function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 4200); }
 const av = AvatarCore.createAvatar({ cfg: {} }), rend = AvatarRender.create($('cv')), t0 = performance.now(), nowS = () => (performance.now() - t0) / 1000; let style = {}, V = null, filled = false, mic = 0;
-const TXT = ['mode', 'mouthSrc', 'hairStyle'], CHK = ['on', 'mirror', 'idleMove', 'invertYaw', 'invertPitch', 'invertRoll'], RNG = ['smooth', 'sens', 'micSens'], COL = ['skin', 'hair', 'eyes', 'shirt'], SCHK = ['glasses', 'headphones', 'blush'];
+const CHK = ['on', 'mirror', 'idleMove', 'invertYaw', 'invertPitch', 'invertRoll'], RNG = ['smooth', 'sens', 'micSens'], COL = ['skin', 'hair', 'eyes', 'shirt', 'lips'], SCHK = ['glasses', 'headphones', 'blush'];
+const sendRgb = () => save({ style: { rgb: $('rgbMode').value === 'color' ? $('rgbColor').value : $('rgbMode').value } });
 function fill(v) {
   for (const k of ['mode', 'mouthSrc']) $(k).value = v[k]; for (const k of CHK) $(k).checked = !!v[k]; for (const k of RNG) $(k).value = v[k];
-  for (const k of COL) $(k).value = v.style[k]; $('hairStyle').value = v.style.hairStyle; for (const k of SCHK) $(k).checked = !!v.style[k];
+  for (const k of COL) $(k).value = v.style[k]; $('hairStyle').value = v.style.hairStyle; $('outfit').value = v.style.outfit; $('gender').value = v.style.gender; $('facialHair').value = v.style.facialHair; $('room').value = v.style.room; $('blur').value = v.style.blur; $('neon').value = v.style.neon; const rg = v.style.rgb; $('rgbMode').value = rg === 'rainbow' || rg === 'off' ? rg : 'color'; if (/^#/.test(rg)) $('rgbColor').value = rg; for (const k of SCHK) $(k).checked = !!v.style[k];
 }
 function options(sel, list, cur, none) { const h = '<option value="">' + none + '</option>' + list.map((d) => '<option value="' + esc(d.id) + '">' + esc(d.label) + '</option>').join(''); if (sel.dataset.h !== h) { sel.innerHTML = h; sel.dataset.h = h; } sel.value = cur; }
 function draw(v) {
-  V = v; av.setConfig(v); style = Object.assign({}, v.style, { bg: 'transparent' });
+  V = v; av.setConfig(v); style = Object.assign({}, v.style);
   if (!filled) { filled = true; fill(v); $('url').textContent = location.protocol + '//localhost:' + location.port + '/overlays/avatar.html'; }
   options($('camId'), v.devices.cams, v.camId, 'Default camera'); options($('micId'), v.devices.mics, v.micId, 'Default microphone');
   const t = v.tracker; $('dTr').className = 'dot ' + (t.alive ? 'on' : v.on ? 'warn' : ''); $('tr').textContent = !v.on ? 'Avatar is off (it still shows the preview)' : t.alive ? 'Tracker running' + (t.fps ? ' (' + t.fps + ' fps)' : '') : 'Starting the tracker...';
@@ -102,16 +115,19 @@ for (const k of ['mode', 'mouthSrc', 'camId', 'micId']) $(k).onchange = () => sa
 for (const k of CHK) $(k).onchange = () => save({ [k]: $(k).checked });
 for (const k of RNG) $(k).onchange = () => save({ [k]: +$(k).value });
 for (const k of COL) $(k).oninput = () => { style[k] = $(k).value; clearTimeout(save.t); save.t = setTimeout(() => save({ style: { [k]: $(k).value } }), 300); };
-$('hairStyle').onchange = () => save({ style: { hairStyle: $('hairStyle').value } }); for (const k of SCHK) $(k).onchange = () => save({ style: { [k]: $(k).checked } });
+$('hairStyle').onchange = () => save({ style: { hairStyle: $('hairStyle').value } }); $('outfit').onchange = () => save({ style: { outfit: $('outfit').value } }); $('gender').onchange = () => save({ style: { gender: $('gender').value } }); $('facialHair').onchange = () => save({ style: { facialHair: $('facialHair').value } });
+document.querySelectorAll('.sw').forEach((b) => { b.innerHTML = b.dataset.c.split(',').map((c) => '<i style="background:' + c + '" data-c="' + c + '" title="' + c + '"></i>').join(''); b.onclick = (e) => { const c = e.target.dataset.c; if (!c) return; const i = $(b.dataset.for); i.value = c; i.oninput(); }; }); $('room').onchange = () => save({ style: { room: $('room').value } });
+$('blur').oninput = () => { style.blur = +$('blur').value; clearTimeout(save.b); save.b = setTimeout(() => save({ style: { blur: +$('blur').value } }), 300); };
+$('rgbMode').onchange = sendRgb; $('rgbColor').oninput = () => { $('rgbMode').value = 'color'; clearTimeout(save.c); save.c = setTimeout(sendRgb, 250); }; $('neon').onchange = () => save({ style: { neon: $('neon').value } }); for (const k of SCHK) $(k).onchange = () => save({ style: { [k]: $(k).checked } });
 $('calib').onclick = async () => { await post('command', { cmd: 'calibrate' }); toast('Look straight at the camera, sitting how you usually do: done'); };
 $('reset').onclick = async () => { await post('command', { cmd: 'reset' }); toast('Calibration cleared'); };
 $('copy').onclick = () => { navigator.clipboard.writeText($('url').textContent).then(() => toast('Copied'), () => toast('Select and copy it by hand', true)); };
-$('addObs').onclick = async () => { $('addObs').disabled = true; const r = await fetch('/api/obs/overlay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ which: 'avatar' }) }).then((x) => x.json()); $('addObs').disabled = false; toast(r.error || (r.steps || []).join(', ') || 'Done', !!r.error); };
+$('addObs').onclick = async () => { $('addObs').disabled = true; const r = await post('obs'); $('addObs').disabled = false; toast(r.error || (r.steps || []).join(', ') || 'Done', !!r.error); };
 $('vOn').onclick = async () => { const r = await post('vcam', { on: true }); toast(r.error || 'Virtual camera started', !!r.error); };
 $('vOff').onclick = async () => { const r = await post('vcam', { on: false }); toast(r.error || 'Virtual camera stopped', !!r.error); };
 const es = new EventSource('/events');
 es.addEventListener('avatar', (e) => { try { const m = JSON.parse(e.data); av.feed(m, nowS()); if (m.mic) mic = m.micMouth || 0; } catch (x) { /* ignore */ } });
-es.addEventListener('avatarcfg', (e) => { try { const c = JSON.parse(e.data); V = Object.assign(V || {}, c); av.setConfig(c); style = Object.assign({}, c.style, { bg: 'transparent' }); } catch (x) { /* ignore */ } });
-(function loop() { rend.draw(av.frame(nowS()), style); $('lvl').style.width = Math.round(mic * 100) + '%'; requestAnimationFrame(loop); })();
+es.addEventListener('avatarcfg', (e) => { try { const c = JSON.parse(e.data); V = Object.assign(V || {}, c); av.setConfig(c); style = Object.assign({}, c.style); } catch (x) { /* ignore */ } });
+(function loop() { rend.draw(av.frame(nowS()), style, nowS()); $('lvl').style.width = Math.round(mic * 100) + '%'; requestAnimationFrame(loop); })();
 load(); setInterval(load, 3000);
 </script></body></html>

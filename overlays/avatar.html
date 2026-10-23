@@ -1,9 +1,9 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>ItMeCasey Avatar</title>
 <style>
-  /* OBS Browser Source: http://localhost:8420/overlays/avatar.html   (600 x 720, transparent)
-     The pixel avatar. It copies your face (camera) and your voice (microphone), and moves by itself when there is no camera. Set it up on the Avatar page of the app.
-     ?bg=%2300ff00 draws a solid background (green screen) instead of a transparent one. ?port=8420 if the server uses another port. */
+  /* OBS Browser Source: http://localhost:8420/overlays/avatar.html   (1280 x 720, 16:9: the shape of the webcam windows in the scenes)
+     The pixel avatar, in front of a softly blurred room. It copies your face (camera) and your voice (microphone), and moves by itself when there is no camera. Set it up on the Avatar page of the app.
+     ?bg=%2300ff00 draws a solid colour behind it (green screen); the room, its blur and the light colour are set on the Avatar page (?room=none hides the room). ?port=8420 if the server uses another port. */
   html, body { background: transparent; overflow: hidden; margin: 0; }
   canvas { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; image-rendering: pixelated; image-rendering: crisp-edges; }
 </style></head>
@@ -11,19 +11,20 @@
 <script>if (!/[?&]scale=/.test(location.search)) history.replaceState(null, "", location.pathname + (location.search ? location.search + "&" : "?") + "scale=1");</script>
 <script src="config.js"></script>
 <script src="avatar-core.js"></script>
+<script src="avatar-room.js"></script>
 <script src="avatar-render.js"></script>
 <script>
 (function () {
   const C = window.CFG || {}, Q = new URLSearchParams(location.search), BASE = icmBase('avatar', +(Q.get('port') || C.serverPort || 8420)), cv = document.getElementById('cv');
   const av = AvatarCore.createAvatar({ cfg: {} }), r = AvatarRender.create(cv); let style = {}, t0 = performance.now();
   const size = () => { cv.width = Math.max(80, Math.round(innerWidth)); cv.height = Math.max(96, Math.round(innerHeight)); }; size(); addEventListener('resize', size);
-  const apply = (c) => { av.setConfig(c); style = Object.assign({}, c.style || {}); if (Q.get('bg')) style.bg = Q.get('bg'); };
+  const apply = (c) => { av.setConfig(c); style = Object.assign({}, c.style || {}); if (Q.get('bg')) style.bg = Q.get('bg'); if (Q.get('room')) style.room = Q.get('room'); };
   fetch(BASE + '/api/avatar/status').then((x) => x.json()).then(apply).catch(() => {});
   try {
     const es = new EventSource(BASE + '/events');
     es.addEventListener('avatar', (e) => { try { av.feed(JSON.parse(e.data), (performance.now() - t0) / 1000); } catch (x) { /* ignore */ } });
     es.addEventListener('avatarcfg', (e) => { try { apply(JSON.parse(e.data)); } catch (x) { /* ignore */ } });
   } catch (x) { /* no server: the avatar just idles */ }
-  (function loop() { r.draw(av.frame((performance.now() - t0) / 1000), style); requestAnimationFrame(loop); })();
+  (function loop() { const now = (performance.now() - t0) / 1000; r.draw(av.frame(now), style, now); requestAnimationFrame(loop); })();
 })();
 </script></body></html>

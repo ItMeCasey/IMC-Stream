@@ -10,9 +10,9 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 const DEFAULTS = {
   on: false, mode: 'auto', mouthSrc: 'mic', mirror: true, smooth: 0.5, sens: 1, micSens: 1, invertYaw: false, invertPitch: false, invertRoll: false, idleMove: true, fps: 30,
   camId: '', micId: '', neutral: null,
-  style: { skin: '#E8B88F', hair: '#3b2a22', hairStyle: 'short', eyes: '#2e86c1', shirt: '#4FBBBC', glasses: false, headphones: false, blush: true, bg: 'transparent' },
+  style: { skin: '#E8B88F', hair: '#3b2a22', hairStyle: 'short', eyes: '#2e86c1', shirt: '#4FBBBC', outfit: 'hoodie', gender: 'neutral', facialHair: 'none', lips: '#b9575c', glasses: false, headphones: false, blush: true, bg: 'transparent', room: 'room', blur: 4, rgb: 'rainbow', neon: 'LIVE' },
 };
-const ENUM = { mode: ['auto', 'camera', 'mic', 'idle'], mouthSrc: ['mic', 'cam', 'both'] }, STYLE_ENUM = { hairStyle: ['short', 'long', 'bun', 'none'] };
+const ENUM = { mode: ['auto', 'camera', 'mic', 'idle'], mouthSrc: ['mic', 'cam', 'both'] }, STYLE_ENUM = { hairStyle: ['short', 'long', 'bun', 'none', 'spiky', 'bob', 'ponytail', 'buzz', 'afro', 'mohawk'], outfit: ['hoodie', 'tee', 'collared', 'tank', 'turtleneck'], room: ['room', 'cozy', 'cyber', 'none'], gender: ['neutral', 'feminine', 'masculine'], facialHair: ['none', 'stubble', 'mustache', 'goatee', 'beard'] };
 
 module.exports = function createAvatar(ctx) {
   const log = ctx.log || (() => {}), broadcast = ctx.broadcast || (() => {}), FILE = ctx.file;
@@ -29,9 +29,12 @@ module.exports = function createAvatar(ctx) {
     for (const k of ['camId', 'micId']) if (b[k] !== undefined) S[k] = String(b[k]).slice(0, 300);
     if (b.neutral !== undefined) S.neutral = b.neutral && typeof b.neutral === 'object' ? Object.fromEntries(['yaw', 'pitch', 'roll', 'gazeX', 'gazeY', 'browL', 'browR'].map((k) => [k, num(b.neutral[k], -1, 1, 0)])) : null;
     if (b.style && typeof b.style === 'object') {
-      for (const k of ['skin', 'hair', 'eyes', 'shirt']) if (HEX.test(b.style[k] || '')) S.style[k] = b.style[k];
+      for (const k of ['skin', 'hair', 'eyes', 'shirt', 'lips']) if (HEX.test(b.style[k] || '')) S.style[k] = b.style[k];
       for (const k of Object.keys(STYLE_ENUM)) if (STYLE_ENUM[k].includes(b.style[k])) S.style[k] = b.style[k];
       for (const k of ['glasses', 'headphones', 'blush']) if (b.style[k] !== undefined) S.style[k] = !!b.style[k];
+      if (b.style.blur !== undefined) S.style.blur = num(b.style.blur, 0, 12, S.style.blur);
+      if (b.style.rgb !== undefined) S.style.rgb = b.style.rgb === 'rainbow' || b.style.rgb === 'off' || HEX.test(b.style.rgb || '') ? b.style.rgb : S.style.rgb;
+      if (b.style.neon !== undefined) S.style.neon = String(b.style.neon).toUpperCase().replace(/[^A-Z0-9 !?-]/g, '').slice(0, 9) || 'LIVE';
       if (b.style.bg !== undefined) S.style.bg = b.style.bg === 'transparent' || HEX.test(b.style.bg || '') ? b.style.bg : S.style.bg;
     }
     save(); broadcast('avatarcfg', cfg()); return view();
