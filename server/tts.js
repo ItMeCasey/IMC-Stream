@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
+const wav = require('./wav'), SFX = require('./tts-sfx');
 
 const KOKORO_VOICE = /^[abefhip][fm]_[a-z]+$/;   // af_heart, am_adam, bf_emma ...
 
@@ -17,6 +18,7 @@ module.exports = function createTts(ctx) {
   const log = ctx.log || (() => {});
   const spawnFn = ctx.spawn || spawn;
   const DIR = path.join(ctx.DATA, 'tts'); fs.mkdirSync(DIR, { recursive: true });
+  const SFX_DIR = ctx.sfxDir || path.join(__dirname, '..', 'sounds', 'tts');
   const SCRIPT = path.join(__dirname, 'media', 'tts.ps1'), WORKER = path.join(__dirname, 'media', 'kokoro_worker.py');
   const KDIR = ctx.kokoroDir || process.env.ICM_KOKORO_DIR || path.join(__dirname, 'kokoro');
   const KPY = path.join(KDIR, 'venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
@@ -132,10 +134,40 @@ module.exports = function createTts(ctx) {
     return job;
   }
 
+  // ---------------------------------------------------------------- sound effects inside a message: "nice one [airhorn] well done"
+  const SFX_RE = /\[([A-Za-z0-9]{2,12})\]/g, sfxMax = () => Math.max(1, Math.min(6, Math.round(Number(cfg().sfxMax)) || 3));
+  const plain = (x) => String(x).replace(/[\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+  /** the message cut into pieces to speak and effects to play, in order. Effects beyond the limit are dropped; [unknown] tags are read as plain words. */
+  function plan(t) {
+    const parts = []; let last = 0, n = 0;
+    for (const m of t.matchAll(SFX_RE)) {
+      const name = m[1].toLowerCase(); if (!SFX.NAMES.has(name)) continue;
+      parts.push({ say: t.slice(last, m.index) }); if (n++ < sfxMax()) parts.push({ sfx: name }); last = m.index + m[0].length;
+    }
+    parts.push({ say: t.slice(last) });
+    return parts.map((p) => (p.say !== undefined ? { say: plain(p.say) } : p)).filter((p) => p.sfx || /[\p{L}\p{N}]/u.test(p.say));
+  }
+  /** speak the pieces, load the effects, and join everything into one clip (cached like any other clip) */
+  async function mix(parts, o) {
+    const c = cfg(), voice = o.voice !== undefined ? o.voice : c.voice, rate = o.rate != null ? o.rate : c.rate, pitch = o.pitch != null ? o.pitch : c.pitch;
+    const key = crypto.createHash('sha1').update(['mix', JSON.stringify(parts), voice, rate, pitch].join('\u0001')).digest('hex'), file = path.join(DIR, key + '.wav');
+    if (fs.existsSync(file) && fs.statSync(file).size > 44) return key + '.wav';
+    const pieces = [], spoken = [];
+    for (const p of parts) {
+      if (p.sfx) { const f = path.join(SFX_DIR, p.sfx + '.wav'); if (fs.existsSync(f)) { pieces.push(wav.parse(fs.readFileSync(f))); spoken.push(false); } }
+      else { pieces.push(wav.parse(fs.readFileSync(path.join(DIR, await synth(p.say, o))))); spoken.push(true); }
+    }
+    if (!pieces.length) throw new Error('Nothing to say');
+    const rate0 = pieces[Math.max(0, spoken.indexOf(true))].rate, out = wav.join(pieces, rate0, 0.06);
+    if (out.length > rate0 * 25) throw new Error('That message is too long');
+    fs.writeFileSync(file, wav.write(out, rate0)); return key + '.wav';
+  }
+
   /** returns {url, text, volume}: a playable clip */
   async function speak(text, o = {}) {
     if (!cfg().on) throw new Error('Text-to-speech is turned off');
-    const t = clean(text), f = await synth(t, o);
+    const t = clean(text), parts = cfg().sfx !== false ? plan(t) : null;
+    const f = parts && parts.some((p) => p.sfx) ? await mix(parts, o) : await synth(plain(t) || t, o);
     return { url: '/tts/' + f, text: t, volume: o.volume != null ? o.volume : cfg().volume };
   }
   /** speak it now through the overlay (chat !tts, reward hooks, test button) */
@@ -160,6 +192,7 @@ module.exports = function createTts(ctx) {
     if (b.on !== undefined) c.on = !!b.on;
     if (typeof b.voice === 'string') { c.voice = b.voice.replace(/[^\w .\-()]/g, '').slice(0, 100); c.chosen = true; }
     if (b.rate !== undefined) c.rate = n(b.rate, 0, -10, 10); if (b.pitch !== undefined) c.pitch = n(b.pitch, 0, -2, 2);
+    if (b.sfx !== undefined) c.sfx = !!b.sfx; if (b.sfxMax !== undefined) c.sfxMax = n(b.sfxMax, 3, 1, 6);
     if (b.volume !== undefined) c.volume = n(b.volume, 80, 0, 100); if (b.maxChars !== undefined) c.maxChars = n(b.maxChars, 200, 20, 400);
     // The never-read list is write-only: words can be added, but never listed, edited or removed from the app.
     if (b.addBlock !== undefined) {
@@ -169,7 +202,7 @@ module.exports = function createTts(ctx) {
     if (b.command) { const x = b.command; c.command = { on: !!x.on, level: ['everyone', 'subscriber', 'vip', 'moderator'].includes(x.level) ? x.level : 'subscriber', cost: n(x.cost, 0, 0, 1e7), userCd: n(x.userCd, 60, 0, 3600) }; }
     ctx.persist(); return view();
   }
-  const view = () => { const { blockWords, ...open } = cfg(); return { cfg: Object.assign(open, { blockCount: (blockWords || []).length }), history, voices: voicesCache || [], canSpeak: canWin() || kokoroInstalled(),
+  const view = () => { const { blockWords, ...open } = cfg(); return { cfg: Object.assign(open, { blockCount: (blockWords || []).length }), history, sfx: SFX.LIST, voices: voicesCache || [], canSpeak: canWin() || kokoroInstalled(),
     kokoro: { installed: kokoroInstalled(), model: kokoroModel() ? path.basename(kokoroModel()) : '', running: !!worker } }; };
   return { cfg, speak, say, ctl, clip, voices, settings, view, clean, engineFor, stopKokoro, kokoroInstalled };
 };

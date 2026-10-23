@@ -101,7 +101,7 @@ const defaultState = () => ({
   paypal: { currency: 'USD', note: '', since: 0, seen: [], recent: [] },
   overlayCfg: { alerts: { position: 'top', volume: 100 }, explosion: { goal: true, raid: false, hype: false, sub: false, giftsub: false, bits: false, count: 70, seconds: 6, style: 'burst' }, events: { align: 'bottom', grow: 'up', max: 6, mode: 'list', speed: 80, include: { follow: true, sub: true, bits: true, raid: true, tip: true, redeem: false, hype: true, goal: true, custom: false } } },
   home: { pages: [{ id: 'p1', name: 'Home', widgets: [{ id: 'w0', mod: 'golive', size: 's' }, { id: 'w1', mod: 'status', size: 's' }, { id: 'w2', mod: 'ads', size: 's' }, { id: 'w3', mod: 'music', size: 's' }, { id: 'w4', mod: 'scenes', size: 'm' }, { id: 'w5', mod: 'buttons', size: 'm' }, { id: 'w7', mod: 'chat', size: 'l' }, { id: 'w8', mod: 'recent', size: 'm' }] }] },
-  ttsCfg: { on: true, voice: '', rate: 0, pitch: 0, volume: 80, maxChars: 200, blockWords: [], command: { on: false, level: 'subscriber', cost: 0, userCd: 60 } },
+  ttsCfg: { on: true, voice: '', rate: 0, pitch: 0, volume: 80, maxChars: 200, sfx: true, sfxMax: 3, blockWords: [], command: { on: false, level: 'subscriber', cost: 0, userCd: 60 } },
   countdown: { mode: 'idle', endsAt: 0, remainingMs: 300000, durationMs: 300000, visible: true, label: 'WE GO LIVE IN', doneMessage: "LET'S GO!", doneScene: '', doneChat: '', lastAdd: null,
     subathon: { on: false, perSub: 300, perGiftSub: 300, perBits100: 60, perFollow: 30, perRaidViewer: 1, maxMinutes: 720 } },
   subathon: { mode: 'idle', endsAt: 0, remainingMs: 12 * 3600e3, durationMs: 12 * 3600e3, visible: true, label: 'SUBATHON', doneMessage: 'SUBATHON COMPLETE!', doneScene: '', doneChat: '', lastAdd: null,
@@ -1853,7 +1853,7 @@ const createBot = require('./bot.js'), createObs = require('./obs.js'), createHo
 let mediaRenderT = null;
 const media = createMedia({ DATA, state, persist, log, broadcast, port: () => CFG.port,
   onChange: () => { if (!mediaRenderT) mediaRenderT = setTimeout(() => { mediaRenderT = null; renderLabels(); }, 500); } });
-const tts = createTts({ DATA, state, persist, broadcast, log, blockWords: () => (bot.view().filters.blacklist.on ? bot.view().filters.blacklist.words : []) });
+const tts = createTts({ DATA, state, persist, broadcast, log, sfxDir: path.join(ROOT, 'sounds', 'tts'), blockWords: () => (bot.view().filters.blacklist.on ? bot.view().filters.blacklist.words : []) });
 const bot = createBot({
   tts: { cfg: () => state.ttsCfg, say: (t, o) => tts.say(t, o), ctl: (a) => tts.ctl(a) }, alertControl: (a) => alertControl(a),
   countdown: { command: (a) => countdown.command(a) },

@@ -20,6 +20,14 @@ const t = createTts({ DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'icm-tts-')), 
   t.settings({ blockWords: ['hack'], rate: 0, pitch: 0, volume: 80, maxChars: 200, command: { on: false, level: 'subscriber', cost: 0, userCd: 60 } });
   t.settings({ on: false }); await assert.rejects(t.speak('hello'), /turned off/); t.settings({ on: true });
 
+  // ---- WAV tools and the effect list (no engine needed)
+  const wavT = require('./wav'), sfxT = require('./tts-sfx'), SFXD = path.join(__dirname, '..', 'sounds', 'tts');
+  assert.strictEqual(sfxT.LIST.length, 20, '20 sound effects'); for (const x of sfxT.LIST) assert.ok(fs.existsSync(path.join(SFXD, x.name + '.wav')), x.name + '.wav exists');
+  const tone = wavT.write(Float32Array.from({ length: 2400 }, (_, i) => Math.sin(i / 10)), 24000), pw = wavT.parse(tone); assert.deepStrictEqual([pw.rate, pw.samples.length], [24000, 2400]);
+  const half = wavT.resample(pw.samples, 24000, 12000); assert.strictEqual(half.length, 1200); assert.strictEqual(wavT.join([pw, { rate: 12000, samples: half }], 24000, 0.05).length, 2400 + 2400 + 1200);
+  assert.throws(() => wavT.parse(Buffer.from('not a wav file at all, really not a wav file at all.')), /not a WAV/);
+  const dur = (u) => { const w = wavT.parse(fs.readFileSync(t.clip(u.slice(5)))); return w.samples.length / w.rate; };
+
   if (process.platform !== 'win32') { console.log('tts test passed (clean/settings only: not Windows)'); return; }
 
   // ---- the real engine
@@ -37,6 +45,16 @@ const t = createTts({ DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'icm-tts-')), 
   assert.ok(fs.readFileSync(t.clip(fast.url.slice(5))).length < buf.length, 'a faster rate makes a shorter clip');
   const hi = await t.speak('Pitch test', { pitch: 2 }); assert.ok(fs.readFileSync(t.clip(hi.url.slice(5))).length > 8000, 'pitch (SSML) works');
   const other = names.length > 1 ? names[1] : names[0]; const o2 = await t.speak('A different voice', { voice: other }); assert.ok(fs.statSync(t.clip(o2.url.slice(5))).size > 8000, 'voice "' + other + '" speaks');
+  // ---- sound effects inside a message
+  const plainClip = await t.speak('good luck you will need it'), withFx = await t.speak('good luck [airhorn] you will need it [boom]');
+  assert.strictEqual(withFx.text, 'good luck [airhorn] you will need it [boom]'); assert.ok(dur(withFx.url) > dur(plainClip.url) + 2.4, 'the airhorn (1.25s) and the explosion (1.55s) are in the clip: ' + dur(withFx.url) + ' vs ' + dur(plainClip.url));
+  const onlyFx = await t.speak('[ding]'); assert.ok(Math.abs(dur(onlyFx.url) - 1.05) < 0.1, 'a message of just an effect plays just the effect: ' + dur(onlyFx.url));
+  const five = await t.speak('[pop][pop][pop][pop][pop]'); assert.ok(dur(five.url) < 1.2 && dur(five.url) > 0.5, 'at most 3 effects per message by default: ' + dur(five.url));
+  t.settings({ sfxMax: 5 }); const five2 = await t.speak('[pop][pop][pop][pop][pop][pop]'); assert.ok(dur(five2.url) > dur(five.url) + 0.3, 'the limit can be changed'); t.settings({ sfxMax: 3 });
+  const unknown = await t.speak('hello [notasound] there'); assert.ok(dur(unknown.url) < 4 && unknown.text === 'hello [notasound] there', 'an unknown tag is read as an ordinary word');
+  t.settings({ sfx: false }); const off = await t.speak('good luck [airhorn] you will need it'); assert.ok(dur(off.url) < dur(withFx.url) - 1, 'with effects switched off the tag is just read'); t.settings({ sfx: true });
+  const again = await t.speak('good luck [airhorn] you will need it [boom]'); assert.strictEqual(again.url, withFx.url, 'the same message is served from the cache');
+  assert.throws(() => t.clean('[ding] you BadWord'), /blocked/, 'the never-read list still applies to messages with effects'); assert.strictEqual(t.view().sfx.length, 20);
   const says = await t.say('Spoken through the overlay', { by: 'Tester', volume: 50 });
   assert.deepStrictEqual([says.volume, says.by, broadcasts.at(-1)[0], broadcasts.at(-1)[1].url === says.url], [50, 'Tester', 'tts', true], 'say() broadcasts the clip to the overlay');
   t.ctl('skip'); assert.deepStrictEqual(broadcasts.at(-1), ['ttsctl', { action: 'skip' }]);

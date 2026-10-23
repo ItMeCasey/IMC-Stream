@@ -47,6 +47,13 @@
     <p class="muted">"Hear it here" plays in this browser tab only. "Speak on stream" sends it to your Alerts overlay (turn on <b>Control audio via OBS</b> for that source, already set in the starter scenes).</p>
   </section>
 
+  <section class="h">
+    <h2>SOUND EFFECTS IN MESSAGES</h2>
+    <p class="muted" style="margin-bottom:8px">Viewers can put a sound effect in the middle of a message by typing its name in square brackets, like <code>good luck [airhorn] you will need it</code>. The voice reads the words and the sound plays where the tag is. Press a sound to hear it. They work everywhere speech does: the <code>!tts</code> command, the text-to-speech reward and alerts that read the viewer's message.</p>
+    <div class="row"><label class="fld" style="flex-direction:row;align-items:center;gap:8px;max-width:260px"><input id="sfxOn" type="checkbox" style="width:18px;height:18px"> Sound effects on</label><label class="fld" style="max-width:260px">Most effects in one message<input id="sfxMax" type="number" min="1" max="6"></label><button id="saveSfx" type="button">Save</button></div>
+    <div id="sfxList" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+  </section>
+
   <section class="r">
     <h2>VIEWERS CAN TRIGGER SPEECH</h2>
     <div class="row"><label class="fld" style="max-width:170px"><span><code>!tts</code> command on</span><input id="cmdOn" type="checkbox"></label>
@@ -80,8 +87,10 @@ function paint(v) {
   if (!filled) {
     filled = true; $('voice').innerHTML = opts.replace('Default voice', 'Windows default'); $('tryVoice').innerHTML = opts.replace('Default voice', 'Use the default above');
     $('on').checked = c.on; $('voice').value = c.voice; $('rate').value = c.rate; $('pitch').value = c.pitch; $('vol').value = c.volume; $('max').value = c.maxChars; $('blockInfo').textContent = (c.blockCount || 0) + ' entries on the list';
+    $('sfxOn').checked = c.sfx !== false; $('sfxMax').value = c.sfxMax || 3;
     $('cmdOn').checked = c.command.on; $('cmdLvl').value = c.command.level; $('cmdCost').value = c.command.cost; $('cmdCd').value = c.command.userCd; sl();
   }
+  $('sfxList').innerHTML = (v.sfx || []).map((x) => '<button type="button" class="ghost" data-sfx="' + esc(x.name) + '" title="' + esc(x.desc) + '" style="text-transform:none;letter-spacing:0">[' + esc(x.name) + ']<span class="muted" style="display:block;font-size:11px;font-weight:400">' + esc(x.desc) + '</span></button>').join('');
   $('err').textContent = v.canSpeak ? '' : 'Text-to-speech needs Windows.';
   const kv = v.voices.filter((x) => x.engine === 'kokoro'), wv = v.voices.filter((x) => x.engine !== 'kokoro');
   $('voiceInfo').innerHTML = (v.kokoro.installed
@@ -97,6 +106,8 @@ $('saveCmd').onclick = async () => { const r = await post('settings', { command:
 const tryBody = () => ({ text: $('text').value, voice: $('tryVoice').value || undefined, rate: +$('rate').value, pitch: +$('pitch').value });
 $('preview').onclick = async () => { const r = await post('preview', tryBody()); if (r.error) return toast(r.error, true); const a = new Audio(r.url); a.volume = +$('vol').value / 100; a.play(); };
 $('speak').onclick = async () => { const r = await post('say', tryBody()); if (r.error) toast(r.error, true); else { toast('Sent to the overlay'); load(); } };
+$('saveSfx').onclick = async () => { const r = await post('settings', { sfx: $('sfxOn').checked, sfxMax: $('sfxMax').value }); if (r.error) toast(r.error, true); else toast('Saved'); };
+$('sfxList').onclick = (e) => { const b = e.target.closest('[data-sfx]'); if (!b) return; const a = new Audio('/sounds/tts/' + encodeURIComponent(b.dataset.sfx) + '.wav'); a.volume = +$('vol').value / 100; a.play(); };
 $('skip').onclick = () => post('skip'); $('clear').onclick = () => post('clear');
 $('hist').onclick = async (e) => { const b = e.target.closest('[data-t]'); if (!b) return; const r = await post('say', { text: b.dataset.t }); if (r.error) toast(r.error, true); else load(); };
 load(); setInterval(() => { if (!document.activeElement || document.activeElement.tagName === 'BODY') load(); }, 5000);
