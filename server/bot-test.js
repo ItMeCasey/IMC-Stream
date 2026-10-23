@@ -308,6 +308,16 @@ const MOD = ['moderator'], SUB = ['subscriber'];
   assert.deepStrictEqual(await say('Mia', '!tts mods are free', MOD), []); assert.deepStrictEqual(ttsCalls.pop(), ['say', 'mods are free', 'Mia']);
   T += 5000;
   assert.strictEqual(await one('Mia', '!ttsskip', MOD), 'Skipped the speech.'); assert.deepStrictEqual(ttsCalls.pop(), ['ctl', 'skip']);
+  // ---- !commands and !tts can be edited: what they say, the other names they answer to
+  state.site = { lastUrl: 'https://itmecasey.pages.dev' };
+  await api('builtin/save', { commands: { reply: 'Everything is at {website} ({prefix}help) - {list}', aliases: '!cmds, help' }, tts: { usage: 'Say what you want: {prefix}tts <message>{cost}', queued: '{user}, it is queued!', blocked: '{user}, nope.', aliases: 'say' } });
+  T += 20000; assert.match(await one('Bob', '!commands'), /^Everything is at https:\/\/itmecasey\.pages\.dev \(!help\) - .*!points/); T += 20000; assert.match(await one('Bob', '!cmds'), /^Everything is at https:\/\/itmecasey\.pages\.dev/, 'another name does the same'); T += 20000; assert.match(await one('Bob', '!help'), /^Everything is at/);
+  await assert.rejects(api('builtin/save', { commands: { aliases: 'points' } }), /!points is already used/); await assert.rejects(api('builtin/save', { tts: { aliases: 'a1 a2 a3 a4 a5 a6' } }), /At most 5/);
+  assert.deepStrictEqual(bot.view().builtinEdits.commands.aliases, ['cmds', 'help'], 'a failed save changes nothing'); assert.ok(bot.exportCommands().md.includes('!tts <message> (!say)'), 'the other name is on the commands page');
+  assert.strictEqual(await one('Sue', '!say', SUB), 'Say what you want: !tts <message> (costs 50 points)'); bot.db().points['id-sue'].pts = 200; T += 120000;
+  assert.strictEqual(await one('Sue', '!say hello again', SUB), 'Sue, it is queued!'); assert.deepStrictEqual(ttsCalls.pop(), ['say', 'hello again', 'Sue']);
+  T += 120000; assert.strictEqual(await one('Sue', '!tts this is a blockedword', SUB), 'Sue, nope.');
+  await api('builtin/save', { commands: { reply: '', aliases: '', cd: 0 }, tts: { usage: '', queued: '', blocked: '', aliases: '' } }); T += 20000; assert.match(await one('Bob', '!commands'), /^Commands: !/, 'an empty reply falls back to the default'); assert.deepStrictEqual(bot.view().builtinEdits.commands.aliases, []);
   ttsCfg.command.on = false;
   assert.deepStrictEqual(await say('Bob', '!alerts pause'), [], 'only mods control alerts');
   for (const [cmd, want] of [['pause', /paused/], ['resume', /resumed/], ['skip', /Skipped the current alert/], ['clear', /Cleared/], ['mute', /muted/], ['unmute', /back on/]]) { T += 5000; assert.match(await one('Mia', '!alerts ' + cmd, MOD), want); }

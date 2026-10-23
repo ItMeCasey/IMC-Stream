@@ -83,6 +83,9 @@
       <h3 style="margin-top:14px">Counters</h3><div id="ctrList" class="muted"></div>
     </section>
     <section style="border-color:var(--heat)"><h2>BUILT-IN COMMANDS</h2><p class="muted" id="builtin"></p>
+      <h3 style="margin-top:14px">Edit <code>!commands</code> and <code>!tts</code></h3>
+      <p class="muted" style="margin-bottom:6px">Change what they say and add other names for them. You can use <code>{user}</code> and <code>{prefix}</code> in any of these. Leave a box empty to go back to the standard text.</p>
+      <div id="biEdit"></div>
       <p class="muted" style="margin-top:8px">Mods can also manage commands from chat: <code>!addcom name [-ul=moderator] [-cd=10] response</code>, <code>!editcom name new response</code>, <code>!delcom name</code>. Other mod tools: <code>!permit user</code> (allow one link for 60s), <code>!so channel</code>, <code>!game</code>/<code>!title</code> (set), <code>!addquote</code>/<code>!delquote</code>, <code>!counter name [+|-|set N|reset]</code>, <code>!trivia</code>, <code>!raffle open|draw|close</code>.</p></section>
   </div>
 
@@ -287,6 +290,27 @@ function drawCommands() {
       <div class="row" style="margin:0"><button class="b ghost" data-a="edit">Edit</button><button class="b red" data-a="del">Delete</button></div>
     </div>`).join('') || '<p class="muted">No custom commands yet.</p>';
   $('builtin').textContent = V.builtin.map((b) => V.settings.prefix + b).join('  ');
+  if (!biFilled && V.builtinEdits) { biFilled = true; drawBuiltinEdit(); }
+}
+let biFilled = false;
+function drawBuiltinEdit() {
+  const E = V.builtinEdits, P = V.settings.prefix, f = (id, label, v, hint) => '<label class="fld" style="flex:1;min-width:260px">' + label + '<input id="' + id + '" value="' + esc(v) + '" maxlength="300">' + (hint ? '<span class="muted" style="text-transform:none;letter-spacing:0;font-size:12px">' + hint + '</span>' : '') + '</label>';
+  const al = (a) => (a || []).map((x) => P + x).join(', ');
+  $('biEdit').innerHTML = '<div class="card" style="margin:8px 0;padding:12px"><b>' + esc(P) + 'commands</b>'
+    + '<div class="row" style="margin-top:8px">' + f('bcReply', 'What it says', E.commands.reply, '<code>{list}</code> is the list of commands, <code>{website}</code> your website address (after you publish it on the Website page).') + '</div>'
+    + '<div class="row">' + f('bcAliases', 'Also answers to', al(E.commands.aliases), 'Up to 5 other names, like ' + esc(P) + 'cmds, ' + esc(P) + 'help') + '<label class="fld" style="max-width:160px">Wait (seconds)<input id="bcCd" type="number" min="0" max="3600" value="' + esc(E.commands.cd) + '"></label></div></div>'
+    + '<div class="card" style="margin:8px 0;padding:12px"><b>' + esc(P) + 'tts</b> <span class="muted">(who can use it, the cost and the wait are on the Speech page)</span>'
+    + '<div class="row" style="margin-top:8px">' + f('btUsage', 'When someone types it with no message', E.tts.usage, '<code>{cost}</code> adds " (costs N points)".') + f('btQueued', 'After it is sent to the stream', E.tts.queued, 'Empty = say nothing (the standard).') + '</div>'
+    + '<div class="row">' + f('btBlocked', 'If the message is not allowed', E.tts.blocked) + f('btFailed', 'If it could not be read out', E.tts.failed, '<code>{error}</code> is the reason.') + '</div>'
+    + '<div class="row">' + f('btOff', 'When text-to-speech is off', E.tts.off) + f('btLevel', 'When they are not allowed to use it', E.tts.level, '<code>{level}</code> is who may.') + '</div>'
+    + '<div class="row">' + f('btWait', 'When they must wait', E.tts.wait) + f('btPoor', 'When they cannot afford it', E.tts.poor, '<code>{price}</code>, <code>{currency}</code> and <code>{balance}</code>.') + '</div>'
+    + '<div class="row">' + f('btAliases', 'Also answers to', al(E.tts.aliases), 'Up to 5 other names, like ' + esc(P) + 'say') + '</div></div>'
+    + '<button class="b" id="biSave">Save</button> <button class="b ghost" id="biReset">Put the standard text back</button>';
+  $('biSave').onclick = async () => {
+    const v = (i) => $(i).value; const r = await post('builtin/save', { commands: { reply: v('bcReply'), aliases: v('bcAliases'), cd: v('bcCd') }, tts: { usage: v('btUsage'), queued: v('btQueued'), blocked: v('btBlocked'), failed: v('btFailed'), off: v('btOff'), level: v('btLevel'), wait: v('btWait'), poor: v('btPoor'), aliases: v('btAliases') } });
+    if (r.error) return toast(r.error, true); toast('Saved'); biFilled = false; await load();
+  };
+  $('biReset').onclick = async () => { const r = await post('builtin/save', { commands: { reply: '', aliases: '', cd: 15 }, tts: { usage: '', queued: '', blocked: '', failed: '', off: '', level: '', wait: '', poor: '', aliases: '' } }); if (r.error) return toast(r.error, true); toast('Standard text back'); biFilled = false; await load(); };
 }
 function openCmd(c) {
   c = c || { name: '', aliases: [], level: 'everyone', cd: 5, userCd: 10, response: '', hidden: false, mode: 'all', announce: '', needArgs: 0, usage: '', liveOnly: false };

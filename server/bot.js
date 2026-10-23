@@ -66,6 +66,10 @@ const defaults = () => ({
     dance: { seconds: 120, strobe: true },   // a cheer of at least this many bits with the word boss / arena / race in it starts that game (0 = off)
     race: { count: 5, seconds: 90, title: 'Who wins the race?', names: [] },
     arena: { boss: { baseHp: 200, hpPerChatter: 40, seconds: 120, hitCd: 3, pool: 40, lastHit: 100, consolation: 10 }, royale: { fee: 50, lobby: 60, max: 8 }, teams: { fee: 50, lobby: 60, maxPerTeam: 20 } } },
+  builtinEdits: {   // what the built-in !commands and !tts say, and what else they answer to (edited on the bot page)
+    commands: { reply: 'Commands: {list}', aliases: [], cd: 15 },
+    tts: { usage: 'Usage: {prefix}tts <what you want read out>{cost}', off: 'Text-to-speech is off right now.', level: 'Text-to-speech is for {level}s and above.', wait: '{user}, please wait a bit before using {prefix}tts again.', poor: '{user}, {prefix}tts costs {price} {currency} and you have {balance}.', blocked: '{user}, that message is not allowed.', failed: 'Could not read that out ({error}).', queued: '', aliases: [] },
+  },
   wordRush: { players: {}, record: { round: 0, by: '', at: 0 } },   // all-time Word Rush points per chatter, and the most rounds chat ever beat in one game
   botDuelDay: {},
   customGames: [],
@@ -380,14 +384,15 @@ module.exports = function createBot(ctx) {
   // ------------------------------------------------------------------ commands
   const cdGlobal = new Map(), cdUser = new Map();
   const findCommand = (name) => db.commands.find((c) => c.enabled && (c.name === name || (c.aliases || []).includes(name)));
-  const reserved = (n) => BUILTIN.includes(n);
+  const aliasMap = () => { const m = {}; for (const k of ['commands', 'tts']) for (const a of (db.builtinEdits[k] && db.builtinEdits[k].aliases) || []) m[a] = k; return m; };
+  const reserved = (n) => BUILTIN.includes(n) || !!aliasMap()[n];
   function parseFlags(args) {
     const flags = {}; const rest = [];
     for (const a of args) { const m = /^-(ul|cd|usercd|alias)=(.+)$/i.exec(a); if (m) flags[m[1].toLowerCase()] = m[2]; else rest.push(a); }
     return { flags, rest };
   }
   async function runCommand(name, args, u, e) {
-    const sendTo = e.message_id;
+    const sendTo = e.message_id; name = aliasMap()[name] || name;   // !cmds and the like answer as !commands
     const gid = GAME_OF[name]; if (gid && (db.games.off || []).includes(gid)) return;   // that game is switched off
     const CG = db.customGames.find((g) => g.enabled && g.command === name);
     if (CG && !builtins[name]) {
@@ -539,10 +544,12 @@ module.exports = function createBot(ctx) {
   };
   const targetOf = (args) => strip(args[0]);
 
+  const DEFAULT_TTS_EDITS = { usage: 'Usage: {prefix}tts <what you want read out>{cost}', off: 'Text-to-speech is off right now.', level: 'Text-to-speech is for {level}s and above.', wait: '{user}, please wait a bit before using {prefix}tts again.', poor: '{user}, {prefix}tts costs {price} {currency} and you have {balance}.', blocked: '{user}, that message is not allowed.', failed: 'Could not read that out ({error}).' };
   const builtins = {
-    commands: { cd: 15, run: ({ u, reply }) => {
+    commands: { cd: 15, run: async ({ u, reply }) => {
       const list = db.commands.filter((c) => c.enabled && !c.hidden && u.rank >= rankName(c.level)).map((c) => db.prefix + c.name);
-      reply('Commands: ' + (list.concat(['points', 'daily', 'shop', 'give', 'gamble', 'slots', 'duel', 'top', 'quote', 'uptime', 'followage'].map((x) => db.prefix + x)).join(', ')));
+      const all = list.concat(['points', 'daily', 'shop', 'give', 'gamble', 'slots', 'duel', 'top', 'quote', 'uptime', 'followage'].map((x) => db.prefix + x)).join(', ');
+      reply(await expand(db.builtinEdits.commands.reply || 'Commands: {list}', { user: u, args: [], vars: { list: all, prefix: db.prefix, website: (ctx.state.site && ctx.state.site.lastUrl) || '' } }));
     } },
     addcom: { level: 3, run: ({ args, reply, u }) => {
       const { flags, rest } = parseFlags(args); const name = strip((rest.shift() || '').replace(new RegExp('^' + db.prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), '')).replace(/[^a-z0-9_]/g, '');
@@ -640,15 +647,16 @@ module.exports = function createBot(ctx) {
       catch (err) { reply('Could not create a clip (' + err.message + ').'); }
     } },
     tts: { cd: 1, run: async ({ args, u, reply }) => {
-      const c = ctx.tts.cfg(), cmd = c.command || {};
-      if (!c.on || !cmd.on) return reply('Text-to-speech is off right now.');
-      if (u.rank < rankName(cmd.level)) return reply('Text-to-speech is for ' + cmd.level + 's and above.');
-      const text = args.join(' ').trim(); if (!text) return reply('Usage: ' + db.prefix + 'tts <what you want read out>' + (cmd.cost ? ' (costs ' + fmtNum(cmd.cost) + ' ' + cur() + ')' : ''));
+      const c = ctx.tts.cfg(), cmd = c.command || {}, E = db.builtinEdits.tts, price = fmtNum(cmd.cost || 0);
+      const say2 = async (key, vars) => { const t = E[key]; if (t) reply(await expand(t, { user: u, args: [], vars: Object.assign({ prefix: db.prefix, cost: cmd.cost ? ' (costs ' + price + ' ' + cur() + ')' : '', price, currency: cur(), level: cmd.level }, vars || {}) })); };
+      if (!c.on || !cmd.on) return say2('off');
+      if (u.rank < rankName(cmd.level)) return say2('level');
+      const text = args.join(' ').trim(); if (!text) return say2('usage');
       const k = 'ttsuse:' + u.id, t = now();
-      if (u.rank < 3 && t - (cdUser.get(k) || 0) < (cmd.userCd || 0) * 1000) return reply(u.name + ', please wait a bit before using ' + db.prefix + 'tts again.');
-      if (cmd.cost && u.rank < 3) { if (pt(u.id, u.name).pts < cmd.cost) return reply(u.name + ', ' + db.prefix + 'tts costs ' + fmtNum(cmd.cost) + ' ' + cur() + ' and you have ' + fmtNum(pt(u.id).pts) + '.'); addPts(u.id, u.name, -cmd.cost, 'tts'); }
-      try { await ctx.tts.say(text, { by: u.name }); cdUser.set(k, t); }
-      catch (err) { if (cmd.cost && u.rank < 3) addPts(u.id, u.name, cmd.cost, 'tts refund'); reply(err.message === 'blocked' ? u.name + ', that message is not allowed.' : 'Could not read that out (' + err.message + ').'); }
+      if (u.rank < 3 && t - (cdUser.get(k) || 0) < (cmd.userCd || 0) * 1000) return say2('wait');
+      if (cmd.cost && u.rank < 3) { if (pt(u.id, u.name).pts < cmd.cost) return say2('poor', { balance: fmtNum(pt(u.id).pts) }); addPts(u.id, u.name, -cmd.cost, 'tts'); }
+      try { await ctx.tts.say(text, { by: u.name }); cdUser.set(k, t); await say2('queued'); }
+      catch (err) { if (cmd.cost && u.rank < 3) addPts(u.id, u.name, cmd.cost, 'tts refund'); await say2(err.message === 'blocked' ? 'blocked' : 'failed', { error: err.message }); }
     } },
     subathon: { cd: 3, run: ({ args, u, reply }) => {
       const a = (args[0] || '').toLowerCase(), viewerSafe = !a || ['rules', 'rule', '?', 'info'].includes(a);
@@ -880,7 +888,7 @@ module.exports = function createBot(ctx) {
   }
   builtins.songrequest = builtins.sr;
   builtins.buy = builtins.redeem; builtins.send = builtins.give; builtins.pay = builtins.give;
-  builtins.leaderboard = builtins.top; builtins.setgame = builtins.game; builtins.settitle = builtins.title;
+  builtins.commands.cd = db.builtinEdits.commands.cd == null ? 15 : db.builtinEdits.commands.cd; builtins.leaderboard = builtins.top; builtins.setgame = builtins.game; builtins.settitle = builtins.title;
   function draw(reply) {
     if (!raffle || !raffle.entrants.size) return reply('Nobody has entered the raffle.');
     const ids = [...raffle.entrants.keys()], id = ids[Math.floor(rng() * ids.length)], name = raffle.entrants.get(id);
@@ -1006,7 +1014,7 @@ module.exports = function createBot(ctx) {
     add(true, cs, 'top', 'Everyone', 'The ' + cs + ' leaderboard');
     add(true, cs, 'watchtime', 'Everyone', 'How long you have been active in chat');
     add(db.shop.some((i) => i.enabled), cs, 'shop / !redeem <item>', 'Everyone', 'Spend ' + cs + ' on rewards: ' + db.shop.filter((i) => i.enabled).map((i) => i.name + ' (' + i.cost + ')').join(', '));
-    add(!!(ctx.tts && ctx.tts.cfg().command && ctx.tts.cfg().command.on), cs, 'tts <message>', lvl[ctx.tts && ctx.tts.cfg().command.level] || 'Everyone', 'Have your message read out loud on stream' + (ctx.tts && ctx.tts.cfg().command.cost ? ' (costs ' + ctx.tts.cfg().command.cost + ' ' + cs + ')' : ''));
+    add(!!(ctx.tts && ctx.tts.cfg().command && ctx.tts.cfg().command.on), cs, 'tts <message>' + (db.builtinEdits.tts.aliases.length ? ' (' + db.builtinEdits.tts.aliases.map((a) => P + a).join(', ') + ')' : ''), lvl[ctx.tts && ctx.tts.cfg().command.level] || 'Everyone', 'Have your message read out loud on stream' + (ctx.tts && ctx.tts.cfg().command.cost ? ' (costs ' + ctx.tts.cfg().command.cost + ' ' + cs + ')' : ''));
     const off = db.games.off || [], gOn = (id) => !off.includes(id);
     add(gOn('gamble'), 'Games', 'gamble <amount|all>', 'Everyone', 'Bet your ' + cs);
     add(gOn('slots'), 'Games', 'slots <amount>', 'Everyone', 'Spin the slot machine');
@@ -1056,7 +1064,7 @@ module.exports = function createBot(ctx) {
   }
   const view = () => ({
     settings: { clip: db.clip, enabled: db.enabled, prefix: db.prefix, currency: db.currency, pointsPerMin: db.pointsPerMin, subMultiplier: db.subMultiplier, awardOffline: db.awardOffline, games: db.games, extras: db.extras },
-    commands: db.commands, vars: db.vars, timers: db.timers, filters: db.filters, events: db.events, quotes: db.quotes, counters: db.counters,
+    builtinEdits: db.builtinEdits, commands: db.commands, vars: db.vars, timers: db.timers, filters: db.filters, events: db.events, quotes: db.quotes, counters: db.counters,
     bonuses: db.bonuses, daily: db.daily, shop: db.shop, pending: db.pending, ledger: db.ledger.slice(-40).reverse(),
     totals: { viewers: Object.keys(db.points).length, circulation: Object.values(db.points).reduce((a, p) => a + p.pts, 0) },
     top: Object.entries(db.points).map(([id, p]) => ({ id, name: p.name, pts: p.pts })).sort((a, b) => b.pts - a.pts).slice(0, 15),
@@ -1140,6 +1148,21 @@ module.exports = function createBot(ctx) {
       case 'games/bits': { const B = db.games.bits, x = b || {}; for (const k of ['boss', 'royale', 'race', 'dance']) if (x[k] !== undefined) B[k] = Math.floor(num(x[k], 100, 0, 1e6)); save(); return B; }
       case 'games/dance': { const x = b || {}, D = db.games.dance; if (x.seconds !== undefined) D.seconds = Math.floor(num(x.seconds, 120, 20, 600)); if (x.strobe !== undefined) D.strobe = !!x.strobe; save(); return D; }
       case 'games/dancetest': { if (b && b.stop) { danceStop(); return { text: 'Stopped' }; } return { text: danceStart({ name: 'TestViewer' }, true) || 'Party started (silent test)' }; }
+      case 'builtin/save': {   // the replies, other names and wait of the built-in !commands and !tts
+        const x = b || {}, E = db.builtinEdits, line = (v, d) => oneLine(v, 300) || d;
+        const taken = new Set(BUILTIN.concat(Object.keys(GAME_OF), Object.keys(builtins), db.commands.flatMap((c) => [c.name].concat(c.aliases || [])), db.customGames.map((g) => g.command)));
+        const cleanAliases = (key, list) => {
+          const out = []; for (const raw of (Array.isArray(list) ? list : String(list || '').split(/[\s,]+/))) {
+            const a = String(raw).toLowerCase().replace(/^[!\W]+/, '').replace(/[^a-z0-9_]/g, '').slice(0, 20); if (!a || out.includes(a)) continue;
+            if (taken.has(a) && !((E[key].aliases || []).includes(a))) throw new Error('!' + a + ' is already used by another command');
+            out.push(a);
+          }
+          if (out.length > 5) throw new Error('At most 5 other names'); return out;
+        };
+        if (x.commands) { const c = x.commands; if (c.reply !== undefined) E.commands.reply = line(c.reply, 'Commands: {list}'); if (c.aliases !== undefined) E.commands.aliases = cleanAliases('commands', c.aliases); if (c.cd !== undefined) E.commands.cd = num(c.cd, 15, 0, 3600); }
+        if (x.tts) { const t = x.tts; for (const k of ['usage', 'off', 'level', 'wait', 'poor', 'blocked', 'failed']) if (t[k] !== undefined) E.tts[k] = line(t[k], DEFAULT_TTS_EDITS[k]); if (t.queued !== undefined) E.tts.queued = oneLine(t.queued, 300); if (t.aliases !== undefined) E.tts.aliases = cleanAliases('tts', t.aliases); }
+        builtins.commands.cd = E.commands.cd; save(); return E;
+      }
       case 'words/settings': {
         const x = b || {}, C = db.games.words, n = (v, d, lo, hi) => Math.floor(num(v, d, lo, hi));
         if (x.rounds !== undefined) C.rounds = n(x.rounds, 0, 0, 99); if (x.beat !== undefined) C.beat = n(x.beat, 50, 10, 100); if (x.seconds !== undefined) C.seconds = n(x.seconds, 90, 30, 300); if (x.letters !== undefined) C.letters = n(x.letters, 5, 4, 7);
