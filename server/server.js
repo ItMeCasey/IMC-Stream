@@ -109,6 +109,7 @@ const defaultState = () => ({
   mediaCfg: { provider: 'windows', app: 'auto', spotifyClientId: '', requests: false, requestLevel: 'everyone' },
   autoScenes: { enabled: false, raidSeconds: 30, map: { online: '', offline: '', raid: '', raidEnd: '', adStart: '', adEnd: '', hypeStart: '', hypeEnd: '', brb: '', back: '' } },
   board: [],
+  site: { project: '', auto: true, published: false, lastHash: '', lastDeploy: 0, lastUrl: '', lastError: '', lastTry: 0 },   // the viewers' website on Cloudflare Pages
   rewardHooks: [], obsCfg: { host: '127.0.0.1', port: 4455, password: '' },
   alertRules: [], alertsSeeded: false,
   customGoals: [],   // user-made goals shown as progress bars
@@ -1516,6 +1517,12 @@ async function route(req, res) {
   if (p === '/api/hooks') return json(res, 200, hooks.view());
   if (p === '/api/hooks/rewards') { try { return json(res, 200, { rewards: await hooks.rewards(false) }); } catch (e) { return json(res, 200, { rewards: [], error: e.message }); } }
   if (p === '/hooks' || p === '/hooks/') return serveFile(res, path.join(__dirname, 'public', 'hooks.html'));
+  if (p === '/site' || p === '/site/') return serveFile(res, path.join(__dirname, 'public', 'site.html'));
+  if (p.startsWith('/site-preview/')) {   // a look at the built website before it is uploaded
+    const rel = decodeURIComponent(p.slice(14)) || 'index.html', f = path.resolve(siteDir(), rel);
+    if (f.startsWith(path.resolve(siteDir()) + path.sep) && fs.existsSync(f) && fs.statSync(f).isFile()) return serveFile(res, f);
+    res.writeHead(404); return res.end('not built yet: press Build the website');
+  }
   if (p === '/emotes' || p === '/emotes/') return serveFile(res, path.join(__dirname, 'public', 'emotes.html'));
   if (p === '/api/countdown') return json(res, 200, countdown.view());
   if (p === '/api/subathon') return json(res, 200, Object.assign(subathon.view(), { rules: subathon.rules() }));
@@ -1716,6 +1723,15 @@ async function route(req, res) {
         });
         return json(res, 200, { ok: true, steps });
       }
+      if (p === '/api/site/status') { const w = await sitePublisher.whoami(); return json(res, 200, Object.assign({ cloudflare: w }, sitePublisher.view())); }
+      if (p === '/api/site/login') return json(res, 200, sitePublisher.login());
+      if (p === '/api/site/settings') return json(res, 200, sitePublisher.settings(body));
+      if (p === '/api/site/publish') return json(res, 200, await sitePublisher.publish('button'));
+      if (p === '/api/site/build') {   // make the website into Documents/ItMeCasey Stream/website and show the folder
+        const dir = siteDir(), files = site.build(dir);
+        if (body.reveal !== false && !process.env.ICM_NO_EXPLORER) try { require('node:child_process').spawn('explorer.exe', [dir], { detached: true, stdio: 'ignore' }).unref(); } catch (e) { /* no explorer */ }
+        return json(res, 200, { ok: true, dir, files: files.length });
+      }
       if (p === '/api/welcome/done') { state.setup.done = true; persist(); return json(res, 200, { ok: true }); }
       if (p === '/api/update/check') { await checkUpdate(); return json(res, 200, updateView()); }
       if (p === '/api/update/settings') { state.updates.enabled = !!body.enabled; persist(); return json(res, 200, updateView()); }
@@ -1887,6 +1903,9 @@ async function obsStats() {   // cached for a second so several open widgets sha
   obsStatsCache = { t: now, v }; return v;
 }
 const vmix = require('./voicemeeter.js')({ DATA, obs: obsClient, log });
+const site = require('./site')({ bot, tts, hooks: () => state.rewardHooks, channel: () => (tokens ? tokens.login : ''), assetsDir: path.join(ROOT, 'assets'), sfxDir: path.join(ROOT, 'sounds', 'tts') });   // the viewers' website (static pages for a free host)
+const siteDir = () => path.join(process.env.ICM_DOCS || path.join(require('node:os').homedir(), 'Documents', 'ItMeCasey Stream'), 'website');
+const sitePublisher = require('./site-publish')({ state, persist, log, site, tts, siteDir, channel: () => (tokens ? tokens.login : '') });   // puts that website on Cloudflare Pages by itself
 const extraBadges = require('./extrabadges')({ log });   // BetterTTV and FrankerFaceZ chat badges
 const seventv = require('./seventv')({ file: path.join(DATA, 'emotes7tv.json'), log, twitchId: () => (tokens ? tokens.user_id : '') });   // viewers add 7TV emotes to the channel with channel points
 const hooks = createHooks({
@@ -1966,6 +1985,7 @@ function main() {
     log('Label files:', LABELS);
     renderLabels();
     media.start();
+    sitePublisher.start();
     backup.auto(); const bk = setInterval(() => backup.auto(), 6 * 3600e3); if (bk.unref) bk.unref();
     const e7 = setInterval(() => seventv.expireDue().catch((e) => log('7tv expiry:', e.message)), 30 * 60e3); if (e7.unref) e7.unref(); setTimeout(() => seventv.expireDue().catch(() => {}), 60e3).unref();   // borrowed emotes whose time is up are taken away again
     if (tts.kokoroInstalled() && !state.ttsCfg.voice && !state.ttsCfg.chosen) { state.ttsCfg.voice = 'af_heart'; persist(true); log('Kokoro found: using the realistic voice af_heart by default (change it on the Speech page).'); }

@@ -1007,11 +1007,16 @@ module.exports = function createBot(ctx) {
     add(true, cs, 'watchtime', 'Everyone', 'How long you have been active in chat');
     add(db.shop.some((i) => i.enabled), cs, 'shop / !redeem <item>', 'Everyone', 'Spend ' + cs + ' on rewards: ' + db.shop.filter((i) => i.enabled).map((i) => i.name + ' (' + i.cost + ')').join(', '));
     add(!!(ctx.tts && ctx.tts.cfg().command && ctx.tts.cfg().command.on), cs, 'tts <message>', lvl[ctx.tts && ctx.tts.cfg().command.level] || 'Everyone', 'Have your message read out loud on stream' + (ctx.tts && ctx.tts.cfg().command.cost ? ' (costs ' + ctx.tts.cfg().command.cost + ' ' + cs + ')' : ''));
-    add(true, 'Games', 'gamble <amount|all>', 'Everyone', 'Bet your ' + cs);
-    add(true, 'Games', 'slots <amount>', 'Everyone', 'Spin the slot machine');
+    const off = db.games.off || [], gOn = (id) => !off.includes(id);
+    add(gOn('gamble'), 'Games', 'gamble <amount|all>', 'Everyone', 'Bet your ' + cs);
+    add(gOn('slots'), 'Games', 'slots <amount>', 'Everyone', 'Spin the slot machine');
     add(true, 'Games', 'duel <user> <amount>  then  !accept', 'Everyone', 'Challenge someone for ' + cs);
     add(true, 'Games', 'roll [NdM] / !flip / !8ball <question>', 'Everyone', 'Dice, coin and the magic 8-ball');
-    add(true, 'Games', 'enter', 'Everyone', 'Join a raffle when one is open');
+    add(gOn('raffle'), 'Games', 'enter', 'Everyone', 'Join a raffle when one is open');
+    add(gOn('boss'), 'Games', 'hit', 'Everyone', 'Attack the boss while a boss raid is on');
+    add(gOn('royale'), 'Games', 'join', 'Everyone', 'Join the arena when it is open');
+    add(gOn('teams'), 'Games', 'red / !blue', 'Everyone', 'Pick a side in a team battle');
+    add(gOn('words'), 'Games', 'wordtop', 'Everyone', 'The all-time Word Rush leaderboard');
     const channel = (ctx.me() && ctx.me().login) || 'the stream', groups = {};
     for (const x of builtin) (groups[x[0]] = groups[x[0]] || []).push(x.slice(1));
     const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -1025,7 +1030,7 @@ module.exports = function createBot(ctx) {
     const md = ['# ' + channel + ' chat commands', ''].concat(custom.length ? ['## Fun & info', '', ...custom.map((r) => '**' + r[0] + '** (' + r[1] + '): ' + r[2]), ''] : [],
       ...Object.keys(groups).map((g) => ['## ' + g, '', ...groups[g].map((r) => '**' + r[0] + '** (' + r[1] + '): ' + r[2]), ''].join('\n'))).join('\n');
     const text = custom.concat(...Object.keys(groups).map((g) => groups[g])).map((r) => r[0] + ' - ' + r[2]).join('\n');
-    return { html, md, text, count: custom.length + builtin.length };
+    return { html, md, text, count: custom.length + builtin.length, custom, groups };
   }
   const view = () => ({
     settings: { clip: db.clip, enabled: db.enabled, prefix: db.prefix, currency: db.currency, pointsPerMin: db.pointsPerMin, subMultiplier: db.subMultiplier, awardOffline: db.awardOffline, games: db.games, extras: db.extras },

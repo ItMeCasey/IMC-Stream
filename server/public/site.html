@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Website</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 900px; margin: 0 auto; padding: 18px 24px 50px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 13px; padding: 9px 15px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); } button:hover { filter: brightness(1.12); }
+  button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } a { color: var(--aqua); }
+  ol { padding-left: 20px; display: grid; gap: 8px; font-size: 15px; } ol li::marker { color: var(--heat); } .muted { color: #9aa39f; font-size: 13px; } code { background: #151b1b; padding: 1px 5px; }
+  iframe { width: 100%; height: 560px; border: 2px solid #46504f; background: #222A2A; margin-top: 10px; } .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; } .ok { color: var(--aqua); margin-top: 8px; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; max-width: 90%; } #toast.bad { background: var(--rust); color: #fff; }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>WEBSITE FOR YOUR VIEWERS</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section class="h">
+    <h2>WHAT IT IS</h2>
+    <p>Three simple pages you can send viewers to: your <b>commands</b>, your <b>games</b> and how <b>text-to-speech</b> works (with the voice and every sound effect to listen to). They are made from what is switched on in the app right now. There is no server and no domain to pay for: it is a folder you put on a free host such as <b>Cloudflare Pages</b>.</p>
+  </section>
+  <section>
+    <h2>1. BUILD IT</h2>
+    <div class="row"><button id="build">Build the website</button><button class="ghost" id="open">Open the folder</button><span class="muted" id="where"></span></div>
+    <div class="ok" id="msg"></div>
+    <p class="muted" style="margin-top:8px">Build it again whenever you change commands, games or TTS, then upload the folder again.</p>
+    <iframe id="prev" title="Preview" style="display:none"></iframe>
+  </section>
+  <section class="r">
+    <h2>2. PUBLISH ON CLOUDFLARE PAGES (FREE, AUTOMATIC)</h2>
+    <p class="muted" style="margin-bottom:8px">Log in to Cloudflare once and the app does the rest: it makes the project, uploads the pages, and uploads again by itself whenever your commands, games or text-to-speech change. You never upload anything by hand.</p>
+    <div id="cf" class="muted">Checking...</div>
+    <div class="row" style="margin-top:10px"><button id="login">Connect Cloudflare</button><span class="muted">A browser window opens: log in (or make a free account) and press Allow. This app never sees your password.</span></div>
+    <div class="row" style="margin-top:14px"><label class="muted">Website name <input id="proj" maxlength="40" style="font:inherit;padding:7px 9px;background:var(--iron);color:var(--cream);border:2px solid #46504f;width:220px"> .pages.dev</label><button id="save" class="ghost">Save name</button><button id="pub">Publish now</button></div>
+    <div class="row" style="margin-top:10px"><label class="muted" style="display:flex;gap:8px;align-items:center"><input id="auto" type="checkbox" style="width:18px;height:18px"> Publish by itself when something changes (checked every few minutes)</label></div>
+    <div class="ok" id="pubmsg"></div>
+    <details style="margin-top:14px"><summary class="muted" style="cursor:pointer">No Node.js, or would rather do it by hand?</summary>
+      <ol style="margin-top:8px">
+        <li>Press <b>Build the website</b> above, then go to <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">dash.cloudflare.com</a> and open <b>Workers &amp; Pages</b>.</li>
+        <li>Press <b>Create</b>, choose <b>Pages</b> and then <b>Upload assets</b>, name the project, drag the <b>website folder</b> in and press <b>Deploy</b>.</li>
+        <li>To update it later: <b>Create new deployment</b> and drag the folder in again.</li>
+      </ol>
+      <p class="muted">The automatic way needs Node.js on this PC (it uses Cloudflare's own tool, wrangler, which is fetched the first time).</p>
+    </details>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3600); }
+let dir = '', poll = null;
+const post = (p, b) => fetch('/api/site/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+const ago = (t) => { if (!t) return 'never'; const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 90 ? m + ' minutes ago' : Math.round(m / 60) + ' hours ago'; };
+async function status() {
+  const r = await post('status'); if (r.error) { $('cf').textContent = r.error; return; }
+  const c = r.cloudflare || {};
+  $('cf').innerHTML = !c.node ? '<b style="color:var(--heat)">Node.js was not found on this PC</b>, so the automatic way cannot run. Use the by-hand steps below.' : c.ok ? 'Logged in to Cloudflare' + (c.email ? ' as <b>' + c.email.replace(/[<>&]/g, '') + '</b>' : '') + '.' : (r.loggingIn ? 'Waiting for you to log in in the browser window...' : '<b style="color:var(--heat)">Not logged in to Cloudflare yet.</b>');
+  if (!$('proj').value) $('proj').value = r.project || r.defaultName || ''; $('auto').checked = r.auto;
+  $('pubmsg').innerHTML = r.busy ? 'Publishing...' : r.url ? 'Online at <a href="' + r.url + '" target="_blank" rel="noopener">' + r.url + '</a> (last updated ' + ago(r.lastDeploy) + ').' : '';
+  if (r.lastError) $('pubmsg').innerHTML += '<div style="color:var(--rust);margin-top:6px">' + r.lastError.replace(/[<>&]/g, '') + '</div>';
+  clearTimeout(poll); if (r.busy || r.loggingIn) poll = setTimeout(status, 3000);
+}
+$('login').onclick = async () => { await post('login'); toast('A browser window is opening: log in to Cloudflare there'); setTimeout(status, 2000); };
+$('save').onclick = async () => { const r = await post('settings', { project: $('proj').value }); if (r.error) return toast(r.error, true); toast('Saved'); status(); };
+$('auto').onchange = async () => { await post('settings', { auto: $('auto').checked }); toast($('auto').checked ? 'Automatic publishing on' : 'Automatic publishing off'); };
+$('pub').onclick = async () => { const n = await post('settings', { project: $('proj').value }); if (n.error) return toast(n.error, true); $('pubmsg').textContent = 'Publishing... the first time can take a few minutes while the Cloudflare tool downloads.'; post('publish').then((r) => { if (r.error) toast(r.error, true); else toast('Published'); status(); }); setTimeout(status, 3000); };
+status();
+async function build(reveal) {
+  const r = await fetch('/api/site/build', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reveal }) }).then((x) => x.json());
+  if (r.error) return toast(r.error, true);
+  dir = r.dir; $('where').textContent = r.dir; $('msg').textContent = 'Built: ' + r.files + ' files.';
+  $('prev').style.display = 'block'; $('prev').src = '/site-preview/index.html?' + Date.now();
+}
+$('build').onclick = () => build(false); $('open').onclick = () => build(true);
+</script></body></html>
