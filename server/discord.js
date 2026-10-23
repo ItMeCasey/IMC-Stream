@@ -123,6 +123,12 @@ module.exports = function createDiscord(ctx) {
     return true;
   }
 
+  /** a stream recap goes to the announcements channel (read-only for viewers, so only the bot posts there) */
+  async function postRecap(title, text) {
+    const id = (S.channels || {}).announcements; if (!S.token || !id) return false;
+    await post(id, { embeds: [embed(String(title).slice(0, 250), String(text).slice(0, 3900), COLOR.aqua)], allowed_mentions: { parse: [] } }); return true;
+  }
+
   // ------------------------------------------------------------------ slash commands
   const cut = (t, n) => (String(t).length > n ? String(t).slice(0, n - 1) + '…' : String(t));
   function answer(name) {
@@ -177,5 +183,5 @@ module.exports = function createDiscord(ctx) {
     layout: LAYOUT.map(([cat, list]) => ({ category: cat, channels: list.map(([n, t]) => (t === 2 ? '🔊 ' : '# ') + n) })), roles: ROLES.map((r) => r[0]), slash: COMMANDS.map((c) => '/' + c.name) });
   /** a test post in the bot-commands (or go-live) channel */
   async function test() { const id = (S.channels || {}).botcommands || (S.channels || {}).golive; if (!id) throw new Error('Set up the server first'); await post(id, { content: 'The bot is working. Try `/commands`.' }); return { ok: true }; }
-  return { connect, plan, setup, announceLive, registerCommands, startGateway, stopGateway, configure, view, test, answer, onInteraction, layout: LAYOUT };
+  return { connect, plan, setup, announceLive, postRecap, registerCommands, startGateway, stopGateway, configure, view, test, answer, onInteraction, layout: LAYOUT };
 };

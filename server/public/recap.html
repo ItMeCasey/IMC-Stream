@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Chat Recap</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 940px; margin: 0 auto; padding: 18px 24px 50px; display: grid; gap: 16px; }
+  section { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 13px; padding: 9px 15px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); } button:hover { filter: brightness(1.12); }
+  button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button:disabled { opacity: .5; cursor: default; }
+  .muted { color: #9aa39f; font-size: 13px; } code { background: #151b1b; padding: 1px 5px; } .ok { color: var(--aqua); } .bad { color: var(--heat); }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 8px 0; } label.chk { display: flex; align-items: center; gap: 8px; font-size: 15px; } label.chk input { width: 18px; height: 18px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; } .fld input { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 200px; }
+  .recap { background: var(--iron); border-left: 4px solid var(--aqua); padding: 12px 16px; margin-top: 12px; white-space: pre-wrap; font-size: 15px; line-height: 1.5; } .recap small { display: block; color: #9aa39f; letter-spacing: 2px; text-transform: uppercase; font-size: 11px; margin-bottom: 6px; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; max-width: 90%; } #toast.bad { background: var(--rust); color: #fff; }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>CHAT RECAP</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <section class="h">
+    <h2>HOW IT WORKS</h2>
+    <p>The app keeps this stream's chat (without deleted messages, commands and bots) and asks <b>Claude</b> to summarise it, using the <b>Claude Code</b> program on this PC and your own Claude login, always with the <b>cheapest model</b> (<code id="model">haiku</code>). You get an <b>end-of-stream recap</b> (what chat talked about, funny moments, unanswered questions, regulars) saved in <code>Documents\ItMeCasey Stream\recaps</code>, and a <code>!recap</code> command for mods that says in one line what chat has been talking about.</p>
+    <p class="muted" style="margin-top:8px"><b>Privacy:</b> the chat text is sent to Anthropic to be summarised. Turn off "send chatter names" to replace names with Viewer1, Viewer2...</p>
+  </section>
+
+  <section>
+    <h2>1. CHECK CLAUDE IS READY</h2>
+    <div class="row"><button id="check">Check Claude</button><span id="checkMsg" class="muted"></span></div>
+    <p class="muted">If it says Claude is not installed or not logged in: install Claude Code, open a terminal, type <code>claude</code> and then <code>/login</code>.</p>
+  </section>
+
+  <section class="r">
+    <h2>2. SETTINGS</h2>
+    <div class="row"><label class="chk"><input id="auto" type="checkbox"> Make a recap automatically 2 minutes after the stream ends</label></div>
+    <div class="row"><label class="chk"><input id="discord" type="checkbox"> Post the recap in the Discord announcements channel</label></div>
+    <div class="row"><label class="chk"><input id="names" type="checkbox"> Send chatter names (off = Viewer1, Viewer2...)</label></div>
+    <div class="row"><label class="chk"><input id="chat" type="checkbox"> Let mods use <code>!recap</code> in chat</label></div>
+    <div class="row"><label class="fld">Model<input id="modelIn" placeholder="haiku"></label><button id="save">Save</button></div>
+  </section>
+
+  <section class="h">
+    <h2>3. THIS STREAM</h2>
+    <p class="muted" id="count"></p>
+    <div class="row"><button id="make">Make a recap now</button><button class="ghost" id="catchup">What is chat talking about?</button></div>
+    <div id="catchOut" class="recap" style="display:none"></div>
+  </section>
+
+  <section>
+    <h2>PAST RECAPS</h2>
+    <div id="list" class="muted">None yet.</div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id), esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const post = (op, b) => fetch('/api/recap/' + op, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 4200); }
+let filled = false;
+function draw(v) {
+  $('model').textContent = v.model;
+  if (!filled) { filled = true; $('auto').checked = v.auto; $('discord').checked = v.discord; $('names').checked = v.names; $('chat').checked = v.chat; $('modelIn').value = v.model; }
+  $('count').textContent = v.messages + ' chat messages kept since ' + new Date(v.since).toLocaleTimeString() + (v.busy ? ' (writing a recap...)' : '');
+  $('list').innerHTML = v.last.length ? v.last.map((x) => '<div class="recap"><small>' + esc(new Date(x.at).toLocaleString()) + ' &middot; ' + x.messages + ' messages</small>' + esc(x.text) + '</div>').join('') : 'None yet.';
+}
+const load = async () => draw(await post('status'));
+$('check').onclick = async () => { $('checkMsg').textContent = 'Asking Claude...'; $('check').disabled = true; const r = await post('check'); $('check').disabled = false; $('checkMsg').innerHTML = r.error ? '<span class="bad">' + esc(r.error) + '</span>' : '<span class="ok">Claude answered (model ' + esc(r.model) + '). Ready.</span>'; };
+$('save').onclick = async () => { draw(await post('settings', { auto: $('auto').checked, discord: $('discord').checked, names: $('names').checked, chat: $('chat').checked, model: $('modelIn').value.trim() || 'haiku' })); toast('Saved'); };
+$('make').onclick = async () => { $('make').disabled = true; toast('Writing the recap...'); const r = await post('make'); $('make').disabled = false; if (r.error) return toast(r.error, true); toast('Recap saved'); load(); };
+$('catchup').onclick = async () => { $('catchup').disabled = true; const r = await post('catchup'); $('catchup').disabled = false; const e = $('catchOut'); e.style.display = 'block'; e.textContent = r.error || r.text; };
+load(); setInterval(load, 8000);
+</script></body></html>

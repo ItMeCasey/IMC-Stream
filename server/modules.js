@@ -22,6 +22,7 @@ const BUILTIN = [
   { id: 'ads', name: 'Ads', icon: '\u25B6', group: 'Stream', url: '/ads', description: 'Run and snooze ad breaks' },
   { id: 'bot', name: 'Chat Bot', icon: '\u2699', group: 'Automate', url: '/bot', description: 'Commands, timers, currency, games' },
   { id: 'games', name: 'Chat Games', icon: '⚄', group: 'Automate', url: '/games', description: 'Built-in games and games you create' },
+  { id: 'recap', name: 'Chat recap', icon: '✎', group: 'Stream', url: '/recap', description: 'Summaries of your chat, written by Claude' },
   { id: 'discord', name: 'Discord', icon: '☍', group: 'Stream', url: '/discord', description: 'Set up your Discord server and run a bot for it' },
   { id: 'site', name: 'Website', icon: '⌂', group: 'Stream', url: '/site', description: 'Pages for your viewers (commands, games, text-to-speech) to put on a free host' },
   { id: 'emotes', name: 'Emote Rewards', icon: '☺', group: 'Automate', url: '/emotes', description: 'Viewers add a 7TV emote to your channel with channel points' },

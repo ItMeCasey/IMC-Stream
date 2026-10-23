@@ -578,10 +578,12 @@ function chatIn(e) {
     reply: e.reply ? { name: e.reply.parent_user_name, text: oneLine(e.reply.parent_message_body, 100) } : null,
   };
   chatBuf.push(m); if (chatBuf.length > 200) chatBuf.shift();
+  recap.add(m);
   broadcast('chat', m);
 }
 function chatMark(match, ev) {
   for (const m of chatBuf) if (match(m)) m.gone = true;
+  recap.moderate(ev);
   if (ev.type === 'clear') chatBuf.length = 0;
   broadcast('chatmod', ev);
 }
@@ -1010,10 +1012,12 @@ function handleEventInner(type, e, opts = {}) {
       return true;
     case 'stream.online':
       if (live) { state.stream.live = true; state.stream.startedAt = e.started_at || new Date().toISOString(); if (CFG.resetSessionOnStreamOnline) resetSession(); pollStream(); scenes.fire('online').catch(() => {}); }
+      if (live) recap.newStream();
       if (live) setTimeout(() => discord.announceLive({ title: state.stream.title, game: state.stream.game }).catch((err) => log('discord go-live post failed:', err.message)), 20000);   // a moment later, so the title and game are known
       systemLog('Stream went online');
       break;
     case 'stream.offline':
+      if (live) recap.onStreamEnd();
       if (live) { state.stream.live = false; state.stream.viewers = 0; state.stream.startedAt = ''; scenes.fire('offline').catch(() => {}); }
       systemLog('Stream went offline');
       break;
@@ -1518,6 +1522,7 @@ async function route(req, res) {
   if (p === '/api/hooks') return json(res, 200, hooks.view());
   if (p === '/api/hooks/rewards') { try { return json(res, 200, { rewards: await hooks.rewards(false) }); } catch (e) { return json(res, 200, { rewards: [], error: e.message }); } }
   if (p === '/hooks' || p === '/hooks/') return serveFile(res, path.join(__dirname, 'public', 'hooks.html'));
+  if (p === '/recap' || p === '/recap/') return serveFile(res, path.join(__dirname, 'public', 'recap.html'));
   if (p === '/discord' || p === '/discord/') return serveFile(res, path.join(__dirname, 'public', 'discord.html'));
   if (p === '/site' || p === '/site/') return serveFile(res, path.join(__dirname, 'public', 'site.html'));
   if (p.startsWith('/site-preview/')) {   // a look at the built website before it is uploaded
@@ -1725,6 +1730,15 @@ async function route(req, res) {
         });
         return json(res, 200, { ok: true, steps });
       }
+      if (p.startsWith('/api/recap/')) {
+        const op = p.slice(11);
+        if (op === 'status') return json(res, 200, recap.view());
+        if (op === 'settings') return json(res, 200, recap.configure(body));
+        if (op === 'check') return json(res, 200, await recap.check());
+        if (op === 'make') return json(res, 200, await recap.makeRecap());
+        if (op === 'catchup') return json(res, 200, { text: await recap.catchUp() });
+        throw new Error('unknown recap action');
+      }
       if (p.startsWith('/api/discord/')) {
         const op = p.slice(13);
         if (op === 'status') return json(res, 200, discord.view());
@@ -1877,12 +1891,15 @@ async function route(req, res) {
 
 const buildCollection = require('./collection.js').build, createBackup = require('./backup.js'), createModules = require('./modules.js'), createAccess = require('./access.js');
 const createMedia = require('./media.js'), createCountdown = require('./countdown.js'), createTts = require('./tts.js');
-const createBot = require('./bot.js'), createObs = require('./obs.js'), createHooks = require('./hooks.js'), createScenes = require('./scenes.js'), createAudio = require('./audio.js'), createPaypal = require('./paypal.js'), createRelayDeploy = require('./relay-deploy.js');
+const createRecap = require('./recap.js'), createBot = require('./bot.js'), createObs = require('./obs.js'), createHooks = require('./hooks.js'), createScenes = require('./scenes.js'), createAudio = require('./audio.js'), createPaypal = require('./paypal.js'), createRelayDeploy = require('./relay-deploy.js');
 let mediaRenderT = null;
 const media = createMedia({ DATA, state, persist, log, broadcast, port: () => CFG.port,
   onChange: () => { if (!mediaRenderT) mediaRenderT = setTimeout(() => { mediaRenderT = null; renderLabels(); }, 500); } });
 const tts = createTts({ DATA, state, persist, broadcast, log, sfxDir: path.join(ROOT, 'sounds', 'tts'), blockWords: () => (bot.view().filters.blacklist.on ? bot.view().filters.blacklist.words : []) });
+const recap = createRecap({ file: path.join(DATA, 'recap.json'), log, dir: () => path.join(process.env.ICM_DOCS || path.join(os.homedir(), 'Documents', 'ItMeCasey Stream'), 'recaps'), hideBots: ['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'sery_bot'],
+  discordPost: (title, text) => discord.postRecap(title, text) });   // chat summaries made with the Claude command line tool
 const bot = createBot({
+  get recap() { return recap; },
   tts: { cfg: () => state.ttsCfg, say: (t, o) => tts.say(t, o), ctl: (a) => tts.ctl(a) }, alertControl: (a) => alertControl(a),
   countdown: { command: (a) => countdown.command(a) },
   subathon: { command: (a) => subathon.command(a), rules: () => subathon.rules() },

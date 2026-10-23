@@ -14,7 +14,7 @@ const BUILTIN = ['commands', 'addcom', 'editcom', 'delcom', 'uptime', 'game', 't
   'shop', 'redeem', 'buy', 'send', 'pay', 'setvar', 'listadd', 'announce', 'song', 'skip', 'pause', 'play', 'previous', 'volume', 'sr', 'songrequest',
   'countdown', 'timeleft', 'tts', 'ttsskip', 'alerts', 'clip', 'tip', 'paypal', 'subathon', 'subrules', 'brb', 'back', 'watchtime', 'addpoints',
   'removepoints', 'setpoints', 'bonus', 'approve', 'deny', 'addquote', 'delquote', 'nextad', 'ad', 'snooze', 'setgame', 'settitle', 'gamesearch',
-  'counter', 'points', 'gamble', 'slots', 'duel', 'accept', 'give', 'top', 'leaderboard', 'trivia', 'raffle', 'enter', 'draw', '8ball', 'roll', 'flip', 'words', 'wordtop', 'wheel'];
+  'counter', 'points', 'gamble', 'slots', 'duel', 'accept', 'give', 'top', 'leaderboard', 'trivia', 'raffle', 'enter', 'draw', '8ball', 'roll', 'flip', 'words', 'wordtop', 'wheel', 'recap'];
 
 const TRIVIA = [
   ['What is the capital of Australia?', 'canberra'], ['How many sides does a hexagon have?', '6|six'], ['What planet is known as the Red Planet?', 'mars'],
@@ -796,6 +796,7 @@ module.exports = function createBot(ctx) {
       if (r && r.error) reply(r.error);
     } },
     words: { level: 3, run: ({ args, u, reply }) => wordsCmd(args, u, reply) },
+    recap: { level: 3, cd: 30, run: async ({ reply }) => { if (!ctx.recap || !ctx.recap.chatOn()) return; try { reply('Chat recap: ' + await ctx.recap.catchUp()); } catch (e) { reply(e.message.slice(0, 200)); } } },
     wordtop: { level: 0, run: ({ reply }) => { const st = wordStats.get(); reply(st.top.length ? 'Word Rush all-time: ' + st.top.slice(0, 5).map((p, i) => (i + 1) + '. ' + p.name + ' ' + p.pts).join(', ') + (st.record.round ? ' | Record: chat beat ' + st.record.round + ' rounds (' + (st.record.by || 'nobody') + ' won)' : '') : 'Nobody has scored in Word Rush yet.'); } },
     wheel: { level: 3, run: ({ args, reply }) => wheelCmd(args, reply) },
     spin: { level: 3, run: ({ args, reply }) => wheelCmd(args, reply) },
@@ -1040,6 +1041,7 @@ module.exports = function createBot(ctx) {
     if (gOn('trivia')) mods.push(['trivia [stop]', 'Start a trivia question (the first right answer wins)']);
     if (gOn('raffle')) mods.push(['raffle open | cancel | draw', 'Open a raffle (viewers type !enter), close it, or draw the winner (!draw works too)']);
     if (gOn('words')) mods.push(['words [number | skip | stop]', 'Start Word Rush (a number sets the rounds), end the round, or stop the game']);
+    if (ctx.recap && ctx.recap.chatOn()) mods.push(['recap', 'A one-line summary of what chat has been talking about (made by Claude, at most once every 5 minutes)']);
     if (gOn('wheel')) mods.push(['wheel [options | stop]', 'Spin the wheel: your saved list, or options typed here like !wheel pizza, tacos, sushi (also !spin)']);
     if (gOn('dance')) mods.push(['dance [stop]', 'Start the Dance Party']);
     if (gOn('race')) mods.push(['race [now | cancel]', 'Open a horse race (a prediction); now runs it, cancel refunds']);
