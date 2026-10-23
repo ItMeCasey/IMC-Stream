@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Avatar tracker</title>
+<style>body{background:#1A2020;color:#E2DAC2;font:13px Segoe UI,sans-serif;margin:8px}video{width:240px;transform:scaleX(-1);display:block;margin-top:6px}</style></head>
+<body><div id="s">Avatar tracker (runs in the background; the Avatar page controls it)</div><video id="v" muted playsinline></video>
+<script src="/overlays/avatar-core.js"></script>
+<script type="module">
+// Owns the camera and the microphone. Reads the face with MediaPipe (on this PC, nothing is uploaded) and the voice level, and posts a small pose ~30 times a second.
+const A = AvatarCore, $ = (id) => document.getElementById(id), post = (p, b) => fetch('/api/avatar/' + p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}), keepalive: true }).then((r) => r.json()).catch(() => ({}));
+let cfg = await fetch('/api/avatar/status').then((r) => r.json()), lm = null, camStream = null, micStream = null, ctx = null, analyser = null, tbuf = null, fbuf = null, camErr = '', micErr = '', loading = false, lastRaw = [], frames = 0, fpsAt = performance.now(), fps = 0, camKey = '', micKey = '';
+const mic = A.createMic(), video = $('v'); let micOut = { mouth: 0, round: 0.3, speaking: false }, lastMicAt = performance.now();
+
+async function loadModel() {
+  if (lm || loading) return; loading = true;
+  try {
+    const { FilesetResolver, FaceLandmarker } = await import('/assets/vendor/mediapipe/vision_bundle.mjs'), fs = await FilesetResolver.forVisionTasks('/assets/vendor/mediapipe/wasm');
+    const make = (delegate) => FaceLandmarker.createFromOptions(fs, { baseOptions: { modelAssetPath: '/assets/vendor/mediapipe/face_landmarker.task', delegate }, runningMode: 'VIDEO', numFaces: 1, outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true });
+    try { lm = await make('GPU'); } catch (e) { lm = await make('CPU'); }
+  } catch (e) { camErr = 'Face tracking could not start: ' + e.message; } loading = false;
+}
+const wantCam = () => cfg.on && (cfg.mode === 'auto' || cfg.mode === 'camera'), wantMic = () => cfg.on && cfg.mode !== 'idle' && cfg.mouthSrc !== 'cam';
+async function devices() {
+  try { const d = await navigator.mediaDevices.enumerateDevices(); post('devices', { cams: d.filter((x) => x.kind === 'videoinput').map((x, i) => ({ id: x.deviceId, label: x.label || 'Camera ' + (i + 1) })), mics: d.filter((x) => x.kind === 'audioinput').map((x, i) => ({ id: x.deviceId, label: x.label || 'Microphone ' + (i + 1) })) }); } catch (e) { /* none */ }
+}
+const stop = (s) => { if (s) s.getTracks().forEach((t) => t.stop()); };
+async function sync() {   // start / stop the camera and the microphone to match the settings (only the ones that are needed: the camera light is on only when it is used)
+  const ck = wantCam() ? cfg.camId : null, mk = wantMic() ? cfg.micId : null;
+  if (ck !== camKey) {
+    camKey = ck; stop(camStream); camStream = null; video.srcObject = null; camErr = '';
+    if (ck !== null) {
+      try { camStream = await navigator.mediaDevices.getUserMedia({ video: Object.assign({ width: 640, height: 480, frameRate: 30 }, cfg.camId ? { deviceId: { exact: cfg.camId } } : {}) }); video.srcObject = camStream; await video.play(); loadModel(); }
+      catch (e) { camErr = /NotFound|Overconstrained/i.test(e.name) ? 'No camera found: using the automatic movement' : 'Camera not available (' + (e.name || e.message) + '): using the automatic movement'; }
+    }
+  }
+  if (mk !== micKey) {
+    micKey = mk; stop(micStream); micStream = null; if (ctx) { ctx.close().catch(() => {}); ctx = null; } analyser = null; micErr = '';
+    if (mk !== null) {
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: Object.assign({ echoCancellation: false, noiseSuppression: false, autoGainControl: false }, cfg.micId ? { deviceId: { exact: cfg.micId } } : {}) });
+        ctx = new AudioContext(); const src = ctx.createMediaStreamSource(micStream); analyser = ctx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.3; src.connect(analyser); tbuf = new Float32Array(analyser.fftSize); fbuf = new Float32Array(analyser.frequencyBinCount);
+      } catch (e) { micErr = 'Microphone not available (' + (e.name || e.message) + ')'; }
+    }
+  }
+  devices();
+}
+function readMic(dt) {
+  if (!analyser) return null;
+  analyser.getFloatTimeDomainData(tbuf); let sum = 0; for (let i = 0; i < tbuf.length; i++) sum += tbuf[i] * tbuf[i]; const rms = Math.sqrt(sum / tbuf.length);
+  analyser.getFloatFrequencyData(fbuf); const bin = ctx.sampleRate / analyser.fftSize, cut = Math.round(1200 / bin); let low = 0, high = 0;
+  for (let i = 2; i < fbuf.length && i * bin < 5000; i++) { const e = Math.pow(10, fbuf[i] / 10); if (i < cut) low += e; else high += e; }
+  return mic.push(rms, low, high, dt, cfg.micSens);
+}
+let lastTick = performance.now(), faceNow = false, lastPostAt = 0, camLevel = { mouth: 0, round: 0 };
+function tick() {
+  const now = performance.now(), dt = Math.min(0.2, (now - lastTick) / 1000); lastTick = now; let msg = { face: false, mic: false };
+  if (camStream && lm && video.readyState >= 2 && video.videoWidth) {
+    try {
+      const r = lm.detectForVideo(video, now), bs = {}; faceNow = !!(r.faceBlendshapes && r.faceBlendshapes[0]);
+      if (faceNow) {
+        for (const c of r.faceBlendshapes[0].categories) bs[c.categoryName] = c.score;
+        const raw = A.fromFace(bs, r.facialTransformationMatrixes && r.facialTransformationMatrixes[0] ? r.facialTransformationMatrixes[0].data : null, cfg); lastRaw.push(raw); if (lastRaw.length > 40) lastRaw.shift();
+        msg = Object.assign({ face: true }, A.applyNeutral(raw, cfg.neutral)); frames++;
+      }
+    } catch (e) { camErr = 'Tracking error: ' + e.message; }
+  }
+  const m = readMic(dt); if (m) { micOut = m; msg.mic = true; msg.micMouth = m.mouth; msg.micRound = m.round; msg.speaking = m.speaking; }
+  if (!msg.face) { msg.mouth = 0; msg.round = 0; }
+  if (now - fpsAt > 1000) { fps = Math.round(frames * 1000 / (now - fpsAt)); frames = 0; fpsAt = now; }
+  if (msg.face || msg.mic || now - lastPostAt > 400) { lastPostAt = now; post('pose', Object.assign({ t: Date.now() }, msg)); }
+  $('s').textContent = (cfg.on ? 'Tracking' : 'Off') + (camStream ? ' | camera ' + fps + ' fps' + (faceNow ? ' (face found)' : ' (no face)') : ' | no camera') + (analyser ? ' | mic ' + Math.round(micOut.mouth * 100) + '%' : ' | no mic') + (camErr ? ' | ' + camErr : '') + (micErr ? ' | ' + micErr : '');
+}
+let timer = null; const restartTimer = () => { clearInterval(timer); timer = setInterval(tick, Math.round(1000 / (cfg.fps || 30))); };
+setInterval(() => post('devices', { status: { running: true, cam: !!camStream && !!lm, mic: !!analyser, fps, error: camErr || micErr } }), 2000);
+const es = new EventSource('/events');
+es.addEventListener('avatarcfg', (e) => { cfg = JSON.parse(e.data); restartTimer(); sync(); });
+es.addEventListener('avatarcmd', (e) => {
+  const c = JSON.parse(e.data);
+  if (c.cmd === 'calibrate' && lastRaw.length) { const n = {}; for (const k of ['yaw', 'pitch', 'roll', 'gazeX', 'gazeY', 'browL', 'browR']) n[k] = lastRaw.reduce((a, x) => a + x[k], 0) / lastRaw.length; post('settings', { neutral: n }); }
+  if (c.cmd === 'reset') post('settings', { neutral: null });
+});
+restartTimer(); sync(); if (wantCam()) loadModel();
+</script></body></html>

@@ -140,6 +140,13 @@ Replaces Streamlabs/StreamElements: connects to Twitch directly, pushes alerts t
 - **Go-live post:** when the stream starts it posts the title, game and your Twitch link in #go-live (ping nobody, @here, @everyone or a role).
 - **Slash commands:** `/commands` (the viewer commands, not the mod ones), `/games`, `/tts` (with the sound effects), `/top` (points leaderboard), `/live` and `/website`, answered from the same lists as the website. Check: `node discord-test.js`.
 
+**Pixel avatar** at http://localhost:8420/avatar (left rail: Avatar)
+- A pixel character that copies you like a VTuber: it blinks when you blink, turns, nods and tilts with your head, raises its eyebrows, smiles and opens its mouth. Add it to OBS as a browser source (the page has an **Add to OBS** button and the address), and use OBS's **Virtual Camera** (button on the page) to show it as a webcam in Discord, Zoom and so on.
+- **Camera:** the face is read on your PC with Google's MediaPipe Face Landmarker (Apache-2.0, bundled in `assets/vendor/mediapipe`; no video leaves the PC). A hidden helper window owns the camera and microphone only while "Run the avatar" is on.
+- **No camera? Still alive:** without a camera (or a face) it blinks, looks around, raises a brow and sways by itself; with *Mouth follows the microphone* the mouth opens and closes with your voice (and picks a round "oo" or a wide "ee" shape from the sound), and the head bobs a little while you talk. Modes: camera if there is one (default), camera only, mic only, or fully by itself.
+- **Look:** skin, hair, eye and shirt colours, hair style (short, long, bun, none), glasses, headphones, blush. **Tuning:** calibrate "this is how I sit", smoothing, movement strength, mirror, and turn/nod/tilt inversion. Check: `node avatar-test.js` (the logic is tested without a camera).
+- MediaPipe's tracking was written against its documented output but not checked on every webcam: if the head turns the wrong way, tick the matching "...the other way" box under Tracking tuning.
+
 **Chat recap** at http://localhost:8420/recap (left rail: Chat recap)
 - Summaries of your chat written by **Claude**, through the Claude Code program on this PC and your own Claude login (no separate bill), always with the cheapest model (`haiku`, changeable on the page). Needs Claude Code installed and logged in once (`claude`, then `/login`); the page has a **Check Claude** button.
 - **End-of-stream recap:** what chat talked about, funny moments, unanswered questions, regulars. Made on demand or automatically 2 minutes after the stream ends, saved in `Documents\ItMeCasey Streamecaps`, optionally posted in the Discord #announcements channel.

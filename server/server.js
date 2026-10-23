@@ -1410,7 +1410,7 @@ function scheduleReconnect() {
 
 // ------------------------------------------------------------------ http server
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg',
-  '.mp4': 'video/mp4', '.webm': 'video/webm', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.json': 'application/json', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8' };
+  '.mp4': 'video/mp4', '.webm': 'video/webm', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.json': 'application/json', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.task': 'application/octet-stream' };
 const STATIC = { overlays: ROOT, assets: ROOT, sounds: ROOT };   // top-level folders that may be served
 function status() {
   return {
@@ -1522,6 +1522,8 @@ async function route(req, res) {
   if (p === '/api/hooks') return json(res, 200, hooks.view());
   if (p === '/api/hooks/rewards') { try { return json(res, 200, { rewards: await hooks.rewards(false) }); } catch (e) { return json(res, 200, { rewards: [], error: e.message }); } }
   if (p === '/hooks' || p === '/hooks/') return serveFile(res, path.join(__dirname, 'public', 'hooks.html'));
+  if (p === '/avatar' || p === '/avatar/') return serveFile(res, path.join(__dirname, 'public', 'avatar.html'));
+  if (p === '/avatar-tracker') return serveFile(res, path.join(__dirname, 'public', 'avatar-tracker.html'));
   if (p === '/recap' || p === '/recap/') return serveFile(res, path.join(__dirname, 'public', 'recap.html'));
   if (p === '/discord' || p === '/discord/') return serveFile(res, path.join(__dirname, 'public', 'discord.html'));
   if (p === '/site' || p === '/site/') return serveFile(res, path.join(__dirname, 'public', 'site.html'));
@@ -1704,10 +1706,10 @@ async function route(req, res) {
       }
       if (p === '/api/vm/volume') return json(res, 200, await vmix.setVolume(body.which, body.db));
       if (p === '/api/obs/overlay') {   // add one of the overlays to the CURRENT OBS collection (every scene) without replacing anything
-        const files = { dance: ['Dance Party', 'dance.html?scale=1', 1920, 1080], words: ['Word Rush', 'words.html?scale=1', 1920, 1080], waitingroom: ['Waiting Room', 'waitingroom.html?scale=1', 1920, 360, { scenes: ['Starting Soon'], rect: [0, 2 / 3, 1, 1 / 3], index: 1 }] }, f = files[String(body.which)]; if (!f) throw new Error('Unknown overlay');
+        const files = { dance: ['Dance Party', 'dance.html?scale=1', 1920, 1080], words: ['Word Rush', 'words.html?scale=1', 1920, 1080], avatar: ['Avatar', 'avatar.html', 600, 720, { current: true, rect: [0.6875, 1 / 3, 0.3125, 2 / 3] }], waitingroom: ['Waiting Room', 'waitingroom.html?scale=1', 1920, 360, { scenes: ['Starting Soon'], rect: [0, 2 / 3, 1, 1 / 3], index: 1 }] }, f = files[String(body.which)]; if (!f) throw new Error('Unknown overlay');
         const url = 'http://localhost:' + CFG.port + '/overlays/' + f[1];
         const steps = await obsClient.raw(async (call) => {
-          const every = ((await call('GetSceneList')).scenes || []).map((x) => x.sceneName), opt = f[4] || {}, scenes = opt.scenes ? every.filter((n) => opt.scenes.includes(n)) : every, have = ((await call('GetInputList')).inputs || []).some((i) => i.inputName === f[0]), out = [];
+          const every = ((await call('GetSceneList')).scenes || []).map((x) => x.sceneName), opt = f[4] || {}, scenes = opt.scenes ? every.filter((n) => opt.scenes.includes(n)) : opt.current ? [(await call('GetCurrentProgramScene')).currentProgramSceneName] : every, have = ((await call('GetInputList')).inputs || []).some((i) => i.inputName === f[0]), out = [];
           if (!scenes.length) throw new Error('This OBS collection has no ' + (opt.scenes || []).join(' / ') + ' scene to put it in');
           if (!have) { await call('CreateInput', { sceneName: scenes[scenes.length - 1], inputName: f[0], inputKind: 'browser_source', inputSettings: { url, width: f[2], height: f[3], fps: 30, reroute_audio: false, shutdown: false, restart_when_active: false }, sceneItemEnabled: true }); out.push('created "' + f[0] + '"'); }
           for (const sc of scenes) {
@@ -1729,6 +1731,16 @@ async function route(req, res) {
           return out;
         });
         return json(res, 200, { ok: true, steps });
+      }
+      if (p.startsWith('/api/avatar/')) {
+        const op = p.slice(12);
+        if (op === 'pose') { avatar.pose(body); return json(res, 200, { ok: true }); }
+        if (op === 'status') return json(res, 200, avatar.view());
+        if (op === 'settings') return json(res, 200, avatar.configure(body));
+        if (op === 'devices') return json(res, 200, avatar.report(body));
+        if (op === 'command') { if (['calibrate', 'reset'].includes(body.cmd)) broadcast('avatarcmd', { cmd: body.cmd }); return json(res, 200, { ok: true }); }
+        if (op === 'vcam') { const r = await obsClient.raw(async (call) => { await call(body.on ? 'StartVirtualCam' : 'StopVirtualCam'); return true; }); return json(res, 200, { ok: !!r }); }
+        throw new Error('unknown avatar action');
       }
       if (p.startsWith('/api/recap/')) {
         const op = p.slice(11);
@@ -1898,6 +1910,7 @@ const media = createMedia({ DATA, state, persist, log, broadcast, port: () => CF
 const tts = createTts({ DATA, state, persist, broadcast, log, sfxDir: path.join(ROOT, 'sounds', 'tts'), blockWords: () => (bot.view().filters.blacklist.on ? bot.view().filters.blacklist.words : []) });
 const recap = createRecap({ file: path.join(DATA, 'recap.json'), log, dir: () => path.join(process.env.ICM_DOCS || path.join(os.homedir(), 'Documents', 'ItMeCasey Stream'), 'recaps'), hideBots: ['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'sery_bot'],
   discordPost: (title, text) => discord.postRecap(title, text) });   // chat summaries made with the Claude command line tool
+const avatar = require('./avatar.js')({ file: path.join(DATA, 'avatar.json'), log, broadcast });   // the pixel avatar (camera + microphone -> overlay)
 const bot = createBot({
   get recap() { return recap; },
   tts: { cfg: () => state.ttsCfg, say: (t, o) => tts.say(t, o), ctl: (a) => tts.ctl(a) }, alertControl: (a) => alertControl(a),

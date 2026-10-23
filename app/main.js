@@ -68,12 +68,21 @@ function openWindow(pathName) {
   } else { if (pathName) win.loadURL(url(pathName)); if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
 }
 // hidden helper window: listens to the PC's audio output (loopback) so overlays can draw a real spectrum
-let vizWin = null;
+let vizWin = null, trackWin = null;
+// only the two hidden helper pages may use the camera and microphone: the audio capture page and the avatar tracker
+const isHelper = (wc) => !!wc && [vizWin, trackWin].some((w) => w && !w.isDestroyed() && w.webContents.id === wc.id);
+function installMediaPermissions() { try { session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(perm === 'media' && isHelper(wc))); session.defaultSession.setPermissionCheckHandler((wc, perm) => perm === 'media' && isHelper(wc)); } catch (e) { /* older Electron */ } }
+// the avatar tracker reads the camera and the microphone while the Avatar page says the avatar is on (so the camera light is off otherwise)
+async function syncTracker() {
+  let on = false; try { on = !!(await (await fetch(url('/api/avatar/status'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).json()).on; } catch (e) { return; }
+  if (on && !trackWin) {
+    trackWin = new BrowserWindow({ show: false, width: 320, height: 260, webPreferences: { backgroundThrottling: false } });
+    trackWin.on('closed', () => { trackWin = null; }); trackWin.loadURL(url('/avatar-tracker')).catch(() => {});
+  } else if (!on && trackWin) { trackWin.destroy(); trackWin = null; }
+}
 function startViz() {
   if (vizWin || process.platform !== 'win32') return;
   try { session.defaultSession.setDisplayMediaRequestHandler((req, cb) => { desktopCapturer.getSources({ types: ['screen'] }).then((s) => cb({ video: s[0], audio: 'loopback' })).catch(() => cb({})); }, { useSystemPicker: false }); } catch (e) { return log('viz: capture handler failed:', e.message); }
-  const isViz = (wc) => !!vizWin && !vizWin.isDestroyed() && wc && wc.id === vizWin.webContents.id;   // only the hidden capture page may use audio devices
-  try { session.defaultSession.setPermissionRequestHandler((wc, perm, cb) => cb(perm === 'media' && isViz(wc))); session.defaultSession.setPermissionCheckHandler((wc, perm) => perm === 'media' && isViz(wc)); } catch (e) { /* older Electron */ }
   vizWin = new BrowserWindow({ show: false, width: 200, height: 100, webPreferences: { backgroundThrottling: false } });
   vizWin.on('closed', () => { vizWin = null; });
   waitForServer().then(() => vizWin && vizWin.loadURL(url('/viz-capture'))).catch(() => {});
@@ -136,7 +145,7 @@ app.on('second-instance', () => openWindow());
 app.whenReady().then(() => {
   settings = loadSettings(); app.setAppUserModelId('com.itmecasey.stream');
   const hidden = process.argv.includes('--hidden');
-  makeTray(); applyLogin(); startServer(); startVoicemeeter(); startObs(false); startViz();
+  makeTray(); applyLogin(); startServer(); startVoicemeeter(); startObs(false); installMediaPermissions(); startViz(); setInterval(syncTracker, 3000);
   if (!hidden) openWindow();
 });
 app.on('window-all-closed', () => { /* stay in the tray */ });

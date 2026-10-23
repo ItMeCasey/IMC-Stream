@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ItMeCasey Avatar</title>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; min-height: 100vh; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 24px; background: var(--iron-d); position: relative; }
+  header::after { content:""; position:absolute; left:0; right:0; bottom:0; height:5px; background: linear-gradient(90deg,var(--aqua) 0 30%,var(--heat) 30% 55%,var(--rust) 55% 75%,var(--drust) 75% 90%,var(--cream) 90%); }
+  header img { width: 36px; } h1 { font-size: 20px; letter-spacing: 5px; } header a { margin-left: auto; color: var(--aqua); font-size: 14px; }
+  main { max-width: 1000px; margin: 0 auto; padding: 18px 24px 50px; display: grid; grid-template-columns: 340px 1fr; gap: 16px; align-items: start; } @media (max-width: 820px) { main { grid-template-columns: 1fr; } }
+  section, .side { background: var(--iron-d); padding: 18px 20px; border-top: 1px solid var(--line); } section.h { border-color: var(--heat); } section.r { border-color: var(--rust); }
+  .side { position: sticky; top: 12px; border-color: var(--aqua); } .col { display: grid; gap: 16px; }
+  h2 { font-size: 14px; letter-spacing: 5px; color: var(--aqua); margin-bottom: 12px; } section.h h2 { color: var(--heat); } section.r h2 { color: var(--rust); }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 13px; padding: 9px 15px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); } button:hover { filter: brightness(1.12); }
+  button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button:disabled { opacity: .5; cursor: default; }
+  .muted { color: #9aa39f; font-size: 13px; line-height: 1.5; } code { background: #151b1b; padding: 1px 5px; word-break: break-all; } .ok { color: var(--aqua); } .bad { color: var(--heat); }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 8px 0; } label.chk { display: flex; align-items: center; gap: 8px; font-size: 15px; } label.chk input { width: 18px; height: 18px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; flex: 1; min-width: 150px; }
+  .fld select, .fld input[type=text] { font: inherit; font-size: 15px; letter-spacing: 0; text-transform: none; padding: 8px 10px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; }
+  .fld input[type=range] { width: 100%; accent-color: var(--heat); } .fld input[type=color] { width: 100%; height: 34px; padding: 0; border: 2px solid #46504f; background: var(--iron); }
+  #cv { width: 100%; aspect-ratio: 5 / 6; image-rendering: pixelated; image-rendering: crisp-edges; background: repeating-conic-gradient(#202828 0 25%, #1a2020 0 50%) 0 0 / 24px 24px; display: block; }
+  .meter { height: 8px; background: #151b1b; margin-top: 6px; } .meter i { display: block; height: 100%; width: 0; background: var(--aqua); }
+  .dot { display: inline-block; width: 9px; height: 9px; margin-right: 6px; background: #46504f; } .dot.on { background: var(--aqua); } .dot.warn { background: var(--heat); }
+  details { margin-top: 10px; } summary { cursor: pointer; letter-spacing: 3px; font-size: 12px; text-transform: uppercase; color: #9aa39f; padding: 4px 0; }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 8px 18px; font-weight: 700; display: none; z-index: 5; max-width: 90%; } #toast.bad { background: var(--rust); color: #fff; }
+</style><script src="/ui-theme.js"></script><script>if(self!==top)document.documentElement.classList.add('embed')</script><style>html.embed>body>header{display:none!important}</style></head>
+<body>
+<header><img src="/assets/logo.png" alt=""><h1>AVATAR</h1><a href="/">&larr; Dashboard</a></header>
+<main>
+  <div class="side">
+    <h2>PREVIEW</h2><canvas id="cv" width="400" height="480"></canvas>
+    <div class="meter" title="microphone"><i id="lvl"></i></div>
+    <p class="muted" style="margin-top:10px"><span class="dot" id="dTr"></span><span id="tr">Tracker off</span><br><span class="dot" id="dCam"></span><span id="cam">Camera off</span><br><span class="dot" id="dMic"></span><span id="mic">Microphone off</span></p>
+  </div>
+
+  <div class="col">
+    <section class="h">
+      <h2>1. TURN IT ON</h2>
+      <div class="row"><label class="chk"><input id="on" type="checkbox"> Run the avatar (the camera and microphone are used only while this is on)</label></div>
+      <div class="row"><label class="fld">How it moves<select id="mode">
+        <option value="auto">Camera if there is one, otherwise by itself (recommended)</option><option value="camera">Camera only (holds still without a face)</option>
+        <option value="mic">By itself, mouth follows the microphone</option><option value="idle">By itself, no camera and no microphone</option></select></label></div>
+      <p class="muted">Everything runs on this PC: the face reading is done here and no video or sound is sent anywhere. Without a camera the avatar blinks, looks around and sways by itself, and talks when you do.</p>
+    </section>
+
+    <section>
+      <h2>2. CAMERA AND MICROPHONE</h2>
+      <div class="row"><label class="fld">Camera<select id="camId"></select></label><label class="fld">Microphone<select id="micId"></select></label></div>
+      <div class="row"><label class="fld">Mouth follows<select id="mouthSrc"><option value="mic">The microphone</option><option value="cam">My mouth on the camera</option><option value="both">Whichever opens more</option></select></label>
+        <label class="fld">Microphone sensitivity<input id="micSens" type="range" min="0.3" max="3" step="0.1"></label></div>
+      <p class="muted" id="devHint">The lists fill in once the avatar is running.</p>
+    </section>
+
+    <section class="r">
+      <h2>3. LOOK</h2>
+      <div class="row"><label class="fld">Skin<input id="skin" type="color"></label><label class="fld">Hair<input id="hair" type="color"></label><label class="fld">Eyes<input id="eyes" type="color"></label><label class="fld">Shirt<input id="shirt" type="color"></label></div>
+      <div class="row"><label class="fld">Hair style<select id="hairStyle"><option value="short">Short</option><option value="long">Long</option><option value="bun">Bun</option><option value="none">None</option></select></label>
+        <label class="chk"><input id="glasses" type="checkbox"> Glasses</label><label class="chk"><input id="headphones" type="checkbox"> Headphones</label><label class="chk"><input id="blush" type="checkbox"> Blush</label></div>
+    </section>
+
+    <section class="h">
+      <h2>4. USE IT</h2>
+      <p class="muted">In OBS add a <b>Browser</b> source (transparent, 600 x 720) with this address, or press the button:</p>
+      <div class="row"><code id="url"></code><button class="ghost" id="copy">Copy</button><button id="addObs">Add to OBS</button></div>
+      <div class="row"><button class="ghost" id="vOn">Start OBS Virtual Camera</button><button class="ghost" id="vOff">Stop it</button></div>
+      <p class="muted"><b>As a webcam in Discord, Zoom, etc.:</b> in OBS press <b>Start Virtual Camera</b>, then pick "OBS Virtual Camera" in that program. Put the avatar on a scene of its own (or over a green background: <code>?bg=%2300ff00</code> on the address).</p>
+      <details><summary>Tracking tuning</summary>
+        <div class="row"><button class="ghost" id="calib">Calibrate: this is how I sit</button><button class="ghost" id="reset">Reset</button></div>
+        <div class="row"><label class="fld">Smoothing<input id="smooth" type="range" min="0" max="0.9" step="0.05"></label><label class="fld">Movement strength<input id="sens" type="range" min="0.5" max="2" step="0.1"></label></div>
+        <div class="row"><label class="chk"><input id="mirror" type="checkbox"> Mirror (my left is the avatar's left on screen)</label><label class="chk"><input id="idleMove" type="checkbox"> Sway and look around a little</label></div>
+        <div class="row"><label class="chk"><input id="invertYaw" type="checkbox"> Turn the other way</label><label class="chk"><input id="invertPitch" type="checkbox"> Nod the other way</label><label class="chk"><input id="invertRoll" type="checkbox"> Tilt the other way</label></div>
+      </details>
+    </section>
+  </div>
+</main>
+<div id="toast"></div>
+<script src="/overlays/avatar-core.js"></script><script src="/overlays/avatar-render.js"></script>
+<script>
+const $ = (id) => document.getElementById(id), esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const post = (op, b) => fetch('/api/avatar/' + op, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 4200); }
+const av = AvatarCore.createAvatar({ cfg: {} }), rend = AvatarRender.create($('cv')), t0 = performance.now(), nowS = () => (performance.now() - t0) / 1000; let style = {}, V = null, filled = false, mic = 0;
+const TXT = ['mode', 'mouthSrc', 'hairStyle'], CHK = ['on', 'mirror', 'idleMove', 'invertYaw', 'invertPitch', 'invertRoll'], RNG = ['smooth', 'sens', 'micSens'], COL = ['skin', 'hair', 'eyes', 'shirt'], SCHK = ['glasses', 'headphones', 'blush'];
+function fill(v) {
+  for (const k of ['mode', 'mouthSrc']) $(k).value = v[k]; for (const k of CHK) $(k).checked = !!v[k]; for (const k of RNG) $(k).value = v[k];
+  for (const k of COL) $(k).value = v.style[k]; $('hairStyle').value = v.style.hairStyle; for (const k of SCHK) $(k).checked = !!v.style[k];
+}
+function options(sel, list, cur, none) { const h = '<option value="">' + none + '</option>' + list.map((d) => '<option value="' + esc(d.id) + '">' + esc(d.label) + '</option>').join(''); if (sel.dataset.h !== h) { sel.innerHTML = h; sel.dataset.h = h; } sel.value = cur; }
+function draw(v) {
+  V = v; av.setConfig(v); style = Object.assign({}, v.style, { bg: 'transparent' });
+  if (!filled) { filled = true; fill(v); $('url').textContent = location.protocol + '//localhost:' + location.port + '/overlays/avatar.html'; }
+  options($('camId'), v.devices.cams, v.camId, 'Default camera'); options($('micId'), v.devices.mics, v.micId, 'Default microphone');
+  const t = v.tracker; $('dTr').className = 'dot ' + (t.alive ? 'on' : v.on ? 'warn' : ''); $('tr').textContent = !v.on ? 'Avatar is off (it still shows the preview)' : t.alive ? 'Tracker running' + (t.fps ? ' (' + t.fps + ' fps)' : '') : 'Starting the tracker...';
+  $('dCam').className = 'dot ' + (t.cam ? 'on' : ''); $('cam').textContent = t.cam ? 'Camera on: reading your face' : v.on && (v.mode === 'auto' || v.mode === 'camera') ? 'No camera: moving by itself' : 'Camera not used';
+  $('dMic').className = 'dot ' + (t.mic ? 'on' : ''); $('mic').textContent = t.mic ? 'Microphone on: the mouth follows your voice' : 'Microphone not used';
+  $('devHint').innerHTML = t.error ? '<span class="bad">' + esc(t.error) + '</span>' : v.devices.cams.length || v.devices.mics.length ? 'Pick another device if it is the wrong one.' : 'The lists fill in once the avatar is running.';
+}
+async function load() { draw(await post('status')); }
+function save(b) { return post('settings', b).then((v) => { V = v; av.setConfig(v); }); }
+for (const k of ['mode', 'mouthSrc', 'camId', 'micId']) $(k).onchange = () => save({ [k]: $(k).value });
+for (const k of CHK) $(k).onchange = () => save({ [k]: $(k).checked });
+for (const k of RNG) $(k).onchange = () => save({ [k]: +$(k).value });
+for (const k of COL) $(k).oninput = () => { style[k] = $(k).value; clearTimeout(save.t); save.t = setTimeout(() => save({ style: { [k]: $(k).value } }), 300); };
+$('hairStyle').onchange = () => save({ style: { hairStyle: $('hairStyle').value } }); for (const k of SCHK) $(k).onchange = () => save({ style: { [k]: $(k).checked } });
+$('calib').onclick = async () => { await post('command', { cmd: 'calibrate' }); toast('Look straight at the camera, sitting how you usually do: done'); };
+$('reset').onclick = async () => { await post('command', { cmd: 'reset' }); toast('Calibration cleared'); };
+$('copy').onclick = () => { navigator.clipboard.writeText($('url').textContent).then(() => toast('Copied'), () => toast('Select and copy it by hand', true)); };
+$('addObs').onclick = async () => { $('addObs').disabled = true; const r = await fetch('/api/obs/overlay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ which: 'avatar' }) }).then((x) => x.json()); $('addObs').disabled = false; toast(r.error || (r.steps || []).join(', ') || 'Done', !!r.error); };
+$('vOn').onclick = async () => { const r = await post('vcam', { on: true }); toast(r.error || 'Virtual camera started', !!r.error); };
+$('vOff').onclick = async () => { const r = await post('vcam', { on: false }); toast(r.error || 'Virtual camera stopped', !!r.error); };
+const es = new EventSource('/events');
+es.addEventListener('avatar', (e) => { try { const m = JSON.parse(e.data); av.feed(m, nowS()); if (m.mic) mic = m.micMouth || 0; } catch (x) { /* ignore */ } });
+es.addEventListener('avatarcfg', (e) => { try { const c = JSON.parse(e.data); V = Object.assign(V || {}, c); av.setConfig(c); style = Object.assign({}, c.style, { bg: 'transparent' }); } catch (x) { /* ignore */ } });
+(function loop() { rend.draw(av.frame(nowS()), style); $('lvl').style.width = Math.round(mic * 100) + '%'; requestAnimationFrame(loop); })();
+load(); setInterval(load, 3000);
+</script></body></html>
