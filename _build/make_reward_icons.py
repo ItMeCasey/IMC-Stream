@@ -89,10 +89,18 @@ def dance():
 
 
 def emote():
-    """a smiley with a plus: add an emote"""
-    face = ['', '', '..hhhhh..', '.hyhhhhh.', 'hyhhhhhhH', 'hhkhhhkhH', 'hhkhhhkhH', 'hhhhhhhhH', 'hkhhhhhkH', 'hhkkkkkHH', '.hhhhHHH.', '..HHHHH..']
-    plus = ['.a.', 'aaa', '.a.'] + [''] * 9
-    return grid([(f or '.' * 9) + (pl or '...') for f, pl in zip(face, plus)])
+    """the letters 7TV (the colour of 7TV): the reward that adds a 7TV emote"""
+    glyphs = {'7': ['111', '001', '001', '010', '010', '010', '010'], 'T': ['111', '010', '010', '010', '010', '010', '010'], 'V': ['101', '101', '101', '101', '101', '010', '010']}   # 3 x 7 pixels, tall enough to fill the icon
+    g = {}
+    for i, ch in enumerate('7TV'):
+        for r, row in enumerate(glyphs[ch]):
+            for q, bit in enumerate(row):
+                if bit == '1': g[(i * 4 + q, 2 + r + 1)] = 'A'          # the shade under the letters
+    for i, ch in enumerate('7TV'):
+        for r, row in enumerate(glyphs[ch]):
+            for q, bit in enumerate(row):
+                if bit == '1': g[(i * 4 + q, 2 + r)] = 'a'
+    return g
 
 
 def tts():
@@ -143,7 +151,7 @@ def coin():
     return g
 
 
-ICONS = [('reward_boss', 'Summon a Boss', boss), ('reward_arena', 'Open the Arena', arena), ('reward_race', 'Horse Race', race), ('reward_dance', 'Dance Party', dance), ('reward_emote', 'Add a 7TV emote', emote), ('reward_tts', 'Text-to-speech', tts),
+ICONS = [('reward_boss', 'Summon a Boss', boss), ('reward_arena', 'Open the Arena', arena), ('reward_race', 'Horse Race', race), ('reward_dance', 'Dance Party', dance), ('reward_emote', '7TV emote', emote), ('reward_tts', 'Text-to-speech', tts),
          ('powerup_double', 'Double damage', bolt), ('powerup_shield', 'Shield', shield), ('powerup_heal', 'Heal', heal), ('powerup_crit', 'Critical hit', crit), ('powerup_bomb', 'Bomb', bomb), ('powerup_coin', 'Bonus coins', coin)]
 
 
