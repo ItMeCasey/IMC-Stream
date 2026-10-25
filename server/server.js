@@ -2016,7 +2016,7 @@ function diagnostics() {
 }
 
 // ------------------------------------------------------------------ update check (GitHub releases): tells you when a newer installer exists, never installs anything itself
-const UPDATE_REPO = 'Drakma/IMC-Stream';
+const UPDATE_REPO = 'ItMeCasey/IMC-Stream';
 let updateInfo = { checkedAt: 0, latest: '', url: '', available: false, error: '' };
 const verParts = (v) => String(v).replace(/^v/, '').split('.').map((x) => parseInt(x, 10) || 0);
 const isNewer = (a, b) => { const x = verParts(a), y = verParts(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
