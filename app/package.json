@@ -30,7 +30,8 @@
       "main.js",
       "supervisor.js",
       "package.json",
-      "build/*.png"
+      "build/*.png",
+      "build/window.ico"
     ],
     "asar": true,
     "extraResources": [

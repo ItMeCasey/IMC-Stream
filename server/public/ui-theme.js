@@ -87,10 +87,12 @@
     dark: { 'iron': '#222A2A', 'iron-d': '#1A2020', 'cream': '#E2DAC2', 'aqua': '#4FBBBC', 'heat': '#F39120', 'rust': '#EC4624', 'drust': '#B13A22', 'line': '#2F3938', 'green': '#7BC47F' },
     light: { 'iron': '#ECE5CF', 'iron-d': '#FAF6E8', 'cream': '#222A2A', 'aqua': '#2A8F90', 'heat': '#D9780F', 'rust': '#D23C1D', 'drust': '#A8321C', 'line': '#D8CFB2', 'green': '#3F8A44' }
   };
+  // the page's own :root colours are the dark theme; a custom theme only overrides the tokens the user changed
   var customBase = function () { return get(KB, 'dark') === 'light' ? 'light' : 'dark'; };
   function customSaved() { try { var c = JSON.parse(localStorage.getItem(KC) || 'null'); return c && typeof c === 'object' ? c : null; } catch (e) { return null; } }
   /* every token with a value: the user's own where valid, else the base's */
   function customTokens() { var b = BASES[customBase()], c = customSaved() || {}, o = {}; TOKENS.forEach(function (t) { o[t.key] = HEX.test(c[t.key] || '') ? c[t.key].toUpperCase() : b[t.key]; }); return o; }
+  /* writes one rule that sets every token; its selector is more specific than the pages' :root and the light theme, so it always wins */
   function paintCustom(on) {
     var st = document.getElementById('icm-custom-css');
     if (!on) { if (st) st.textContent = ''; return; }
@@ -98,6 +100,7 @@
     var v = customTokens(), n = ''; TOKENS.forEach(function (t) { n += '--' + t.key + ':' + v[t.key] + ';'; });
     st.textContent = 'html[data-custom][data-theme]{' + n + 'color-scheme:' + customBase() + '}';
   }
+  /* data-theme stays dark or light (so the existing light-theme fixes still apply to a light base); data-custom switches the user's colours on */
   function apply() {
     var h = document.documentElement, t = get(KT, 'dark'), custom = t === 'custom';
     h.setAttribute('data-theme', custom ? customBase() : t); if (custom) h.setAttribute('data-custom', '1'); else h.removeAttribute('data-custom');

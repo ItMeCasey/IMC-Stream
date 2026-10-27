@@ -4,17 +4,26 @@
  * (show an alert, post in chat, run a chat command, call a webhook, drive OBS, adjust currency / counters, mark fulfilled).
  */
 const TYPES = ['alert', 'chat', 'command', 'webhook', 'obs-source', 'obs-scene', 'points', 'counter', 'status', 'countdown', 'tts', 'ad', 'clip', 'alerts', 'media', 'obs-stream', 'obs-record', 'emote7tv', 'ttsreward'];
+// chat announcement colours Twitch accepts.
 const ANN = ['primary', 'blue', 'green', 'orange', 'purple'];
 
 module.exports = function createHooks(ctx) {
+  // ctx supplies saved state, the bot, OBS, TTS, Twitch helix calls and the other services the actions drive.
   const state = ctx.state, log = ctx.log || (() => {});
+  // recent runs, newest first, shown on the hooks page.
   const runs = [];
+  // pause between actions (the per-action delay).
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // plain one-line text, trimmed and length-limited.
   const str = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+  // length-limited text that keeps line breaks and spacing (for messages and webhook bodies).
   const raw = (v, n) => String(v == null ? '' : v).slice(0, n);
+  // number clamp with a fallback for junk input.
   const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
+  // saved OBS connection settings.
   const cfg = () => state.obsCfg;
 
+  // does this hook apply to the redeemed reward? Id is exact, title is a partial match, no filter matches all.
   const matches = (h, reward) => {
     reward = reward || {}; const m = h.match || {};
     if (m.rewardId) return reward.id === m.rewardId;
@@ -22,7 +31,9 @@ module.exports = function createHooks(ctx) {
     return true;   // no filter = every reward
   };
 
+  // run one action; returns a short result text and throws a readable message on failure.
   async function doAction(a, rd) {
+    // expand {name}/{input}/$(...) variables in a text for this redemption.
     const ex = (t) => ctx.bot.expandFor(t, rd.user, rd.vars, rd.args);
     switch (a.type) {
       case 'alert': {
@@ -36,6 +47,7 @@ module.exports = function createHooks(ctx) {
         const t = await ex(a.text); if (!t) throw new Error('Command is empty');
         await ctx.bot.execute(t, rd.user, a.asBroadcaster ? 4 : 0); return 'ran ' + t;
       }
+      // 5 second limit so a dead URL cannot hold up the rest of the hook; JSON bodies are sent as JSON.
       case 'webhook': {
         if (!/^https?:\/\//i.test(a.url || '')) throw new Error('Webhook needs an http(s) address');
         const body = a.body ? await ex(a.body) : JSON.stringify({ event: 'redemption', user: rd.user.name, input: rd.vars.input, reward: rd.vars.reward, cost: rd.vars.cost });
@@ -56,6 +68,7 @@ module.exports = function createHooks(ctx) {
         await ctx.bot.api('points/adjust', { id: rd.user.id || undefined, name: rd.user.name, amount: Math.abs(n), mode: n < 0 ? 'remove' : 'add' });
         return (n > 0 ? 'gave ' : 'took ') + Math.abs(n);
       }
+      // negative or missing delta still works: a missing one counts as +1.
       case 'counter': {
         if (!a.name) throw new Error('Counter needs a name'); const r = await ctx.bot.api('counter/add', { name: a.name, delta: Number(a.delta) || 1 });
         return a.name + ' is now ' + r.value;
@@ -110,6 +123,7 @@ module.exports = function createHooks(ctx) {
       }
       case 'obs-stream': await ctx.obs.stream(a.op); return 'stream ' + a.op;
       case 'obs-record': await ctx.obs.record(a.op); return 'recording ' + a.op;
+      // 'snooze' pushes the next ad back, anything else runs one.
       case 'ad': {
         if (a.op === 'snooze') { const r = await ctx.snoozeAd(); return 'ad snoozed (' + r.snoozes + ' left)'; }
         const r = await ctx.runAd(Number(a.length) || 30); return 'ad running for ' + r.length + 's';
@@ -121,6 +135,7 @@ module.exports = function createHooks(ctx) {
     }
   }
 
+  // run a hook's actions in order; one failing action is logged and recorded but the rest still run.
   async function runHook(h, rd) {
     const results = [];
     for (const a of h.actions) {
@@ -140,6 +155,7 @@ module.exports = function createHooks(ctx) {
     return Promise.all(hit.map((h) => runHook(h, rd).catch((err) => log('hook error', err.message))));
   }
 
+  // validate a hook from the dashboard: known types only, max 12 actions, every field limited to a safe size.
   function clean(b) {
     const name = str(b.name, 40) || 'Reward hook';
     const acts = (Array.isArray(b.actions) ? b.actions : []).slice(0, 12).filter((a) => a && TYPES.includes(a.type)).map((a) => {
@@ -168,7 +184,9 @@ module.exports = function createHooks(ctx) {
     return { name, enabled: b.enabled !== false, match: { rewardId: str(b.match && b.match.rewardId, 60), title: str(b.match && b.match.title, 60), rewardName: str(b.match && b.match.rewardName, 60) }, actions: acts };
   }
 
+  // rewards list is cached for 15 seconds to spare the Twitch API.
   let rewardCache = { t: 0, data: null };
+  // list channel point rewards, marking which ones this app owns (the only ones it may change).
   async function rewards(force) {
     if (!force && rewardCache.data && Date.now() - rewardCache.t < 15000) return rewardCache.data;
     const me = ctx.me(); if (!me) throw new Error('Not connected to Twitch');
@@ -179,6 +197,7 @@ module.exports = function createHooks(ctx) {
     return rewardCache.data;
   }
 
+  // everything the hooks page needs.
   const view = () => ({
     hooks: state.rewardHooks, runs, types: TYPES,
     obs: { host: cfg().host, port: cfg().port, hasPassword: !!cfg().password },
@@ -186,8 +205,10 @@ module.exports = function createHooks(ctx) {
     commands: ctx.bot.view().commands.map((c) => c.name),
   });
 
+  // dashboard requests for hooks, OBS settings and channel point rewards.
   async function api(action, b) {
     switch (action) {
+      // update an existing hook or add a new one.
       case 'save': {
         const h = clean(b); let t = b.id && state.rewardHooks.find((x) => x.id === b.id);
         if (!t) { t = { id: 'h-' + Math.random().toString(36).slice(2, 7) }; state.rewardHooks.push(t); }
@@ -201,6 +222,7 @@ module.exports = function createHooks(ctx) {
           vars: { input, reward: (reward && reward.title) || h.match.title || h.match.rewardName || 'Test reward', cost: (reward && reward.cost) || 100, rewardid: h.match.rewardId } };
         return { results: await runHook(h, rd) };
       }
+      // '__keep__' (or no value) leaves the saved OBS password untouched.
       case 'obs/save': {
         const c = cfg(); c.host = str(b.host, 100) || '127.0.0.1'; c.port = Math.floor(num(b.port, 4455, 1, 65535));
         if (b.password !== undefined && b.password !== null && b.password !== '__keep__') c.password = String(b.password).slice(0, 200);

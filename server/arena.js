@@ -7,19 +7,26 @@
  * Results are decided here (never by the overlay); the overlay only plays them back.
  */
 module.exports = function createArena(ctx) {
+  // rng, clock and timers can be swapped out (the tests do this)
   const rng = ctx.rng || Math.random, now = ctx.now || (() => Date.now()), setT = ctx.setTimeout || setTimeout, clearT = ctx.clearTimeout || clearTimeout;
+  // cfg() reads the live settings, cur() is the name of the chat currency, fmt() adds thousands separators
   const cfg = () => ctx.cfg(), cur = () => (ctx.currency ? ctx.currency() : 'points'), fmt = (n) => Number(n).toLocaleString('en-US');
+  // send an event to the overlay
   const emit = (type, data) => ctx.broadcast('arena', Object.assign({ type }, data || {}));
+  // say something in chat
   const say = (t) => ctx.say(t);
   let cur_ = null;   // the running game: { kind, ... }
   const MONSTERS = ['Slime', 'Goblin', 'Skeleton', 'Bat King', 'Mushroom Lord', 'Stone Golem', 'Dragon Whelp', 'Lava Imp', 'Cave Troll', 'Ghost Pirate'];
+  // chat reply when another game is already running
   const busyMsg = () => 'A ' + { boss: 'boss raid', royale: 'arena', teams: 'team battle' }[cur_.kind] + ' is already running.';
+  // clear the running game and its timer
   const finish = () => { if (cur_ && cur_.timer) clearT(cur_.timer); cur_ = null; };
 
   // ======================================================================= boss raid
   const boss = {
     start(by, name) {
       if (cur_) return busyMsg();
+      // the boss's HP grows with the number of recent chatters, so small and big chats both get a fair fight
       const B = cfg().boss, chatters = Math.max(1, ctx.activeCount ? ctx.activeCount() : 1);
       const bn = String(name || '').trim().slice(0, 24) || MONSTERS[Math.floor(rng() * MONSTERS.length)], max = Math.round(B.baseHp + B.hpPerChatter * chatters);
       cur_ = { kind: 'boss', name: bn, hp: max, max, ends: now() + B.seconds * 1000, hits: new Map(), last: new Map(), seed: Math.floor(rng() * 1e9) };
@@ -28,12 +35,14 @@ module.exports = function createArena(ctx) {
       cur_.timer = setT(() => boss.end(false), B.seconds * 1000);
       return '';
     },
+    // one-line progress for chat
     status() { if (!cur_ || cur_.kind !== 'boss') return 'No boss right now.'; return cur_.name + ': ' + fmt(cur_.hp) + ' / ' + fmt(cur_.max) + ' HP left, ' + Math.max(0, Math.ceil((cur_.ends - now()) / 1000)) + 's to go. ' + ctx.prefix() + 'hit!'; },
     /** u: {id,name,rank}. power: fixed damage (bits/sub events) or undefined for a normal !hit */
     hit(u, power) {
       if (!cur_ || cur_.kind !== 'boss') return '';
       const B = cfg().boss, t = now(); const last = cur_.last.get(u.id) || 0;
       if (power == null) { if (t - last < B.hitCd * 1000) return ''; cur_.last.set(u.id, t); }
+      // normal hit: 1-6, doubled for subs, 10% chance of a triple crit; bits/sub events pass a fixed power instead
       let dmg = power != null ? power : 1 + Math.floor(rng() * 6), crit = false;
       if (power == null) { if (u.rank >= 1) dmg *= 2; if (rng() < 0.1) { dmg *= 3; crit = true; } }
       dmg = Math.min(dmg, cur_.hp); const e = cur_.hits.get(u.id) || { name: u.name, dmg: 0, hits: 0 }; e.dmg += dmg; e.hits++; e.name = u.name; cur_.hits.set(u.id, e); cur_.hp -= dmg;
@@ -41,6 +50,7 @@ module.exports = function createArena(ctx) {
       if (cur_.hp <= 0) boss.end(true, u);
       return '';
     },
+    // boss is down (win) or time ran out: winners split a pool by damage share (at least 5 each, plus the last-hit bonus); on a loss everyone who fought gets a small consolation
     end(win, lastHitter) {
       if (!cur_ || cur_.kind !== 'boss') return; const B = cfg().boss, g = cur_, parts = [...g.hits.entries()].map(([id, e]) => Object.assign({ id }, e)).sort((a, b) => b.dmg - a.dmg), totalDmg = parts.reduce((a, p) => a + p.dmg, 0);
       finish();
@@ -59,6 +69,7 @@ module.exports = function createArena(ctx) {
   const royale = {
     open(by) {
       if (cur_) return busyMsg();
+      // entry fees are taken at join time and held in the pot; they are paid back if the arena is called off
       const R = cfg().royale; cur_ = { kind: 'royale', phase: 'lobby', fee: R.fee, players: [], closes: now() + R.lobby * 1000 };
       emit('royale:open', { fee: R.fee, seconds: R.lobby, max: R.max });
       say('The Arena is open! ' + ctx.prefix() + 'join to fight (entry ' + fmt(R.fee) + ' ' + cur() + ', up to ' + R.max + ' fighters). Last one standing takes the whole pot! Closing in ' + R.lobby + 's.');
@@ -77,6 +88,7 @@ module.exports = function createArena(ctx) {
     fight() {
       if (!cur_ || cur_.kind !== 'royale') return; const g = cur_, ps = g.players;
       if (ps.length < 2) { for (const p of ps) ctx.addPts(p.id, p.name, g.fee, 'arena refund'); finish(); emit('royale:cancel', {}); say('The arena was called off: not enough fighters' + (ps.length ? ' (entry refunded)' : '') + '.'); return; }
+      // knockout bracket: pair two random fighters, coin-flip the winner, put the winner back and reshuffle until one is left. The whole fight is decided now; the overlay replays it
       g.phase = 'battle'; let alive = ps.slice(); const events = [];
       while (alive.length > 1) { const a = alive.splice(Math.floor(rng() * alive.length), 1)[0], b = alive.splice(Math.floor(rng() * alive.length), 1)[0]; const aw = rng() < 0.5, w = aw ? a : b, l = aw ? b : a; events.push({ a: a.name, b: b.name, winner: aw ? 'a' : 'b', loser: l.name }); alive.push(w); alive = alive.sort(() => rng() - 0.5); }
       const champ = alive[0], pot = g.fee * ps.length, ms = events.length * 3200 + 3600;
@@ -108,13 +120,16 @@ module.exports = function createArena(ctx) {
     fight() {
       if (!cur_ || cur_.kind !== 'teams') return; const g = cur_, R = g.red, B = g.blue;
       if (!R.length || !B.length) { for (const p of R.concat(B)) ctx.addPts(p.id, p.name, g.fee, 'team battle refund'); finish(); emit('teams:cancel', {}); say('The team battle was called off: it needs players on both sides' + (R.length + B.length ? ' (entry refunded)' : '') + '.'); return; }
+      // the smaller team gets a damage bonus (capped at 2x) equal to the size ratio, so it stays fair
       g.phase = 'battle'; const big = Math.max(R.length, B.length), small = Math.min(R.length, B.length), bonus = Math.min(2, big / small);
       const hpEach = 20; let hp = { red: R.length * hpEach, blue: B.length * hpEach }; const start = Object.assign({}, hp), rounds = [];
       for (let i = 0; i < 14 && hp.red > 0 && hp.blue > 0; i++) {
+        // damage for one side in one round: each fighter deals 2-8, times the bonus if that side is the smaller team
         const dmg = (n, side) => { let d = 0; for (let k = 0; k < n; k++) d += 2 + Math.floor(rng() * 7); return Math.round(d * (side === 'red' ? (R.length < B.length ? bonus : 1) : (B.length < R.length ? bonus : 1))); };
         const dr = dmg(R.length, 'red'), db = dmg(B.length, 'blue'); hp = { red: Math.max(0, hp.red - db), blue: Math.max(0, hp.blue - dr) };
         rounds.push({ red: dr, blue: db, hpRed: hp.red, hpBlue: hp.blue });
       }
+      // most HP left wins; an exact tie is a coin flip. The pot is split evenly between the winners (rounded down)
       const winner = hp.red === hp.blue ? (rng() < 0.5 ? 'red' : 'blue') : (hp.red > hp.blue ? 'red' : 'blue'), win = winner === 'red' ? R : B, pot = g.fee * (R.length + B.length), each = Math.floor(pot / win.length), ms = rounds.length * 2300 + 4200;
       emit('teams:battle', { red: R.map((p) => p.name), blue: B.map((p) => p.name), rounds, start, winner, each, ms, bonus: Math.round(bonus * 10) / 10 });
       for (const p of win) ctx.addPts(p.id, p.name, each, 'team battle win');
@@ -134,7 +149,9 @@ module.exports = function createArena(ctx) {
       else if (event === 'giftsub') boss.hit(who, Math.min(150, 25 * (Number(vars.total) || 1)));
       else if (event === 'raid' && B) boss.hit(who, Math.min(150, 3 * (Number(vars.viewers) || 0)));
     },
+    // small status for the page; the lobby games have a phase, the boss does not
     view() { return cur_ ? { kind: cur_.kind, phase: cur_.phase || 'fight' } : { kind: '' }; },
+    // mods can end any game early; entry fees are not refunded here
     stop() { if (cur_) { finish(); emit('stop', {}); } },
   };
 };

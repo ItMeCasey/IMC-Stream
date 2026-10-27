@@ -7,15 +7,18 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// permission levels, lowest to highest; a chatter's rank (0-4) is an index into this list.
 const LEVELS = ['everyone', 'subscriber', 'vip', 'moderator', 'broadcaster'];
 const ANN_COLORS = ['primary', 'blue', 'green', 'orange', 'purple'];   // Twitch highlighted chat announcements
 const annColor = (v) => (ANN_COLORS.includes(v) ? v : '');
+// names the built-in !commands use, so custom commands cannot take them.
 const BUILTIN = ['commands', 'addcom', 'editcom', 'delcom', 'uptime', 'game', 'title', 'followage', 'accountage', 'so', 'permit', 'quote', 'daily',
   'shop', 'redeem', 'buy', 'send', 'pay', 'setvar', 'listadd', 'announce', 'song', 'skip', 'pause', 'play', 'previous', 'volume', 'sr', 'songrequest',
   'countdown', 'timeleft', 'tts', 'ttsskip', 'alerts', 'clip', 'tip', 'paypal', 'subathon', 'subrules', 'brb', 'back', 'watchtime', 'addpoints',
   'removepoints', 'setpoints', 'bonus', 'approve', 'deny', 'addquote', 'delquote', 'nextad', 'ad', 'snooze', 'setgame', 'settitle', 'gamesearch',
   'counter', 'points', 'gamble', 'slots', 'duel', 'accept', 'give', 'top', 'leaderboard', 'trivia', 'raffle', 'enter', 'draw', '8ball', 'roll', 'flip', 'words', 'wordtop', 'wheel', 'recap'];
 
+// starter trivia questions: [question, accepted answers separated by |].
 const TRIVIA = [
   ['What is the capital of Australia?', 'canberra'], ['How many sides does a hexagon have?', '6|six'], ['What planet is known as the Red Planet?', 'mars'],
   ['What is the chemical symbol for gold?', 'au'], ['In what year did the original Super Mario Bros. release in Japan?', '1985'],
@@ -30,10 +33,13 @@ const TRIVIA = [
   ['How many continents are there?', '7|seven'],
 ].map(([q, a]) => ({ q, a }));
 
+// !8ball answers.
 const EIGHT_BALL = ['It is certain.', 'Without a doubt.', 'Yes, definitely.', 'Most likely.', 'Outlook good.', 'Signs point to yes.', 'Reply hazy, try again.',
   'Ask again later.', 'Cannot predict now.', "Don't count on it.", 'My reply is no.', 'Outlook not so good.', 'Very doubtful.'];
+// !slots symbols.
 const REELS = ['🍒', '🍋', '🔔', '⭐', '7️⃣'];
 
+// factory settings for everything the bot saves; merge() fills gaps in an older bot.json from these.
 const defaults = () => ({
   enabled: true, prefix: '!', currency: 'points', pointsPerMin: 5, subMultiplier: 2, awardOffline: false,
   commands: [
@@ -80,6 +86,7 @@ const defaults = () => ({
   trivia: TRIVIA,
 });
 
+// overlay saved data on the defaults key by key, so settings added in a newer version appear with their default value; arrays and plain values come from the save as is.
 const merge = (def, saved) => {
   if (Array.isArray(def) || typeof def !== 'object' || def === null) return saved === undefined ? def : saved;
   const out = {};
@@ -87,6 +94,7 @@ const merge = (def, saved) => {
   return out;
 };
 
+// ctx supplies the Twitch/Helix calls, server state and overlay broadcast; tests replace now, rng, fetch and the gap between messages.
 module.exports = function createBot(ctx) {
   const FILE = path.join(ctx.DATA, 'bot.json');
   const ACCT_FILE = path.join(ctx.DATA, 'bot-account.json');
@@ -97,21 +105,27 @@ module.exports = function createBot(ctx) {
   let db;
   try { db = merge(defaults(), JSON.parse(fs.readFileSync(FILE, 'utf8'))); } catch (e) { db = defaults(); }
   let saveT;
+  // tell the server something changed and write bot.json after a short delay (batches bursts of changes).
   const save = () => { if (ctx.changed) ctx.changed(); clearTimeout(saveT); saveT = setTimeout(() => { try { fs.writeFileSync(FILE, JSON.stringify(db, null, 2), 'utf8'); } catch (e) { log('bot save failed', e.message); } }, 400); };
+  // collapse whitespace so a chat message is always a single line, cut to n characters.
   const oneLine = (t, n = 450) => String(t == null ? '' : t).replace(/\s+/g, ' ').trim().slice(0, n);
 
   // ------------------------------------------------------------------ sending (rate limited)
   let botTok = null, botAuth = { status: 'none', message: '' }, botDevice = null;
   try { botTok = JSON.parse(fs.readFileSync(ACCT_FILE, 'utf8')); botAuth = { status: 'ok', message: 'Bot account: ' + botTok.login }; } catch (e) { /* no bot account */ }
+  // queue = messages waiting to go out; recentSent remembers what we said so we can ignore our own echo.
   const queue = [], recentSent = new Map();
+  // sentTimes = send times in the last 30s, used to stay under Twitch's chat rate limit.
   let pumping = false, sentTimes = [];
   const gap = ctx.gapMs == null ? 1200 : ctx.gapMs;
 
+  // Helix call as the bot account; refreshes its token first when it has under 5 minutes left.
   async function botFetch(method, url, body) {
     if (botTok.expires_at - now() < 300000) await botRefresh();
     const r = await fetchFn(ctx.HELIX() + url, { method, headers: { 'Client-Id': ctx.clientId(), Authorization: 'Bearer ' + botTok.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     return { ok: r.ok, status: r.status, json: await r.json().catch(() => ({})) };
   }
+  // send one chat message (or announcement) right now; the queue in say()/pump() calls this.
   async function rawSend(text, replyTo, announce) {
     const me = ctx.me(); if (!me) throw new Error('not logged in');
     if (ctx.send) return ctx.send(text, replyTo, announce);
@@ -134,10 +148,12 @@ module.exports = function createBot(ctx) {
     const r = await ctx.helix('POST', '/chat/messages', { broadcaster_id: me.id, sender_id: me.id, message: text, reply_parent_message_id: replyTo || undefined });
     if (!r.ok) throw new Error((r.json && r.json.message) || 'HTTP ' + r.status);
   }
+  // queue a message for chat. Replies are dropped for announcements, which cannot be replies.
   function say(text, replyTo, announce) {
     text = oneLine(text, 480); if (!text) return;
     queue.push({ text, replyTo: announce ? undefined : replyTo, announce: annColor(announce) }); pump();
   }
+  // send queued messages one by one with a small gap, and wait whenever the 30 second limit is reached.
   async function pump() {
     if (pumping) return; pumping = true;
     while (queue.length) {
@@ -150,6 +166,7 @@ module.exports = function createBot(ctx) {
     }
     pumping = false;
   }
+  // true when this chat line is the bot repeating its own message, so it does not react to itself. Old entries are cleaned out here.
   const isOwnEcho = (u, text) => {
     const t = recentSent.get(oneLine(text, 480));
     for (const [k, v] of recentSent) if (now() - v > 15000) recentSent.delete(k);
@@ -158,16 +175,19 @@ module.exports = function createBot(ctx) {
   };
 
   // ------------------------------------------------------------------ bot account (optional second login)
+  // POST to Twitch's login service (form encoded).
   async function idPost(endpoint, body) {
     const r = await fetchFn(ctx.ID_URL() + endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body).toString() });
     return { ok: r.ok, json: await r.json().catch(() => ({})) };
   }
+  // swap the bot's refresh token for a new access token and save it.
   async function botRefresh() {
     const r = await idPost('/token', { client_id: ctx.clientId(), grant_type: 'refresh_token', refresh_token: botTok.refresh_token });
     if (!r.ok) { botAuth = { status: 'error', message: 'Bot login expired - connect it again' }; throw new Error('bot refresh failed'); }
     botTok = Object.assign({}, botTok, { access_token: r.json.access_token, refresh_token: r.json.refresh_token || botTok.refresh_token, expires_at: now() + (r.json.expires_in || 14400) * 1000 });
     fs.writeFileSync(ACCT_FILE, JSON.stringify(botTok, null, 2));
   }
+  // begin the device-code login for the bot account, then poll in the background until the code is entered or it expires.
   async function accountStart() {
     if (!ctx.clientId()) throw new Error('Put your Twitch Client ID in server/config.json first');
     const scopes = 'user:write:chat user:bot moderator:manage:announcements';
@@ -191,10 +211,13 @@ module.exports = function createBot(ctx) {
     })();
     return botDevice;
   }
+  // forget the bot account; chat goes back to being sent as you.
   function accountLogout() { botTok = null; botDevice = null; try { fs.unlinkSync(ACCT_FILE); } catch (e) { /* none */ } botAuth = { status: 'none', message: '' }; }
 
   // ------------------------------------------------------------------ helpers
+  // other bots that should not get the welcome message.
   const KNOWN_BOTS = ['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'sery_bot', 'commanderroot'];
+  // chat rank from badges: 4 broadcaster, 3 mod, 2 VIP, 1 subscriber (or founder), 0 everyone.
   const rankOf = (e) => {
     const ids = new Set((e.badges || []).map((b) => b.set_id));
     const me = ctx.me();
@@ -204,17 +227,23 @@ module.exports = function createBot(ctx) {
     if (ids.has('subscriber') || ids.has('founder')) return 1;
     return 0;
   };
+  // level name -> rank number (unknown names count as everyone).
   const rankName = (n) => Math.max(0, LEVELS.indexOf(n));
+  // 1,234 style numbers.
   const fmtNum = (n) => Number(n).toLocaleString('en-US');
   const bare = (s) => String(s || '').trim().replace(/^@+/, '').replace(/[,.:;!?]+$/, '');   // clients and add-ons put @ in front (and autocomplete a comma after)
+  // bare + lowercase, for comparing names.
   const strip = (s) => bare(s).toLowerCase();
+  // milliseconds -> short text such as '2d 3h' or '1y 2mo 5d'.
   const ago = (ms) => {
     const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
     const y = Math.floor(d / 365), mo = Math.floor((d % 365) / 30), dd = (d % 365) % 30;
     const parts = y ? [y + 'y', mo + 'mo', dd + 'd'] : mo ? [mo + 'mo', dd + 'd'] : d ? [d + 'd', h + 'h'] : [h ? h + 'h' : '', m + 'm'];
     return parts.filter(Boolean).join(' ') || '0m';
   };
+  // a viewer's points record, created on first use; keeps the display name up to date.
   const pt = (id, name) => { const p = db.points[id] || (db.points[id] = { name: name || id, pts: 0, mins: 0 }); if (name) p.name = name; return p; };
+  // name of the currency.
   const cur = () => db.currency || 'points';
   /** Every balance change goes through here so the dashboard ledger can show where currency came from and went. */
   function addPts(id, name, delta, reason, opts = {}) {
@@ -245,9 +274,13 @@ module.exports = function createBot(ctx) {
     }
     return oneLine(out + tpl.slice(i));
   }
+  // random item from a list.
   const pick = (arr) => arr[Math.floor(rng() * arr.length)];
+  // minutes -> '2h 5m'.
   const hm = (m) => (m >= 60 ? Math.floor(m / 60) + 'h ' : '') + (m % 60) + 'm';
+  // leaderboard position of a viewer by points (1 = top).
   const rankOfPts = (id) => { const p = db.points[id]; return p ? Object.values(db.points).filter((x) => x.pts > p.pts).length + 1 : 0; };
+  // value for one variable name; null means unknown (the caller decides what to show). Returns a string.
   async function lookup(inner, c) {
     const sp = inner.search(/\s/), k0 = sp < 0 ? inner : inner.slice(0, sp), arg = sp < 0 ? '' : inner.slice(sp + 1).trim(), rest = arg ? arg.split(/\s+/) : [];
     const k = k0.toLowerCase(), s = ctx.state, args = c.args || [], me = c.user;
@@ -332,9 +365,11 @@ module.exports = function createBot(ctx) {
   }
 
   // ------------------------------------------------------------------ spam / moderation filters
+  // offenses = recent rule breaks per chatter and filter; permits = temporary link permits from !permit.
   const offenses = new Map(), permits = new Map();
   const URL_RE = /\b(?:https?:\/\/|www\.)\S+|\b[a-z0-9-]+\.(?:com|net|org|tv|gg|io|co|ly|me|xyz|ru|cn|info|us|uk|de|fr|jp|app|dev|link|shop|site)\b(?:\/\S*)?/gi;
   const hostOf = (s) => String(s).toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];
+  // does this message break the given filter? Only filters that are switched on are checked.
   function violated(f, name, e, text, u) {
     const fl = db.filters[name]; if (!fl || !fl.on) return false;
     switch (name) {
@@ -363,6 +398,7 @@ module.exports = function createBot(ctx) {
       default: return false;
     }
   }
+  // run the filters in order and punish the first one broken. Repeat offenses within 10 minutes double the timeout (max 1 day). Returns true if the message was dealt with, so no command runs.
   async function runFilters(u, e, text) {
     for (const name of Object.keys(db.filters)) {
       const f = db.filters[name];
@@ -382,15 +418,21 @@ module.exports = function createBot(ctx) {
   }
 
   // ------------------------------------------------------------------ commands
+  // cooldown records: last use per command, and per command and chatter.
   const cdGlobal = new Map(), cdUser = new Map();
+  // custom command by name or alias; switched-off commands are ignored.
   const findCommand = (name) => db.commands.find((c) => c.enabled && (c.name === name || (c.aliases || []).includes(name)));
+  // extra names the built-in !commands / !tts answer to -> the built-in they belong to.
   const aliasMap = () => { const m = {}; for (const k of ['commands', 'tts']) for (const a of (db.builtinEdits[k] && db.builtinEdits[k].aliases) || []) m[a] = k; return m; };
+  // true if a custom command cannot use this name.
   const reserved = (n) => BUILTIN.includes(n) || !!aliasMap()[n];
+  // pull -ul= -cd= -usercd= -alias= options out of !addcom arguments.
   function parseFlags(args) {
     const flags = {}; const rest = [];
     for (const a of args) { const m = /^-(ul|cd|usercd|alias)=(.+)$/i.exec(a); if (m) flags[m[1].toLowerCase()] = m[2]; else rest.push(a); }
     return { flags, rest };
   }
+  // run a command in order: custom games, built-ins, then custom commands. A missing permission or cooldown means silently doing nothing.
   async function runCommand(name, args, u, e) {
     const sendTo = e.message_id; name = aliasMap()[name] || name;   // !cmds and the like answer as !commands
     const gid = GAME_OF[name]; if (gid && (db.games.off || []).includes(gid)) return;   // that game is switched off
@@ -419,6 +461,7 @@ module.exports = function createBot(ctx) {
     save();
     for (const line of chosen) { const t = await expand(line, { user: u, args, uses: c.uses }); if (t) say(t, sendTo, c.announce); }
   }
+  // true if the command may run now (and starts the cooldown). Mods and the streamer skip cooldowns.
   function cooled(id, u, cd, userCd) {
     if (u.rank >= 3) return true;
     const t = now(), g = cdGlobal.get(id) || 0, k = id + ':' + u.id, ug = cdUser.get(k) || 0;
@@ -444,8 +487,11 @@ module.exports = function createBot(ctx) {
     { id: 'teams', name: 'Team battle', cmd: 'teams', how: '!teams (mods) then !red or !blue', desc: 'Two teams fight; the smaller team hits harder so it stays fair. Winners split the pot.' },
     { id: 'flip', name: 'Coin flip', cmd: 'flip', how: '!flip', desc: 'Heads or tails.' },
   ];
+  // command words -> the game they belong to, for the on/off switch.
   const GAME_OF = { words: 'words', wheel: 'wheel', spin: 'wheel', dance: 'dance', race: 'race', hit: 'boss', boss: 'boss', arena: 'royale', join: 'royale', teams: 'teams', red: 'teams', blue: 'teams', gamble: 'gamble', slots: 'slots', duel: 'duel', accept: 'duel', trivia: 'trivia', raffle: 'raffle', enter: 'raffle', draw: 'raffle', '8ball': '8ball', roll: 'roll', flip: 'flip' };
+  // pick an outcome by weight from r (0 to 1).
   const rollOutcome = (G, r) => { const total = G.outcomes.reduce((a, o) => a + o.weight, 0); let x = r * total; for (const o of G.outcomes) { if ((x -= o.weight) < 0) return o; } return G.outcomes[G.outcomes.length - 1]; };
+  // play a streamer-made game: check the cost, roll an outcome, settle the net result and answer.
   async function playCustom(G, u, reply) {
     const p = pt(u.id, u.name), cost = G.cost || 0;
     if (p.pts < cost) return reply(u.name + ', ' + db.prefix + G.command + ' costs ' + fmtNum(cost) + ' ' + cur() + ' and you have ' + fmtNum(p.pts) + '.');
@@ -455,6 +501,7 @@ module.exports = function createBot(ctx) {
     const fill = (t) => String(t).replace(/\{user\}/g, u.name).replace(/\{payout\}/g, fmtNum(o.payout)).replace(/\{cost\}/g, fmtNum(cost)).replace(/\{net\}/g, (net >= 0 ? '+' : '') + fmtNum(net)).replace(/\{balance\}/g, fmtNum(pt(u.id).pts)).replace(/\{currency\}/g, cur());
     const t = await expand(fill(o.text || '{user}: {net} {currency}'), { user: u, args: [] }); if (t) reply(t);
   }
+  // validate a game from the dashboard builder; its command may not clash with any other command or game.
   function cleanGame(b, id) {
     const taken = new Set(Object.keys(builtins).concat(BUILTIN, db.commands.flatMap((c) => [c.name].concat(c.aliases || [])), Object.keys(GAME_OF), db.customGames.filter((g) => g.id !== id).map((g) => g.command)));
     const name = oneLine(b.name, 30); if (!name) throw new Error('Give the game a name');
@@ -464,12 +511,17 @@ module.exports = function createBot(ctx) {
     if (!outcomes.length) throw new Error('Add at least one outcome');
     return { name, command, desc: oneLine(b.desc, 120), cost: Math.floor(num(b.cost, 0, 0, 1e7)), cooldown: Math.floor(num(b.cooldown, 30, 0, 3600)), enabled: b.enabled !== false, outcomes };
   }
+  // chance of winning and the average return, shown in the builder.
   const gameOdds = (G) => { const total = G.outcomes.reduce((a, o) => a + o.weight, 0), ev = G.outcomes.reduce((a, o) => a + o.weight / total * o.payout, 0); return { total, rows: G.outcomes.map((o) => Math.round(o.weight / total * 1000) / 10), ev, rtp: G.cost ? Math.round(ev / G.cost * 1000) / 10 : null }; };
 
   // ---- duel the chat bot: chatters under the points line can always do it once a day, the bot always accepts and never pays out more than the cap
+  // the bot's name for chat texts.
   const botDisplay = () => (botTok && botTok.login) || 'ChatBot';
+  // is the duel target the bot itself?
   const isBotName = (t) => !!t && (['bot', 'chatbot', 'thebot', 'chat-bot'].includes(t) || (botTok && t === String(botTok.login).toLowerCase()));
+  // today's date as text, to limit bot duels to one a day.
   const dayKey = () => { const d = new Date(now()); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  // a duel against the chat bot, limited by points, a daily limit and an on/off switch.
   function botDuel(u, amt, reply) {
     const B = db.games.botDuel || {}, p = pt(u.id, u.name);
     if (B.on === false) return reply('The bot is not taking duels right now.');
@@ -498,6 +550,7 @@ module.exports = function createBot(ctx) {
   });
   // ---- Dance Party: a timed full-screen party on the dance overlay (lights, lasers, strobes, pixel dancers named after recent chatters)
   let danceTimer = null, danceOn = false;
+  // start the Dance Party on the overlay (does nothing if one is running), then end it by timer.
   function danceStart(u, silent) {
     if (danceOn) return 'A dance party is already going.';
     const D = db.games.dance, secs = Math.max(20, Math.min(600, Math.floor(Number(D.seconds) || 120))), t = now();
@@ -507,9 +560,11 @@ module.exports = function createBot(ctx) {
     danceTimer = setTimeout(() => { danceOn = false; if (!silent) say('The dance party is over. Thanks for dancing!'); }, secs * 1000); if (danceTimer.unref) danceTimer.unref();
     return '';
   }
+  // end the party early.
   function danceStop() { clearTimeout(danceTimer); danceOn = false; ctx.broadcast && ctx.broadcast('dance', { type: 'stop' }); }
   // ---- Spin the wheel: only the streamer and mods can start it (commands need the moderator level; the page is the streamer's own)
   const wheel = require('./wheel')({ broadcast: (ev, d) => (ctx.broadcast ? ctx.broadcast(ev, d) : 0), say: (t) => say(t) });
+  // !wheel / !spin from chat: 'stop' cancels, typed options spin that list, no options spin the saved wheel.
   function wheelCmd(args, reply) {
     const text = args.join(' ').trim(), W = db.games.wheel;
     if (text.toLowerCase() === 'stop') { const r = wheel.cancel(); return reply(r.error || 'Wheel stopped.'); }
@@ -517,6 +572,7 @@ module.exports = function createBot(ctx) {
     if (r.error) reply(r.error);
   }
   // ---- Word Rush: a full-screen word game for chat; only the streamer and mods start it, points are paid out after every round
+  // Word Rush scores kept in the saved data.
   const wordStats = {
     player: (id, name, x) => { const P = db.wordRush.players[id] || (db.wordRush.players[id] = { name, pts: 0, words: 0, best: 0 }); P.name = name; P.pts += x.pts; P.words += x.words; P.best = Math.max(P.best, x.round); save(); },
     record: (round, by) => { const R = db.wordRush.record; if (round <= R.round) return false; db.wordRush.record = { round, by, at: now() }; save(); return true; },
@@ -524,17 +580,21 @@ module.exports = function createBot(ctx) {
   };
   const words = require('./words')({ rng, now, stats: wordStats, introMs: () => ctx.wordsIntroMs || 6000, cfg: () => db.games.words, currency: () => cur(), broadcast: (ev, d) => (ctx.broadcast ? ctx.broadcast(ev, d) : 0), say: (t) => say(t),
     award: (id, name, n, why) => addPts(id, name, n, why) });
+  // !words: 'stop', 'skip', or start (a number sets the rounds).
   function wordsCmd(args, u, reply) {
     const a = String(args[0] || '').toLowerCase();
     if (a === 'stop') { const r = words.stop(); return reply(r.error || 'Word Rush stopped.'); }
     if (a === 'skip') { const r = words.skip(); return r.error ? reply(r.error) : undefined; }
     const r = words.start({ by: u && u.name, rounds: /^\d+$/.test(a) ? Number(a) : undefined }); if (r.error) reply(r.error);
   }
+  // adapt an arena function to the built-in command shape; whatever it returns is the reply.
   const arenaCmd = (fn) => ({ run: ({ args, u, reply }) => { const r = fn(args, u); if (r) reply(r); } });
 
   // chat games state
   const duels = new Map();
+  // at most one raffle and one trivia question at a time.
   let raffle = null, trivia = null;
+  // bet amount ('all' allowed) capped at the max bet; answers the chatter and returns 0 when it is unusable.
   const validBet = (u, arg, reply) => {
     const p = pt(u.id, u.name); let amt = /^all$/i.test(arg || '') ? p.pts : parseInt(arg, 10);
     if (!Number.isFinite(amt) || amt <= 0) { reply(u.name + ', usage: bet an amount or "all" (you have ' + fmtNum(p.pts) + ' ' + cur() + ').'); return 0; }
@@ -542,9 +602,12 @@ module.exports = function createBot(ctx) {
     if (amt > p.pts) { reply(u.name + ', you only have ' + fmtNum(p.pts) + ' ' + cur() + '.'); return 0; }
     return amt;
   };
+  // first argument as a clean name.
   const targetOf = (args) => strip(args[0]);
 
+  // wording of !tts when it has not been edited.
   const DEFAULT_TTS_EDITS = { usage: 'Usage: {prefix}tts <what you want read out>{cost}', off: 'Text-to-speech is off right now.', level: 'Text-to-speech is for {level}s and above.', wait: '{user}, please wait a bit before using {prefix}tts again.', poor: '{user}, {prefix}tts costs {price} {currency} and you have {balance}.', blocked: '{user}, that message is not allowed.', failed: 'Could not read that out ({error}).' };
+  // every built-in !command: { level (minimum rank), cd / userCd (cooldowns in seconds), run({ args, u, e, reply }) }.
   const builtins = {
     commands: { cd: 15, run: async ({ u, reply }) => {
       const list = db.commands.filter((c) => c.enabled && !c.hidden && u.rank >= rankName(c.level)).map((c) => db.prefix + c.name);
@@ -869,6 +932,7 @@ module.exports = function createBot(ctx) {
     } },
     flip: { userCd: 3, run: ({ u, reply }) => reply(u.name + ' flipped ' + (rng() < 0.5 ? 'HEADS' : 'TAILS') + '.') },
   };
+  // !addpoints / !removepoints / !setpoints for mods; looks the viewer up on Twitch if not seen yet.
   async function adjust(args, reply, mode) {
     const name = strip(args[0]), n = parseInt(args[1], 10);
     if (!name || !(Number.isFinite(n)) || (mode !== 'set' && n <= 0) || n < 0) return reply('Usage: ' + db.prefix + mode + 'points <user> <amount>');
@@ -877,19 +941,23 @@ module.exports = function createBot(ctx) {
     const p = pt(id, bare(args[0])), delta = mode === 'add' ? n : mode === 'remove' ? -n : n - p.pts;
     addPts(id, p.name, delta, mode + ' by mod'); reply(p.name + ' now has ' + fmtNum(p.pts) + ' ' + cur() + '.');
   }
+  // complete a shop purchase: announce it and fire its alert.
   async function fulfill(entry) {
     const item = db.shop.find((i) => i.id === entry.itemId), vars = { item: entry.itemName, cost: entry.cost, text: entry.text };
     say(await expand((item && item.response) || '$(user) redeemed $(item)!', { user: { id: entry.uid, name: entry.name }, args: entry.text ? entry.text.split(/\s+/) : [], vars }));
     if (item && item.alertKey && ctx.fireCustom) ctx.fireCustom(item.alertKey, { name: entry.name, message: entry.text || entry.itemName, amount: entry.cost }, entry.cost);
   }
+  // give the cost back, restock the item and remove the pending request.
   function refund(entry) {
     addPts(entry.uid, entry.name, entry.cost, 'refund: ' + entry.itemName);
     const item = db.shop.find((i) => i.id === entry.itemId); if (item && item.stock != null) item.stock++;
     db.pending = db.pending.filter((x) => x.n !== entry.n); save();
   }
+  // aliases: other names for the same built-ins.
   builtins.songrequest = builtins.sr;
   builtins.buy = builtins.redeem; builtins.send = builtins.give; builtins.pay = builtins.give;
   builtins.commands.cd = db.builtinEdits.commands.cd == null ? 15 : db.builtinEdits.commands.cd; builtins.leaderboard = builtins.top; builtins.setgame = builtins.game; builtins.settitle = builtins.title;
+  // pick a random raffle winner and close the raffle.
   function draw(reply) {
     if (!raffle || !raffle.entrants.size) return reply('Nobody has entered the raffle.');
     const ids = [...raffle.entrants.keys()], id = ids[Math.floor(rng() * ids.length)], name = raffle.entrants.get(id);
@@ -897,6 +965,7 @@ module.exports = function createBot(ctx) {
   }
 
   // ------------------------------------------------------------------ incoming chat
+  // every chat line comes through here: tracking, filters, trivia / Word Rush answers, then commands.
   async function onMessage(e) {
     if (!db.enabled || !ctx.me()) return;
     const text = oneLine(e.message && e.message.text, 500);
@@ -928,7 +997,9 @@ module.exports = function createBot(ctx) {
     const u = { id: user.id || '', login: String(user.login || user.name || '').toLowerCase(), name: user.name, rank: rank == null ? 4 : rank, msgId: '' };
     await runCommand(cmd.toLowerCase(), args, u, { message_id: '' }); return true;
   }
+  // expand variables for reward hooks and events (a user and extra values supplied by the caller).
   const expandFor = (text, user, vars, args) => expand(text, { user, args: args || [], vars: vars || {} });
+  // stream event (follow, sub, bits, raid...): may start a bits game, pay a currency bonus and post the event message.
   async function onEvent(event, vars) {
     if (event === 'bits' && db.enabled && vars.message && Number(vars.amount) > 0) {   // bits can also start the group games
       const B = db.games.bits || {}, m = String(vars.message).toLowerCase();
@@ -954,8 +1025,10 @@ module.exports = function createBot(ctx) {
   }
 
   // ------------------------------------------------------------------ timers + points ticker
+  // when each timer last fired and the chat line count then, so a timer needs both time and enough chat.
   const timerLast = new Map();
   let linesAtFire = new Map(), ticker = null;
+  // every 15s: post timers that are due. The first sighting of a timer only starts its clock.
   function tick() {
     const t = now(), live = ctx.state.stream.live, jobs = [];
     for (const tm of db.timers) {
@@ -968,6 +1041,7 @@ module.exports = function createBot(ctx) {
     }
     return Promise.all(jobs);
   }
+  // every minute: pay watch-time currency to chatters active in the last 10 minutes (subscribers get the multiplier); only while live unless offline earning is on.
   function awardPoints() {
     const t = now(); if (!db.enabled || (!ctx.state.stream.live && !db.awardOffline)) return;
     for (const [id, a] of active) {
@@ -976,12 +1050,14 @@ module.exports = function createBot(ctx) {
     }
     save();
   }
+  // start the timer and currency loops once; unref so they never keep the process alive.
   function start() {
     if (ticker) return;
     ticker = [setInterval(tick, 15000), setInterval(awardPoints, 60000)]; ticker.forEach((x) => x.unref && x.unref());
   }
 
   // ------------------------------------------------------------------ dashboard API
+  // currency label files for overlays.
   function labels() {
     const all = Object.values(db.points), top = all.slice().sort((a, b) => b.pts - a.pts);
     return {
@@ -1064,6 +1140,7 @@ module.exports = function createBot(ctx) {
     const text = custom.concat(...Object.keys(groups).map((g) => groups[g])).map((r) => r[0] + ' - ' + r[2]).join('\n');
     return { html, md, text, count: custom.length + builtin.length + mods.length, custom, groups };
   }
+  // everything the bot page needs.
   const view = () => ({
     settings: { clip: db.clip, enabled: db.enabled, prefix: db.prefix, currency: db.currency, pointsPerMin: db.pointsPerMin, subMultiplier: db.subMultiplier, awardOffline: db.awardOffline, games: db.games, extras: db.extras },
     builtinEdits: db.builtinEdits, commands: db.commands, vars: db.vars, timers: db.timers, filters: db.filters, events: db.events, quotes: db.quotes, counters: db.counters,
@@ -1076,7 +1153,9 @@ module.exports = function createBot(ctx) {
     race: race.view(),
     games: { builtin: GAMES.map((g) => Object.assign({ on: !(db.games.off || []).includes(g.id) }, g)), custom: db.customGames.map((g) => Object.assign({}, g, { odds: gameOdds(g) })), settings: db.games, currency: cur(), prefix: db.prefix },
   });
+  // number clamp with a fallback for junk input.
   const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
+  // dashboard requests for commands, games, timers, filters, shop, currency and the bot account.
   async function api(action, b) {
     switch (action) {
       case 'settings': {
@@ -1222,6 +1301,7 @@ module.exports = function createBot(ctx) {
         timerLast.delete(t.id); save(); return t;
       }
       case 'timer/delete': db.timers = db.timers.filter((t) => t.id !== b.id); save(); return { ok: true };
+      // save each filter from the dashboard, keeping every number inside sensible limits.
       case 'filters': {
         for (const name of Object.keys(db.filters)) {
           const n = b[name]; if (!n) continue; const f = db.filters[name];
@@ -1260,6 +1340,7 @@ module.exports = function createBot(ctx) {
         if (!Number.isFinite(n)) throw new Error('Amount must be a number');
         addPts(id, p.name, b.mode === 'set' ? n - p.pts : b.mode === 'remove' ? -Math.abs(n) : Math.abs(n), b.mode + ' by you'); return { ok: true, pts: p.pts };
       }
+      // give currency to everyone chatting in the last 10 minutes.
       case 'points/bonus': {
         const n = Math.floor(num(b.amount, 0, 0, 1e7)); if (!n) throw new Error('Enter an amount'); let c = 0;
         for (const [id, a] of active) if (now() - a.ts <= 10 * 60000) { addPts(id, a.name, n, 'bonus (dashboard)'); c++; }

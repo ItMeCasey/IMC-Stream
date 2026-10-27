@@ -26,9 +26,11 @@ function expectedHash(sumsText, name) {
 
 function createUpdater(ctx) {
   const fetchFn = ctx.fetch || fetch, spawn = ctx.spawn || nodeSpawn, log = ctx.log || (() => {}), DIR = ctx.dir;
+  // what the Setup page shows while an update is on its way
   let st = { state: 'idle', percent: 0, error: '', version: '' };   // idle | downloading | verifying | starting | error
   const set = (o) => { st = Object.assign({}, st, o); return st; };
 
+  /** fetch a release file, refusing anything that is not https on GitHub (also after redirects) */
   async function get(url, signal) {
     if (!hostOk(url)) throw new Error('Refusing to download from ' + url);
     const r = await fetchFn(url, { headers: { 'User-Agent': 'IMC-Stream' }, signal, redirect: 'follow' });
@@ -46,6 +48,7 @@ function createUpdater(ctx) {
     set({ state: 'downloading', percent: 0, error: '', version: info.latest || '' });
     const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 15 * 60e3);
     try {
+      // the sums file first: with no expected hash there is nothing to check the installer against, so nothing is downloaded
       const sumsText = await (await get(a.sumsUrl, ac.signal)).text(), want = expectedHash(sumsText, a.name);
       if (!want) throw new Error('SHA256SUMS.txt does not list ' + a.name);
       const r = await get(a.url, ac.signal), total = Number(r.headers.get('content-length')) || a.size || 0;
@@ -54,6 +57,7 @@ function createUpdater(ctx) {
       const dest = path.join(DIR, a.name), tmp = dest + '.part', hash = crypto.createHash('sha256'), out = fs.createWriteStream(tmp);
       let got = 0;
       try {
+        // stream to a .part file while hashing, so a 100 MB installer is never held in memory
         for await (const chunk of r.body) {
           got += chunk.length; if (got > MAX_BYTES) throw new Error('The installer is larger than expected');
           hash.update(chunk); if (!out.write(chunk)) await new Promise((res) => out.once('drain', res));
@@ -63,8 +67,9 @@ function createUpdater(ctx) {
       } catch (e) { out.destroy(); try { fs.unlinkSync(tmp); } catch (x) { /* nothing to remove */ } throw e; }
       set({ state: 'verifying', percent: 100 });
       if (hash.digest('hex') !== want) { try { fs.unlinkSync(tmp); } catch (x) { /* nothing to remove */ } throw new Error('The download did not match its checksum, so it was thrown away'); }
-      fs.renameSync(tmp, dest);
+      fs.renameSync(tmp, dest);   // only a verified file ever gets its real name
       set({ state: 'starting' }); log('update: starting', dest);
+      // /S = silent install; --force-run = start the app again afterwards. Detached, so it outlives this server when it closes the app.
       const child = spawn(dest, ['/S', '--force-run'], { detached: true, stdio: 'ignore', windowsHide: true }); child.unref();
       return { ok: true, file: dest };
     } catch (e) { set({ state: 'error', error: e.name === 'AbortError' ? 'The download took too long' : e.message }); throw new Error(st.error); }

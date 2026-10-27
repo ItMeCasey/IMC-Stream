@@ -9,19 +9,24 @@
 const crypto = require('node:crypto');
 const { spawn: nodeSpawn } = require('node:child_process');
 
+// Cloudflare's command line tool, pinned to major version 3 so a new major release cannot break publishing
 const WRANGLER = 'wrangler@3';
+// make a valid Cloudflare project name: lowercase letters, digits and single dashes, at most 40 characters
 const clean = (n) => String(n || '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '').replace(/-+/g, '-').slice(0, 40);
 
 module.exports = function createPublisher(ctx) {
   const st = () => ctx.state.site, log = ctx.log || (() => {}), spawn = ctx.spawn || nodeSpawn, now = ctx.now || Date.now;
   const win = process.platform === 'win32';
+  // busy: the publish running now (a second request joins it); loginProc: the wrangler login process; timer: the automatic check
   let busy = null, loginProc = null, timer = null;
 
   /** run `npx wrangler <args>`; resolves { code, out } (stdout + stderr) */
   function run(args, opts = {}) {
     return new Promise((resolve) => {
+      // on Windows npx runs through the shell, so arguments with special characters are quoted (and stripped of quotes, never passed through)
       const q = (a) => (win && /[\s&|<>^()]/.test(a) ? '"' + a.replace(/"/g, '') + '"' : a);
       let out = '', c;
+      // CI=1 and no colour or metrics, so wrangler never stops to ask a question and its output is easy to read
       try { c = spawn(win ? 'npx.cmd' : 'npx', ['--yes', WRANGLER].concat(args.map(q)), { shell: win, windowsHide: true, env: Object.assign({}, process.env, { CI: '1', WRANGLER_SEND_METRICS: 'false', NO_COLOR: '1', FORCE_COLOR: '0' }, opts.env || {}), stdio: ['ignore', 'pipe', 'pipe'] }); }
       catch (e) { return resolve({ code: -1, out: 'Could not start npx (is Node.js installed?): ' + e.message }); }
       const timer2 = setTimeout(() => { try { c.kill(); } catch (e) { /* gone */ } out += '\nTimed out'; }, opts.timeout || 240000); if (timer2.unref) timer2.unref();
@@ -55,6 +60,7 @@ module.exports = function createPublisher(ctx) {
     return h.digest('hex');
   }
 
+  // build the site and upload it; one publish at a time (callers share the running job). The result is saved in the site settings
   async function publish(why) {
     if (busy) return busy;
     const job = (async () => {
@@ -67,6 +73,7 @@ module.exports = function createPublisher(ctx) {
         if (mk.code !== 0 && !/already exists|already taken|8000002/i.test(mk.out)) { if (/authenticat|login|not logged/i.test(mk.out)) throw new Error('Not logged in to Cloudflare yet: press Connect Cloudflare'); throw new Error('Could not create the Cloudflare project: ' + mk.out.trim().split('\n').slice(-2).join(' ')); }
         const r = await run(['pages', 'deploy', dir, '--project-name', name, '--branch', 'main', '--commit-dirty=true'], { timeout: 600000 });
         if (r.code !== 0) throw new Error('Upload failed: ' + r.out.trim().split('\n').slice(-3).join(' '));
+        // wrangler prints the address of this one deploy (abc12345.name.pages.dev); strip that prefix to get the permanent address
         const url = (/https:\/\/[a-z0-9-]+\.pages\.dev/gi.exec(r.out.replace(/https:\/\/[a-f0-9]{8}\.([a-z0-9-]+\.pages\.dev)/gi, 'https://$1')) || [])[0] || 'https://' + name + '.pages.dev';
         Object.assign(S, { lastHash: fp, lastDeploy: now(), lastUrl: url, lastError: '', published: true }); ctx.persist(); log('website published (' + (why || 'manual') + '): ' + url);
         return { ok: true, url };
@@ -82,15 +89,18 @@ module.exports = function createPublisher(ctx) {
     let fp; try { fp = fingerprint(); } catch (e) { return; }
     if (fp !== S.lastHash && now() - (S.lastTry || 0) > 5 * 60000) publish('automatic').catch(() => { /* shown on the page */ });
   }
+  // check every 5 minutes (unref so the timer alone does not keep the app alive)
   function start() { if (!timer) { timer = setInterval(tick, 5 * 60000); if (timer.unref) timer.unref(); } }
   function stop() { clearInterval(timer); timer = null; }
 
+  // change the project name or the automatic switch; a new name means nothing is published there yet
   function settings(b) {
     const S = st();
     if (b.project !== undefined) { const n = clean(b.project); if (!n || n.length < 3) throw new Error('Use at least 3 letters, numbers or dashes for the name'); if (n !== S.project) { S.project = n; S.published = false; S.lastHash = ''; S.lastUrl = ''; } }
     if (b.auto !== undefined) S.auto = !!b.auto;
     ctx.persist(); return view();
   }
+  // what the Setup page shows
   const view = () => { const S = st(); return { project: S.project || '', auto: !!S.auto, published: !!S.published, url: S.lastUrl || '', lastDeploy: S.lastDeploy || 0, lastError: S.lastError || '', busy: !!busy, loggingIn: !!loginProc, defaultName: clean(ctx.channel && ctx.channel()) || '' }; };
   return { whoami, login, publish, settings, view, start, stop, tick, fingerprint, clean };
 };

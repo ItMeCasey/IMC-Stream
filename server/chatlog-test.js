@@ -26,8 +26,11 @@ assert.equal(JSON.parse(L.json(id)).entries.length, 12, 'the JSON file keeps eve
 
 // saved files
 const t = L.save(id, 'txt'), j = L.save(id, 'json');
-assert.ok(fs.existsSync(t.file) && t.file.endsWith('.txt') && fs.readFileSync(t.file, 'utf8').includes('hello chat'));
-assert.ok(fs.existsSync(j.file) && JSON.parse(fs.readFileSync(j.file, 'utf8')).entries.length === 12);
+assert.ok(t.file.endsWith('.zip') && j.file.endsWith('.zip') && t.file !== j.file);
+const unzip = (f) => { const b = fs.readFileSync(f); assert.equal(b.readUInt32LE(0), 0x04034b50); const n = b.readUInt16LE(26), x = b.readUInt16LE(28), len = b.readUInt32LE(18), out = require('zlib').inflateRawSync(b.subarray(30 + n + x, 30 + n + x + len)); assert.equal(out.length, b.readUInt32LE(22)); return { name: b.toString('utf8', 30, 30 + n), body: out.toString('utf8') }; };
+const ut = unzip(t.file), uj = unzip(j.file); assert.equal(ut.name, 'Stream chat ' + id + '.txt'); assert.ok(ut.body.includes('hello chat'));
+assert.equal(JSON.parse(uj.body).entries.length, 12);
+assert.ok(fs.statSync(t.file).size < Buffer.byteLength(L.text(id)), 'the zip is smaller than the text');
 
 // restart soon after: carries on in the same log; a new stream starts a new one
 L = mk(); clock += 60000; L.chat({ id: 'm3', uid: 'u1', login: 'ann', name: 'Ann', text: 'back again', badges: [], type: 'text' });

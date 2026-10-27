@@ -7,8 +7,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// escape text for putting it into HTML
 const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+// one stylesheet shared by every page, inlined so each page is a single file; the same look as the app
 const CSS = `:root{--iron:#222A2A;--iron-d:#1A2020;--aqua:#4FBBBC;--heat:#F39120;--cream:#E2DAC2;--rust:#EC4624;--drust:#B13A22;--line:#2f3938}
 *{box-sizing:border-box}html{background:var(--iron)}body{margin:0;color:var(--cream);font-family:"Bahnschrift","Segoe UI","Arial Narrow",system-ui,sans-serif;line-height:1.45;min-height:100vh;
 background:repeating-conic-gradient(#262f2f 0 25%,#222A2A 0 50%) 0 0/16px 16px}
@@ -28,23 +30,29 @@ table{width:100%;border-collapse:collapse}td{padding:8px 10px 8px 0;border-botto
 .ex{background:var(--iron);border-left:5px solid var(--heat);padding:12px 18px;margin:12px 0;font-size:19px}.ex em{font-style:normal;color:var(--heat);font-weight:700}ol,ul{padding-left:22px}li{margin:6px 0}li::marker{color:var(--heat)}
 footer{max-width:920px;margin:0 auto;padding:0 22px 40px;color:#707b78;font-size:12px}`;
 
+// a titled box on a page
 const sec = (title, body) => '<section><h2>' + title + '</h2>' + body + '</section>';
 
 module.exports = function createSite(ctx) {
+  // the channel name, or a fallback while Twitch is not connected
   const channel = () => (ctx.channel && ctx.channel()) || 'the stream';
+  // wraps a body into a whole page: header, menu (file marks the current page) and footer
   const page = (file, title, sub, body) => '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(title + ' - ' + channel()) + '</title><style>' + CSS + '</style></head><body>'
     + '<header><div class="top"><img src="logo.png" alt=""><div><h1>' + esc(channel()) + '</h1><div class="sub">' + esc(sub) + '</div></div></div><nav>'
     + [['index.html', 'Home'], ['commands.html', 'Commands'], ['games.html', 'Games'], ['tts.html', 'Text-to-speech']].map(([f, n]) => '<a href="' + f + '"' + (f === file ? ' class="on"' : '') + '>' + n + '</a>').join('') + '</nav></header><main>' + body + '</main>'
     + '<footer>Last updated ' + new Date().toISOString().slice(0, 10) + '. What is listed here is what is switched on in the stream right now.</footer></body></html>';
 
+  // the chat commands, grouped by who may use them
   function commandsPage() {
     const ex = ctx.bot.exportCommands(), table = (rows) => '<table>' + rows.map((r) => '<tr><td class="c">' + esc(r[0]) + '</td><td class="w">' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td></tr>').join('') + '</table>';
     return page('commands.html', 'Commands', 'Chat commands',
       sec('Chat commands', '<p class="muted">Type these in chat. The small grey word says who can use each one.</p>') + (ex.custom.length ? sec('Fun &amp; info', table(ex.custom)) : '') + Object.keys(ex.groups).map((g) => sec(esc(g), table(ex.groups[g]))).join(''));
   }
 
+  // the games that are switched on, split into everyday games and stream events
   function gamesPage() {
     const v = ctx.bot.view().games, P = v.prefix || '!', cur = v.currency || 'points', fix = (t) => esc(String(t).replace(/!(?=[a-z0-9])/gi, P).replace(/\bpoints\b/gi, cur));
+    // on: games switched on now; play = everyday games, ev = events started by the streamer or mods
     const on = v.builtin.filter((g) => g.on), play = ['gamble', 'slots', 'duel', '8ball', 'roll', 'flip', 'trivia', 'raffle'], ev = ['words', 'wheel', 'dance', 'race', 'boss', 'royale', 'teams'];
     const card = (g, cls) => '<div class="game ' + cls + '"><b>' + esc(g.name) + '</b><div class="how"><span class="cmd">' + fix(g.how) + '</span></div><div class="muted">' + fix(g.desc) + '</div></div>';
     const extra = {
@@ -56,8 +64,10 @@ module.exports = function createSite(ctx) {
       + sec('Stream events', '<p class="muted">These are started by the streamer or the mods, and then everyone joins in.</p>' + (on.filter((g) => ev.includes(g.id)).map((g) => card(g, 'ev')).join('') || '<p class="muted">None switched on right now.</p>') + (on.some((g) => g.id === 'words') ? extra.words : '')));
   }
 
+  // how to get a message read out loud, the sound effects (with play buttons) and the limits
   function ttsPage() {
     const c = ctx.tts.cfg(), v = ctx.tts.view(), P = (ctx.bot.view().games || {}).prefix || '!', cur = (ctx.bot.view().games || {}).currency || 'points';
+    // lvl: who may use the !tts command; the reward title is taken from the enabled TTS hook
     const lvl = { everyone: 'everyone', subscriber: 'subscribers', vip: 'VIPs', moderator: 'mods' }, hook = (ctx.hooks ? ctx.hooks() : []).find((h) => h.enabled && (h.actions || []).some((a) => a.type === 'ttsreward')), title = hook ? String(hook.name).replace(/^Text-to-speech:\s*/, '') : '';
     const cmd = c.command && c.command.on ? '<li>Or type <span class="cmd">' + esc(P) + 'tts your message</span> in chat (' + esc(lvl[c.command.level] || 'everyone') + (c.command.cost ? ', costs ' + esc(c.command.cost) + ' ' + esc(cur) : '') + ').</li>' : '';
     const voices = (v.voices || []).map((x) => x.name);
@@ -70,6 +80,7 @@ module.exports = function createSite(ctx) {
       + '<script>document.querySelectorAll("[data-s]").forEach(function(b){b.onclick=function(){new Audio("sounds/tts/"+b.dataset.s+".wav").play()}})</script>');
   }
 
+  // the front page with the three cards
   function indexPage() {
     const ex = ctx.bot.exportCommands(), v = ctx.bot.view().games, g = v.builtin.filter((x) => x.on).length + (v.custom || []).filter((x) => x.enabled).length;
     return page('index.html', 'Welcome', 'Welcome', sec('Welcome', '<p>Everything you can do in the chat of <b>' + esc(channel()) + '</b>.</p>') + '<div class="cards">'
@@ -83,6 +94,7 @@ module.exports = function createSite(ctx) {
     for (const [f, html] of Object.entries(files)) { fs.writeFileSync(path.join(outDir, f), html); written.push(f); }
     try { fs.copyFileSync(path.join(ctx.assetsDir, 'logo.png'), path.join(outDir, 'logo.png')); written.push('logo.png'); } catch (e) { /* no logo */ }
     const sd = path.join(outDir, 'sounds', 'tts'); fs.mkdirSync(sd, { recursive: true });
+    // copy the sound effects so the play buttons work on the static site
     for (const x of ctx.tts.view().sfx || []) { try { fs.copyFileSync(path.join(ctx.sfxDir, x.name + '.wav'), path.join(sd, x.name + '.wav')); written.push('sounds/tts/' + x.name + '.wav'); } catch (e) { /* a missing sound */ } }
     fs.writeFileSync(path.join(outDir, '_headers'), '/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n/sounds/*\n  Cache-Control: public, max-age=86400\n'); written.push('_headers');   // read by Cloudflare Pages and Netlify
     return written;

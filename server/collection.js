@@ -5,12 +5,18 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
+// OBS layout boxes on the 1920x1080 canvas: [x, y, width, height]
 const G = { game: [0, 0, 1920, 1016], cam_game: [1496, 767, 400, 225], cam_chat: [40, 70, 1200, 675], chat_panel: [1280, 40, 600, 936], chat_box: [1296, 112, 568, 852], cam_full: [40, 70, 1840, 906] };
+// the OBS config version number written into every source (prev_ver)
 const VER = 537001986;
+// OBS needs a unique id for every source
 const uid = () => crypto.randomUUID();
 
+// returns the whole scene collection as an object (JSON.stringify it to get the file OBS imports)
 function build({ root, dataDir, port = 8420 }) {
+  // OBS wants forward slashes in paths, also on Windows
   const P = root.replace(/\\/g, '/'), D = dataDir.replace(/\\/g, '/');
+  // a generic OBS source with all the default fields OBS expects; filters become nested sources; o sets audio, volume and hotkeys
   const source = (name, id, settings, versioned, filters, o = {}) => {
     const s = { prev_ver: VER, name, uuid: uid(), id, versioned_id: versioned || id, settings, mixers: o.mixers || (o.audio ? 255 : 0), sync: 0, flags: 0, volume: o.volume == null ? 1.0 : o.volume,
       balance: 0.5, enabled: true, muted: false, 'push-to-mute': false, 'push-to-mute-delay': 0, 'push-to-talk': false, 'push-to-talk-delay': 0, hotkeys: o.hotkeys || {},
@@ -19,7 +25,9 @@ function build({ root, dataDir, port = 8420 }) {
     return s;
   };
   const image = (name, rel) => source(name, 'image_source', { file: P + '/' + rel });
+  // '#RRGGBB' -> the 0xAABBGGRR number OBS stores for colours
   const abgr = (hex) => { const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16); return (0xFF000000 | (b << 16) | (g << 8) | r) >>> 0; };
+  // a text label; with `file` it follows a .txt in <data>/labels that the app keeps up to date (latest follower, subscriber)
   const text = (name, size, color, content, file) => {
     const st = { font: { face: 'Bahnschrift', size, style: 'Bold', flags: 1 }, color: abgr(color), opacity: 100, antialiasing: true, align: 'left', valign: 'top', extents: false, outline: false };
     if (file) Object.assign(st, { read_from_file: true, file: D + '/labels/' + file + '.txt' }); else st.text = content;
@@ -29,8 +37,10 @@ function build({ root, dataDir, port = 8420 }) {
     undefined, undefined, { audio, mixers: audio ? 255 : 0, hotkeys: { 'libobs.mute': [], 'libobs.unmute': [], 'libobs.push-to-mute': [], 'libobs.push-to-talk': [], 'ObsBrowser.Refresh': [] } });
   const K = 0.8;   // every overlay is drawn at 80%: the page scales itself (overlays/config.js 'scale') and the OBS source box shrinks with it, keeping its corner
   const sz = (n) => Math.round(n * K);
+  // an overlay page from overlays/ as a browser source
   const overlay = (name, file, w, h, audio) => browser(name, 'file:///' + P + '/overlays/' + file, w, h, audio);
 
+  // a scene is a list of items; add() puts a source on it (with a rect it is fitted and cropped into that box); later items are drawn on top
   class Scene {
     constructor(name) { this.name = name; this.items = []; this.n = 0; }
     add(src, x = 0, y = 0, rect = null, visible = true) {
@@ -60,6 +70,7 @@ function build({ root, dataDir, port = 8420 }) {
   const capF = text('Label - Latest Follower (caption)', 26, '#4FBBBC', 'LATEST FOLLOWER'), valF = text('Label - Latest Follower', 60, '#E2DAC2', null, 'latest_follower');
   const capS = text('Label - Latest Subscriber (caption)', 26, '#4FBBBC', 'LATEST SUBSCRIBER'), valS = text('Label - Latest Subscriber', 60, '#F39120', null, 'latest_subscriber');
 
+  // the scenes, in the order OBS shows them
   const sc = [];
   sc.push(new Scene('Starting Soon').add(bgStart).add(waitingRoom, 0, 720, [0, 720, 1920, 360]).add(countdown, 704, 803).add(alerts).add(danceParty).add(explosion));
   sc.push(new Scene('Gameplay').add(bgIron).add(display, 0, 0, G.game, false).add(game, 0, 0, G.game).add(cam, 0, 0, G.cam_game).add(ovGame).add(viewers, 1484, 12).add(hype, 656, 12).add(poll, 1424, 80).add(prediction, 1424, 80).add(events, 0, 40).add(ticker, 0, 940, null, false).add(subathonTimer, 20, 130, null, false).add(nowplaying, 0, 869).add(gameArena, 700, 540).add(letterRush).add(alerts).add(danceParty).add(explosion));
@@ -68,10 +79,12 @@ function build({ root, dataDir, port = 8420 }) {
   sc.push(new Scene('Be Right Back').add(bgBrb).add(danceParty).add(explosion));
   sc.push(new Scene('Ending').add(bgEnd).add(capF, 640, 715).add(valF, 640, 750).add(capS, 640, 860).add(valS, 640, 895).add(alerts).add(danceParty).add(explosion));
 
+  // audio: desktop sound with a limiter; the mic gets noise suppression, gate, compressor and limiter
   const desktop = source('Desktop Audio', 'wasapi_output_capture', { device_id: 'default' }, null, [['Limiter', 'limiter_filter', { threshold: -6.0, release_time: 60 }, null]], { audio: true, volume: 0.7 });
   const mic = source('Mic/Aux', 'wasapi_input_capture', { device_id: 'default' }, null, [
     ['Noise Suppression', 'noise_suppress_filter', { method: 'rnnoise' }, 'noise_suppress_filter_v2'], ['Noise Gate', 'noise_gate_filter', { open_threshold: -32.0, close_threshold: -38.0 }, null],
     ['Compressor', 'compressor_filter', { ratio: 4.0, threshold: -18.0, attack_time: 6, release_time: 60, output_gain: 4.0 }, null], ['Limiter', 'limiter_filter', { threshold: -3.0, release_time: 60 }, null]], { audio: true });
+  // sources used in several scenes are listed once here; the scenes refer to them by uuid
   const shared = [danceParty, gameArena, letterRush, waitingRoom, subathonTimer, explosion, hype, events, ticker, viewers, nowplaying, poll, prediction, bgIron, bgStart, bgBrb, bgEnd, capF, valF, capS, valS, ovGame, ovChat, ovFull, game, display, cam, alerts, chat, countdown];
   const sources = sc.map((x) => x.build()).concat(shared, [desktop, mic]);
   return {

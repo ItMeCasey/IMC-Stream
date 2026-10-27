@@ -8,11 +8,15 @@ const childProcess = require('node:child_process');
 module.exports = function createSupervisor(o) {
   const spawn = o.spawn || childProcess.spawn, fetchFn = o.fetch || globalThis.fetch, log = o.log || (() => {});
   const healthMs = o.healthIntervalMs || 10000, maxFails = o.maxHealthFails || 3, maxBackoff = o.maxBackoffMs || 30000, stableMs = o.stableMs || 60000, startupMs = o.startupMs || 60000;
+  // child: the server process; stopped: we meant it to stop (so no auto restart); fails: failed health checks in a row; backoff: pause before the next restart
   let child = null, stopped = true, restartTimer = null, healthTimer = null, fails = 0, backoff = 1000, startedAt = 0, state = 'stopped', lastHealth = null, restarts = 0, checking = false;
 
+  // change the state and tell the app, but only when it really changed
   const set = (s) => { if (s !== state) { state = s; if (o.onState) o.onState(s, view()); } };
+  // a snapshot for the tray and the app
   const view = () => ({ state, restarts, health: lastHealth });
 
+  // start the server process; does nothing if one is already running
   function start() {
     stopped = false; clearTimeout(restartTimer);
     if (child) return;
@@ -30,16 +34,20 @@ module.exports = function createSupervisor(o) {
       if (stopped) return set('stopped');
       const ranFor = Date.now() - startedAt;
       if (code === 75) { backoff = 1000; restarts++; log('server asked for a restart'); return setTimeout(start, 200); }
+      // it ran fine for a while before dying, so the pauses start over
       if (ranFor > stableMs) backoff = 1000;
       log('server stopped (code ' + code + ') after ' + Math.round(ranFor / 1000) + 's; restarting in ' + Math.round(backoff / 1000) + 's');
       schedule();
     });
+    // unref so the timer alone never keeps the app alive
     clearInterval(healthTimer); healthTimer = setInterval(check, healthMs); if (healthTimer.unref) healthTimer.unref();
   }
+  // restart after the current pause, doubling it each time up to the maximum
   function schedule() {
     set('restarting'); restarts++;
     clearTimeout(restartTimer); restartTimer = setTimeout(start, backoff); backoff = Math.min(maxBackoff, backoff * 2);
   }
+  // ask /api/health; the server counts as stuck after several failures in a row, or when it never came up in time
   async function check() {
     if (!child || stopped || checking) return; checking = true;
     const ac = new AbortController(), t = setTimeout(() => ac.abort(), o.healthTimeoutMs || 4000);
@@ -53,7 +61,9 @@ module.exports = function createSupervisor(o) {
     } finally { clearTimeout(t); checking = false; }
     if (o.onHealth) o.onHealth(lastHealth, view());
   }
+  // stop for good: no restart, kill the process
   function stop() { stopped = true; clearTimeout(restartTimer); clearInterval(healthTimer); if (child) { try { child.kill(); } catch (e) { /* gone */ } } else set('stopped'); }
+  // restart now (the pause is reset); the exit handler starts it again
   function restart() { backoff = 1000; if (child) { child.kill(); } else start(); }
   return { start, stop, restart, view, check };
 };

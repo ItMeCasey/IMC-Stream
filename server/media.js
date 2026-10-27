@@ -10,7 +10,9 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 
+// what we ask Spotify for: read what is playing and control it
 const SPOTIFY_SCOPES = 'user-read-playback-state user-modify-playback-state user-read-currently-playing';
+// base64 in the URL-safe form PKCE needs
 const b64url = (b) => Buffer.from(b).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 module.exports = function createMedia(ctx) {
@@ -23,13 +25,16 @@ module.exports = function createMedia(ctx) {
   const SCRIPTS = path.join(__dirname, 'media');
   const TOKENS = path.join(ctx.DATA, 'spotify.json');
 
+  // the empty "nothing is playing" state
   const blank = () => ({ status: 'none', title: '', artist: '', album: '', art: '', durationMs: 0, positionMs: 0, positionAt: Date.now(), shuffle: false, repeat: 'none', volume: null, app: '', link: '', canSeek: false, sessions: [], error: '' });
+  // cur = current state; lastKey = change detector for set(); artBuf / artVer = cover image bytes and a version number to bust caches
   let cur = blank(), lastKey = '';
   let artBuf = null, artVer = 0;
 
   /** publish a new state; tell overlays only when something visible changed (they interpolate the progress bar themselves) */
   function set(next) {
     const prev = cur, now = Date.now();
+    // where the progress bar should be by now; a bigger jump (a seek) must be sent so overlays resync
     const expected = prev.positionMs + (prev.status === 'playing' ? now - prev.positionAt : 0);
     next.positionAt = now;
     cur = next;
@@ -40,6 +45,7 @@ module.exports = function createMedia(ctx) {
 
   // ---------------------------------------------------------------- Windows media session
   let child = null, restartT = null, wantWindows = false, buf = '';
+  // start the PowerShell poller that prints one JSON line per update; restarts itself 3 s after it dies
   function startWindows() {
     if (child || process.platform !== 'win32' && !ctx.spawn) return;
     wantWindows = true;
@@ -52,6 +58,7 @@ module.exports = function createMedia(ctx) {
     c.on('error', (e) => log('media: PowerShell error:', e.message));
     c.on('exit', () => { if (child === c) child = null; if (wantWindows) { clearTimeout(restartT); restartT = setTimeout(startWindows, 3000); if (restartT.unref) restartT.unref(); } });
   }
+  // stop the poller and do not restart it
   function stopWindows() { wantWindows = false; clearTimeout(restartT); const c = child; child = null; if (c) { try { c.kill(); } catch (e) { /* gone */ } } }
   // Some players (browsers especially) publish a cover Windows can't hand to PowerShell: look it up by artist + title instead (iTunes search, no key needed)
   let lookKey = '', lookBuf = null;
@@ -67,6 +74,7 @@ module.exports = function createMedia(ctx) {
       if (cur.title && !cur.art) { cur.art = '/media/art?v=' + artVer; ctx.broadcast('media', view()); if (ctx.onChange) ctx.onChange(); }
     } catch (e) { /* offline or no match: no cover */ }
   }
+  // handle one JSON line from the poller: update the cover art, then publish the state
   function onWindowsLine(line) {
     let j; try { j = JSON.parse(line); } catch (e) { return; }
     if (typeof j.art === 'string') {   // sent only when the track changes: "image/jpeg;BASE64"
@@ -80,6 +88,7 @@ module.exports = function createMedia(ctx) {
     set(Object.assign(base, { status: j.status === 'playing' ? 'playing' : 'paused', title: j.title || '', artist: j.artist || '', album: j.album || '', art: artBuf ? '/media/art?v=' + artVer : '',
       durationMs: j.durationMs || 0, positionMs: j.positionMs || 0, shuffle: !!j.shuffle, repeat: j.repeat === 'track' ? 'track' : j.repeat === 'list' ? 'list' : 'none', app: j.app || '', canSeek: !!j.canSeek }));
   }
+  // run one play / pause / seek command through the SMTC command script
   function winControl(action, arg) {
     return new Promise((resolve, reject) => {
       const args = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(SCRIPTS, 'smtc-cmd.ps1'), '-Action', action, '-Value', String(arg == null ? '' : arg), '-App', cfg().app === 'any' ? '' : cfg().app || 'auto'];
@@ -93,12 +102,16 @@ module.exports = function createMedia(ctx) {
   // ---------------------------------------------------------------- Spotify Web API
   let tokens = null, pending = null, pollT = null, wantSpotify = false;
   try { tokens = JSON.parse(fs.readFileSync(TOKENS, 'utf8')); } catch (e) { /* not connected */ }
+  // Spotify sends the login back to this local address
   const redirectUri = () => 'http://127.0.0.1:' + ctx.port() + '/spotify/callback';
+  // keep the tokens in memory and on disk (null = log out and delete the file)
   const saveTokens = (t) => { tokens = t; if (t) fs.writeFileSync(TOKENS, JSON.stringify(t, null, 2)); else { try { fs.unlinkSync(TOKENS); } catch (e) { /* none */ } } };
+  // POST to Spotify's token endpoint
   async function tokenCall(body) {
     const r = await doFetch(AUTH + '/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body).toString() });
     return { ok: r.ok, json: await r.json().catch(() => ({})) };
   }
+  // login step 1 (PKCE): make a one-time verifier and state, return the page to open
   function connectSpotify() {
     if (!cfg().spotifyClientId) throw new Error('Paste your Spotify Client ID first');
     const verifier = b64url(crypto.randomBytes(48)), state = b64url(crypto.randomBytes(12));
@@ -106,6 +119,7 @@ module.exports = function createMedia(ctx) {
     const q = new URLSearchParams({ response_type: 'code', client_id: cfg().spotifyClientId, scope: SPOTIFY_SCOPES, redirect_uri: redirectUri(), state, code_challenge_method: 'S256', code_challenge: b64url(crypto.createHash('sha256').update(verifier).digest()) });
     return { url: AUTH + '/authorize?' + q.toString(), redirectUri: redirectUri() };
   }
+  // login step 2: check the state (guards against forged callbacks) and the 10 minute limit, then trade the code for tokens
   async function spotifyCallback(query) {
     if (!pending || query.state !== pending.state || Date.now() - pending.at > 600000) throw new Error('That login link expired - press Connect Spotify again');
     if (query.error) throw new Error('Spotify said: ' + query.error);
@@ -119,12 +133,14 @@ module.exports = function createMedia(ctx) {
   }
   let refreshing = null;   // single-flight: the poller and a control call must not refresh with the same refresh token at once
   const refresh = () => (refreshing || (refreshing = doRefresh().finally(() => { refreshing = null; })));
+  // trade the refresh token for a new access token; a refusal means the login is gone
   async function doRefresh() {
     if (!tokens || !tokens.refresh_token) throw new Error('Not connected to Spotify');
     const r = await tokenCall({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: cfg().spotifyClientId });
     if (!r.ok) { saveTokens(null); throw new Error('Spotify login expired - connect it again'); }
     saveTokens(Object.assign({}, tokens, { access_token: r.json.access_token, refresh_token: r.json.refresh_token || tokens.refresh_token, expires_at: Date.now() + (r.json.expires_in || 3600) * 1000 }));
   }
+  // call the Spotify API with the saved token; refreshes when it is about to expire, or once after a 401
   async function sp(method, p, body, retry = true) {
     if (!tokens) throw new Error('Not connected to Spotify');
     if (tokens.expires_at - Date.now() < 60000) await refresh();
@@ -134,8 +150,10 @@ module.exports = function createMedia(ctx) {
     let json = {}; try { json = txt ? JSON.parse(txt) : {}; } catch (e) { /* not json */ }
     return { status: r.status, ok: r.ok, json };
   }
+  // turn a failed Spotify answer into a message the streamer can act on
   const spErr = (r) => (r.status === 403 ? 'Spotify Premium is required to control playback' : r.status === 404 ? 'No active Spotify device: open Spotify somewhere and start a song first'
     : (r.json && r.json.error && (r.json.error.message || r.json.error)) || 'Spotify error ' + r.status);
+  // ask Spotify what is playing and publish it (episodes and tracks have different shapes)
   async function pollSpotify() {
     if (!wantSpotify) return;
     try {
@@ -152,8 +170,10 @@ module.exports = function createMedia(ctx) {
       }
     } catch (e) { set(Object.assign(blank(), { status: 'none', error: e.message })); }
   }
+  // poll every 2 s by default
   function startSpotify() { wantSpotify = true; clearInterval(pollT); pollSpotify(); pollT = setInterval(pollSpotify, +ctx.spotifyPollMs || 2000); if (pollT.unref) pollT.unref(); }
   function stopSpotify() { wantSpotify = false; clearInterval(pollT); }
+  // map a control action to a Spotify call, then poll again soon so the display catches up
   async function spControl(action, arg) {
     const m = { play: ['PUT', '/me/player/play'], pause: ['PUT', '/me/player/pause'], next: ['POST', '/me/player/next'], previous: ['POST', '/me/player/previous'] };
     let call;
@@ -169,34 +189,41 @@ module.exports = function createMedia(ctx) {
   }
 
   // ---------------------------------------------------------------- public API
+  // only 'spotify' or 'windows'; anything else counts as windows
   const provider = () => (cfg().provider === 'spotify' ? 'spotify' : 'windows');
+  // the state sent to overlays and the Setup page
   function view() {
     const c = cur, now = Date.now();
     return Object.assign({}, c, { provider: provider(), now, canVolume: provider() === 'spotify', canQueue: provider() === 'spotify',
       cfg: { provider: provider(), app: cfg().app, spotifyClientId: cfg().spotifyClientId, requests: !!cfg().requests, requestLevel: cfg().requestLevel },
       spotify: { connected: !!tokens, user: tokens ? tokens.user : '', redirectUri: redirectUri() }, platform: process.platform });
   }
+  // send a control action to whichever provider is active
   async function control(action, arg) {
     if (provider() === 'spotify') return spControl(action, arg);
     if (process.platform !== 'win32' && !ctx.spawn) throw new Error('The Windows media controls only work on Windows: use Spotify instead');
     return winControl(action, arg);
   }
+  // song search for requests (Spotify only)
   async function search(q) {
     if (provider() !== 'spotify') throw new Error('Song search needs Spotify');
     q = String(q || '').trim(); if (!q) return [];
     const r = await sp('GET', '/search?type=track&limit=8&q=' + encodeURIComponent(q)); if (!r.ok) throw new Error(spErr(r));
     return ((r.json.tracks && r.json.tracks.items) || []).map((t) => ({ uri: t.uri, name: t.name, artist: (t.artists || []).map((a) => a.name).join(', '), album: t.album && t.album.name, art: t.album && t.album.images && t.album.images.length ? t.album.images[t.album.images.length - 1].url : '', durationMs: t.duration_ms }));
   }
+  // add a track to the Spotify queue; the uri is checked so only tracks get through
   async function queue(uri) {
     if (provider() !== 'spotify') throw new Error('Song requests need Spotify');
     if (!/^spotify:track:[A-Za-z0-9]+$/.test(String(uri))) throw new Error('That is not a Spotify track');
     const r = await sp('POST', '/me/player/queue?uri=' + encodeURIComponent(uri)); if (!r.ok) throw new Error(spErr(r)); return { ok: true };
   }
+  // play a track right now
   async function playUri(uri) {
     if (provider() !== 'spotify') throw new Error('Needs Spotify');
     if (!/^spotify:track:[A-Za-z0-9]+$/.test(String(uri))) throw new Error('That is not a Spotify track');
     const r = await sp('PUT', '/me/player/play', { uris: [uri] }); if (!r.ok) throw new Error(spErr(r)); setTimeout(pollSpotify, 500); return { ok: true };
   }
+  // validate and save the media settings; restart the provider only if it changed
   function settings(b) {
     const c = cfg(), prevProv = provider(), prevApp = c.app;
     if (b.provider === 'spotify' || b.provider === 'windows') c.provider = b.provider;
@@ -208,11 +235,13 @@ module.exports = function createMedia(ctx) {
     if (provider() !== prevProv || (provider() === 'windows' && c.app !== prevApp)) apply();
     return view();
   }
+  // (re)start the active provider from a clean state
   function apply() {
     stopWindows(); stopSpotify(); cur = blank(); lastKey = '';
     if (provider() === 'spotify') startSpotify(); else startWindows();
     ctx.broadcast('media', view());
   }
+  // text values for chat and overlay labels such as now_playing
   function labels() {
     const c = cur, mm = (ms) => Math.floor(ms / 60000) + ':' + String(Math.floor(ms / 1000) % 60).padStart(2, '0');
     const live = c.status === 'playing' ? Math.min(c.durationMs || 1e12, c.positionMs + (Date.now() - c.positionAt)) : c.positionMs;
@@ -224,6 +253,7 @@ module.exports = function createMedia(ctx) {
       now_playing_link: { value: c.link, desc: 'Spotify link to the current song' },
     };
   }
+  // public API (the object continues on the next line)
   return { start: () => apply(), stop: () => { stopWindows(); stopSpotify(); }, view, control, search, queue, playUri, settings, labels, connectSpotify, spotifyCallback,
     disconnectSpotify: () => { saveTokens(null); if (provider() === 'spotify') pollSpotify(); return { ok: true }; }, art: () => artBuf, state: () => cur, _poll: pollSpotify };
 };

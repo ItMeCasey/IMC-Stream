@@ -9,22 +9,29 @@ const EVENTS = 1 | (1 << 2) | (1 << 3) | (1 << 16);   // Scenes + Inputs + Input
 
 module.exports = function createAudio(ctx) {
   const WS = ctx.WebSocket || WebSocket, IDLE_MS = ctx.idleMs || 20000;
+  // connection state: ready = OBS accepted our login; wanted = a widget still needs us (keep reconnecting); backoff grows between retries
   let ws = null, ready = false, seq = 0, pend = new Map(), idleT = null, retryT = null, wanted = false, lastTouch = 0, backoff = 1500, sawHello = false;
+  // inputs: audio sources by name; program: scene on air; sceneCache: per-scene source lists; specials: global devices (desktop, mic)
   let inputs = new Map(), program = '', error = '', sceneCache = new Map(), specials = [];
+  // pushT / dirty batch the meter updates; quietUntil pauses reconnecting while OBS is shutting down or swapping collections
   let pushT = null, dirty = false, quietUntil = 0;
 
   // OBS happily reports a volume for every source, including ones that make no sound (a browser overlay, a screen capture). Show real audio kinds,
   // and anything else only once they have actually made sound (a browser overlay that plays alerts shows up after its first alert).
   const AUDIO_KINDS = /^(wasapi_|coreaudio_|pulse_|alsa_|jack_|sndio_|ffmpeg_source|vlc_source|openal)/;
   const shown = (i) => i.heard || AUDIO_KINDS.test(i.kind || '') || specials.includes(i.name);
+  // linear level multiplier to dB, floored at -100
   const levelDb = (mul) => (mul > 0.00001 ? Math.max(-100, 20 * Math.log10(mul)) : -100);
+  // send the state to the widgets: now = right away, otherwise batched
   function push(now) {
     if (now) { clearTimeout(pushT); pushT = null; dirty = false; return ctx.broadcast('audio', view()); }
     dirty = true; if (pushT) return;
     pushT = setTimeout(() => { pushT = null; if (dirty) { dirty = false; ctx.broadcast('audio', view()); } }, 30);   // OBS sends meters about 20 times a second: pass nearly every one on
   }
+  // what widgets get: only the sources worth showing
   const view = () => ({ connected: ready, error, program, inputs: [...inputs.values()].filter(shown).map((i) => ({ name: i.name, muted: i.muted, db: i.db, peak: i.peak, peaks: i.peaks || [i.peak, i.peak], kind: i.kind })), specials });
 
+  // send one OBS request; resolves with its data, rejects after 6 s
   function request(type, data) {
     return new Promise((res, rej) => {
       if (!ready) return rej(new Error('OBS is not connected'));
@@ -33,8 +40,10 @@ module.exports = function createAudio(ctx) {
       ws.send(JSON.stringify({ op: 6, d: { requestType: type, requestId: id, requestData: data || {} } }));
     });
   }
+  // swallow errors (sources without audio reject volume requests)
   const safe = (p) => p.catch(() => null);
 
+  // reload the source list with current mute and volume, keeping the meter values we already have
   async function loadInputs() {
     const list = (await request('GetInputList')).inputs || [], next = new Map();
     for (const i of list) {
@@ -52,6 +61,7 @@ module.exports = function createAudio(ctx) {
     sceneCache.clear(); push(true);
   }
 
+  // handle OBS events: meters, mute and volume changes, sources and scenes coming and going
   function onEvent(t, d) {
     // OBS can crash if its audio thread is busy with meters while a scene collection is swapped or OBS closes: let go of the meter stream for a while
     if (t === 'CurrentSceneCollectionChanging' || t === 'ExitStarted') { quietUntil = Date.now() + 15000; close(true); return; }
@@ -68,6 +78,7 @@ module.exports = function createAudio(ctx) {
     else if (t === 'SceneItemCreated' || t === 'SceneItemRemoved') sceneCache.delete(d.sceneName);
   }
 
+  // open the WebSocket and log in; on failure schedule() retries until nobody wants it
   function connect() {
     if (ws || !wanted) return;
     if (Date.now() < quietUntil) return schedule();
@@ -87,7 +98,9 @@ module.exports = function createAudio(ctx) {
     ws.onerror = () => { if (!error) error = sawHello ? 'OBS closed the connection (wrong password?)' : 'Could not connect to OBS: is it running with the WebSocket server on?'; };
     ws.onclose = () => { if (ws === mine) { ws = null; ready = false; for (const p of pend.values()) p.rej(new Error('OBS closed the connection')); pend.clear(); inputs = new Map(); push(true); schedule(); } };
   }
+  // retry later, waiting longer each time (up to 15 s)
   function schedule() { clearTimeout(retryT); if (!wanted) return; retryT = setTimeout(connect, backoff); backoff = Math.min(15000, backoff * 1.7); if (retryT.unref) retryT.unref(); }
+  // drop the connection; keepWanted = come back later (used when OBS is restarting)
   function close(keepWanted) { wanted = !!keepWanted; clearTimeout(retryT); clearTimeout(idleT); if (ws) { const w = ws; ws = null; ready = false; try { w.close(); } catch (e) { /* gone */ } } inputs = new Map(); if (keepWanted) schedule(); }
 
   /** a widget is looking: open (or keep open) the connection */
@@ -110,6 +123,7 @@ module.exports = function createAudio(ctx) {
     const allowed = new Set(sceneCache.get(key));
     return { scene: sc, inputs: [...inputs.keys()].filter((n) => allowed.has(n)) };   // the widget shows the ones that are real audio (see `shown`)
   }
+  // plain OBS requests; volume is clamped to OBS's own -100..+26 dB range
   const setMute = (name, on) => request('SetInputMute', { inputName: name, inputMuted: !!on });
   const toggleMute = (name) => request('ToggleInputMute', { inputName: name });
   const setVolumeDb = (name, db) => request('SetInputVolume', { inputName: name, inputVolumeDb: Math.max(-100, Math.min(26, Number(db) || 0)) });

@@ -12,6 +12,7 @@ const path = require('node:path');
 
 const API = 'https://discord.com/api/v10', GATEWAY = 'wss://gateway.discord.gg/?v=10&encoding=json';
 const P = (n) => 1n << BigInt(n);   // permission bits
+// named permission bits used below
 const VIEW = P(10), SEND = P(11), EMBED = P(14), HISTORY = P(16), CONNECT = P(20), SPEAK = P(21), REACT = P(6);
 const MOD_PERMS = P(1) | P(13) | P(40) | P(7) | P(22);   // kick, manage messages, time out, view audit log, mute (voice)
 const BOT_PERMS = P(28) | P(4) | VIEW | SEND | EMBED | HISTORY | MOD_PERMS;   // manage roles and channels, post, and the permissions it hands to the Mods role (a bot can only give what it has)
@@ -24,16 +25,22 @@ const LAYOUT = [
   ['VOICE', [['Lounge', 2, ''], ['Gaming 1', 2, ''], ['Gaming 2', 2, '']]],
   ['MODS', [['mod-chat', 0, 'private'], ['mod-log', 0, 'private']]],
 ];
+// [name, colour, shown separately in the member list, permissions]
 const ROLES = [['Mods', COLOR.aqua, true, MOD_PERMS], ['Tier 3 Sub', COLOR.rust, true, 0n], ['Tier 2 Sub', COLOR.heat, true, 0n], ['Tier 1 Sub', COLOR.cream, true, 0n]];
+// channel descriptions, by channel name
 const TOPICS = { welcome: 'Start here', rules: 'The rules of the server', announcements: 'News from the stream', 'go-live': 'Posted by the bot when the stream starts', general: 'Chat about anything', clips: 'Share your best clips', 'game-chat': 'Talk about the games', 'bot-commands': 'Try the bot here: /commands /games /tts /top', 'mod-chat': 'Mods only', 'mod-log': 'Mods only' };
+// the slash commands registered with Discord (type 1 = chat input)
 const COMMANDS = [['commands', 'The chat commands of the stream'], ['games', 'The games you can play in chat'], ['tts', 'How to get your message read out loud on stream'], ['top', 'The points leaderboard'], ['live', 'Is the stream live right now?'], ['website', 'The stream website']].map(([name, description]) => ({ name, description, type: 1 }));
 
 module.exports = function createDiscord(ctx) {
   const log = ctx.log || (() => {}), doFetch = ctx.fetch || ((...a) => fetch(...a)), FILE = ctx.file, WS = ctx.WebSocket || (typeof WebSocket !== 'undefined' ? WebSocket : null), sleep = ctx.sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
+  // S: saved settings (data/discord.json, includes the token); bot: who the token belongs to; gw: the gateway socket
   let S = { token: '', appId: '', guildId: '', channels: {}, announce: true, ping: '', commands: true, lastLive: 0 }, bot = null, gw = null;
   try { S = Object.assign(S, JSON.parse(fs.readFileSync(FILE, 'utf8'))); } catch (e) { /* first run */ }
+  // write the settings; the token only ever lives in this file
   const save = () => { try { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(S, null, 2)); } catch (e) { log('discord save failed:', e.message); } };
 
+  // one REST call: waits and retries once when Discord says slow down (429), and turns error codes into plain messages
   async function api(method, p, body, retried) {
     const r = await doFetch(API + p, { method, headers: { Authorization: 'Bot ' + S.token, 'Content-Type': 'application/json', 'User-Agent': 'IMC-Stream (https://github.com/ItMeCasey/IMC-Stream, 1)' }, body: body === undefined ? undefined : JSON.stringify(body) });
     if (r.status === 429 && !retried) { const j = await r.json().catch(() => ({})); await sleep(Math.min(10000, Math.ceil((j.retry_after || 1) * 1000))); return api(method, p, body, true); }
@@ -42,7 +49,9 @@ module.exports = function createDiscord(ctx) {
     if (!r.ok) { const e = new Error(({ 401: 'Discord did not accept that token', 403: 'The bot is missing a permission for that (' + ((j && j.message) || '403') + ')', 404: 'Discord could not find that (' + p + ')' })[r.status] || (j && j.message) || 'Discord answered HTTP ' + r.status); e.status = r.status; throw e; }
     return j;
   }
+  // a Discord embed (the boxed message style)
   const embed = (title, description, color, extra) => Object.assign({ title, description, color: color || COLOR.heat }, extra || {});
+  // the Twitch and website addresses used in messages
   const links = () => ({ twitch: ctx.channel && ctx.channel() ? 'https://twitch.tv/' + ctx.channel() : '', website: (ctx.website && ctx.website()) || '' });
 
   /** check the token: who the bot is and the servers it is in */
@@ -53,6 +62,7 @@ module.exports = function createDiscord(ctx) {
     return { bot: { id: bot.id, name: bot.username }, guilds: guilds.map((g) => ({ id: g.id, name: g.name })) };
   }
 
+  // names compare case-insensitively, like Discord does
   const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
   /** what is in the server and what the layout would add */
   async function plan(guildId) {
@@ -78,6 +88,7 @@ module.exports = function createDiscord(ctx) {
       byName[name] = r;
     }
     const mods = byName.Mods;
+    // channel permissions: readonly = everyone reads but only the bot and Mods post; private = only Mods and the bot see it
     const overwrites = (kind) => {
       if (kind === 'readonly') return [{ id: everyone.id, type: 0, allow: (VIEW | HISTORY | REACT).toString(), deny: SEND.toString() }, { id: bot.id, type: 1, allow: (VIEW | SEND | EMBED).toString(), deny: '0' }, { id: mods.id, type: 0, allow: SEND.toString(), deny: '0' }];
       if (kind === 'private') return [{ id: everyone.id, type: 0, allow: '0', deny: VIEW.toString() }, { id: mods.id, type: 0, allow: (VIEW | SEND | HISTORY | CONNECT | SPEAK).toString(), deny: '0' }, { id: bot.id, type: 1, allow: (VIEW | SEND | EMBED).toString(), deny: '0' }];
@@ -97,25 +108,30 @@ module.exports = function createDiscord(ctx) {
         byName[name] = ch;
       }
     }
+    // remember the channel ids so later posts (go-live, recap) know where to go
     S.channels = Object.assign(S.channels || {}, { welcome: byName.welcome.id, rules: byName.rules.id, announcements: byName.announcements.id, golive: byName['go-live'].id, botcommands: byName['bot-commands'].id }); save();
     if (made.includes('welcome')) await post(byName.welcome.id, welcomeMessage());
     if (made.includes('rules')) await post(byName.rules.id, rulesMessage());
     if (made.includes('bot-commands')) await post(byName['bot-commands'].id, { embeds: [embed('Try the bot here', 'Type `/commands`, `/games`, `/tts`, `/top` or `/live` in this channel.', COLOR.aqua)] });
     return { added: out, count: out.length };
   }
+  // the first message in #welcome
   function welcomeMessage() {
     const L = links(), name = (ctx.channel && ctx.channel()) || 'the stream';
     return { embeds: [embed('Welcome to the ' + name + ' server', 'Glad you are here! Say hi in <#' + ((S.channels || {}).general || 'general') + '>.' + (L.twitch ? '\n\n**Watch live:** ' + L.twitch : '') + (L.website ? '\n**Commands, games and text-to-speech:** ' + L.website : '') + '\n\nType `/commands` in the bot-commands channel to see what the bot can do.', COLOR.heat)] };
   }
+  // the first message in #rules
   function rulesMessage() {
     return { embeds: [embed('Rules', ['**1. Be kind.** No harassment, hate or bullying.', '**2. No spam** or self-promotion without asking a mod.', '**3. Keep it safe for work.** Nothing sexual, graphic or illegal.', '**4. No spoilers** without a warning.', '**5. Listen to the mods.** If you are unsure, ask.'].join('\n'), COLOR.rust)] };
   }
+  // send a message to a channel
   async function post(channelId, message) { return api('POST', '/channels/' + channelId + '/messages', message); }
 
   /** the stream just started: tell the server */
   async function announceLive(info) {
     if (!S.token || !S.announce || !(S.channels || {}).golive) return false;
     const L = links(), t = info || {}; S.lastLive = Date.now(); save();
+    // S.ping is 'everyone', 'here' or a role id; allowed_mentions below limits what can really be pinged
     const ping = S.ping === 'everyone' ? '@everyone ' : S.ping === 'here' ? '@here ' : /^\d{5,25}$/.test(S.ping || '') ? '<@&' + S.ping + '> ' : '';
     const parse = S.ping === 'everyone' || S.ping === 'here' ? ['everyone'] : [];
     await post(S.channels.golive, { content: ping + (ctx.channel && ctx.channel() ? ctx.channel() : 'The stream') + ' is live!', allowed_mentions: { parse, roles: /^\d{5,25}$/.test(S.ping || '') ? [S.ping] : [] },
@@ -130,7 +146,9 @@ module.exports = function createDiscord(ctx) {
   }
 
   // ------------------------------------------------------------------ slash commands
+  // shorten text to fit Discord's limits
   const cut = (t, n) => (String(t).length > n ? String(t).slice(0, n - 1) + '…' : String(t));
+  // the reply to a slash command, built from the same lists as the website
   function answer(name) {
     const L = links(), d = ctx.data || {};
     if (name === 'commands') { const ex = d.commands(); const rows = []; for (const r of ex.custom) rows.push('`' + r[0] + '` ' + r[2]); for (const g of Object.keys(ex.groups)) if (!/^Mods/.test(g)) for (const r of ex.groups[g]) rows.push('`' + r[0] + '` ' + r[2]); return { embeds: [embed('Chat commands', cut(rows.join('\n'), 4000) + (L.website ? '\n\nAll of them: ' + L.website + '/commands.html' : ''), COLOR.aqua)] }; }
@@ -141,18 +159,23 @@ module.exports = function createDiscord(ctx) {
     if (name === 'website') return { content: L.website || 'The website is not published yet.' };
     return { content: 'I do not know that command.' };
   }
+  // a slash command arrived: reply through the interaction callback
   async function onInteraction(i) {
     if (!i || i.type !== 2 || !i.data) return;
     let res; try { res = answer(i.data.name); } catch (e) { res = { content: 'Something went wrong.' }; log('discord command failed:', e.message); }
     await doFetch(API + '/interactions/' + i.id + '/' + i.token + '/callback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 4, data: Object.assign({ flags: 0 }, res) }) }).catch((e) => log('discord reply failed:', e.message));
   }
+  // register for one server only: guild commands show up at once (global ones can take an hour)
   async function registerCommands() { if (!S.guildId || !S.appId) throw new Error('Choose a server first'); await api('PUT', '/applications/' + S.appId + '/guilds/' + S.guildId + '/commands', COMMANDS); }
 
   // ------------------------------------------------------------------ the gateway (a WebSocket): it only exists to receive slash commands
+  // hb: heartbeat timer; seq: number of the last event (sent with each heartbeat); tries: reconnect attempts so far
   let hb = null, seq = null, stopped = true, tries = 0, status = 'off';
+  // only connect when there is a token and slash commands are switched on
   function startGateway() {
     if (!S.token || !S.commands || !WS) return false; stopped = false; open(); return true;
   }
+  // connect to the gateway: op 10 = hello (start heartbeats, identify), op 7 / 9 = Discord wants a reconnect; intents 0 because only slash commands are needed
   function open() {
     if (stopped) return; status = 'connecting'; const ws = new WS(GATEWAY); gw = ws;
     ws.onmessage = (m) => {
@@ -163,11 +186,14 @@ module.exports = function createDiscord(ctx) {
       else if (d.op === 0 && d.t === 'INTERACTION_CREATE') onInteraction(d.d);
       else if (d.op === 7 || d.op === 9) { try { ws.close(); } catch (e) { /* gone */ } }
     };
+    // reconnect with a growing wait (2s up to 60s)
     ws.onclose = () => { clearInterval(hb); status = 'off'; if (!stopped) { const wait = Math.min(60000, 2000 * 2 ** Math.min(tries++, 5)); const t = setTimeout(open, wait); if (t.unref) t.unref(); } };
     ws.onerror = () => { /* onclose follows */ };
   }
+  // close the connection and stop reconnecting
   function stopGateway() { stopped = true; clearInterval(hb); try { gw && gw.close(); } catch (e) { /* gone */ } status = 'off'; }
 
+  // settings from the Setup page; ids keep digits only and the ping choice is checked
   function configure(b) {
     b = b || {};
     if (typeof b.token === 'string' && b.token.trim()) { S.token = b.token.trim().replace(/^Bot\s+/i, '').slice(0, 200); bot = null; }
@@ -178,7 +204,9 @@ module.exports = function createDiscord(ctx) {
     if (b.ping !== undefined) S.ping = ['', 'everyone', 'here'].includes(b.ping) ? b.ping : /^\d{5,25}$/.test(String(b.ping)) ? String(b.ping) : '';
     save(); return view();
   }
+  // the link that adds the bot to a server with the permissions it needs
   const inviteUrl = () => { const id = S.appId || (bot && bot.id); return id ? 'https://discord.com/oauth2/authorize?client_id=' + id + '&scope=' + encodeURIComponent('bot applications.commands') + '&permissions=' + BOT_PERMS.toString() : ''; };
+  // what the page may see: never the token
   const view = () => ({ invite: inviteUrl(), hasToken: !!S.token, appId: S.appId, guildId: S.guildId, announce: S.announce, commands: S.commands, ping: S.ping, channels: S.channels || {}, gateway: status, lastLive: S.lastLive || 0,
     layout: LAYOUT.map(([cat, list]) => ({ category: cat, channels: list.map(([n, t]) => (t === 2 ? '🔊 ' : '# ') + n) })), roles: ROLES.map((r) => r[0]), slash: COMMANDS.map((c) => '/' + c.name) });
   /** a test post in the bot-commands (or go-live) channel */
