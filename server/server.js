@@ -112,7 +112,7 @@ const defaultState = () => ({
   board: [],
   site: { project: '', auto: true, published: false, lastHash: '', lastDeploy: 0, lastUrl: '', lastError: '', lastTry: 0 },   // the viewers' website on Cloudflare Pages
   rewardHooks: [], obsCfg: { host: '127.0.0.1', port: 4455, password: '' },
-  alertRules: [], alertsSeeded: false, alertDesigns: [], alertTemplates: [], alertThemes: [],   // alertDesigns: layouts made in the Alert Builder (rules point at them by id); alertTemplates: parts you saved to reuse; alertThemes: colour and font sets you saved
+  alertRules: [], alertsSeeded: false, discordAlertsSeeded: false, alertDesigns: [], alertTemplates: [], alertThemes: [],   // alertDesigns: layouts made in the Alert Builder (rules point at them by id); alertTemplates: parts you saved to reuse; alertThemes: colour and font sets you saved
   customGoals: [],   // user-made goals shown as progress bars
 });
 // Overlay saved state on the defaults so a state.json from an older version still gets any newly added keys (arrays and scalars are taken from the saved copy as-is).
@@ -469,6 +469,9 @@ const ALERT_EVENTS = {
   goal:       { label: 'Goal reached', vars: ['title', 'value', 'target'], kind: 'follow' },
   charity:    { label: 'Charity donation', vars: ['name', 'amount', 'charity'], kind: 'tip', numLabel: 'amount' },
   tip:        { label: 'Tip', vars: ['name', 'amount', 'message'], kind: 'tip', numLabel: 'amount' },
+  discord_boost:     { label: 'Discord server boost', vars: ['name', 'boosts', 'level'], kind: 'raid', numLabel: 'boosts' },   // the three discord_* events come from IMC-Bot (the Discord bot)
+  discord_join:      { label: 'Discord member joined', vars: ['name'], kind: 'follow' },
+  discord_milestone: { label: 'Discord member milestone', vars: ['members'], kind: 'follow', numLabel: 'members' },
   custom:     { label: 'Custom (you trigger it)', vars: ['name', 'message', 'amount'], kind: 'follow', numLabel: 'amount', key: true },
 };
 const SAMPLE_VARS = {
@@ -479,6 +482,7 @@ const SAMPLE_VARS = {
   hype_start: { level: 1 }, hype_end: { level: 3 }, goal: { title: 'Road to 500', value: 500, target: 500 },
   charity: { name: 'KindKira', amount: '$10.00', charity: 'Save The Pixels' }, tip: { name: 'GenerousGamer', amount: '$10.00', message: 'Keep up the great work' },
   custom: { name: 'Sam', message: 'Hello!', amount: '' },
+  discord_boost: { name: 'BoostBuddy', boosts: 7, level: 2 }, discord_join: { name: 'NewNeighbour' }, discord_milestone: { members: 500 },
 };
 const C_AQUA = '#4FBBBC', C_HEAT = '#F39120', C_RUST = '#EC4624', C_CREAM = '#E2DAC2';
 function defaultRules() {
@@ -499,9 +503,16 @@ function defaultRules() {
     r('goal', 'Goal reached', 'GOAL REACHED', '{title}', '{value} / {target}', C_AQUA, 'alert_follow.wav'),
     r('charity', 'Charity donation', 'CHARITY {amount}', '{name}', '{charity}', C_CREAM, 'alert_tip.wav'),
     r('tip', 'Tip', '{amount} TIP', '{name}', '{message}', C_CREAM, 'alert_tip.wav'),
+    r('discord_boost', 'Discord server boost', 'SERVER BOOST', '{name}', 'Thanks for boosting the Discord! // {boosts} boosts', C_HEAT, 'alert_sub.wav'),
+    r('discord_join', 'Discord member joined', 'NEW DISCORD MEMBER', '{name}', 'Welcome to the Discord!', C_AQUA, 'alert_follow.wav'),
+    r('discord_milestone', 'Discord member milestone', 'DISCORD MILESTONE', '{members} members', 'The Discord is growing!', C_AQUA, 'alert_follow.wav'),
   ];
 }
-if (!state.alertsSeeded) { state.alertRules = defaultRules(); state.alertsSeeded = true; }
+if (!state.alertsSeeded) { state.alertRules = defaultRules(); state.alertsSeeded = true; state.discordAlertsSeeded = true; }
+if (!state.discordAlertsSeeded) {   // an install from before the Discord alerts: add their default rules once
+  for (const r of defaultRules()) if (r.event.startsWith('discord_') && !state.alertRules.some((x) => x.event === r.event)) state.alertRules.push(r);
+  state.discordAlertsSeeded = true;
+}
 
 // Fill in {vars} in a template, then tidy up: empty variables can leave dangling '//' separators and double spaces.
 const tpl = (t, vars) => String(t || '').replace(/\{(\w+)\}/g, (m, k) => (vars[k] == null ? '' : String(vars[k])))
@@ -2080,6 +2091,7 @@ async function route(req, res) {
         g.manual = body.set != null ? Number(body.set) || 0 : (Number(g.manual) || 0) + (Number(body.delta) || 0);
         persist(); return json(res, 200, goalView(g));
       }
+      if (p === '/api/bridge/alert') { const a = bridge.discordAlert(body); return json(res, 200, { ok: true, shown: fire(a.event, a.vars, a.num) }); }   // a Discord event from IMC-Bot (a server boost, a new member)
       if (p.startsWith('/api/mod/')) { const out = await modAction(p.slice(9), body); if (p.endsWith('/settings')) out.settings = await chatSettings(); return json(res, 200, out); }
       if (p === '/api/chat/send') return json(res, 200, await modAction('send', body));
       if (p === '/api/auth/start') return json(res, 200, await startDeviceAuth());

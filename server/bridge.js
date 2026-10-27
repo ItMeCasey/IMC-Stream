@@ -8,6 +8,19 @@
  *    (it does that when the Twitch chat mirror is on), and live in their own list so a busy chat never pushes a go-live event out.
  * Run: node bridge-test.js
  */
+// The Discord events IMC-Bot may turn into alerts, and the variables each one may carry (anything else is dropped).
+const DISCORD_EVENTS = { discord_boost: ['name', 'boosts', 'level'], discord_join: ['name'], discord_milestone: ['members'] };
+const oneLine = (t, n) => String(t == null ? '' : t).replace(/\s+/g, ' ').trim().slice(0, n);
+
+/** checks an alert request from IMC-Bot: only the known Discord events, only their variables, short plain text. Returns { event, vars, num } */
+function discordAlert(b) {
+  const event = String((b && b.event) || ''), keys = Object.prototype.hasOwnProperty.call(DISCORD_EVENTS, event) ? DISCORD_EVENTS[event] : null;   // own names only: not __proto__, constructor...
+  if (!keys) throw new Error('Unknown Discord event');
+  const vars = {};
+  for (const k of keys) { const v = b.vars && b.vars[k]; vars[k] = typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(1e9, Math.round(v))) : oneLine(v, 60); }
+  return { event, vars, num: event === 'discord_boost' ? Number(vars.boosts) || 0 : event === 'discord_milestone' ? Number(vars.members) || 0 : 0 };
+}
+
 module.exports = function createBridge(ctx) {
   const now = ctx.now || Date.now, cap = ctx.cap || 500, boot = Math.random().toString(36).slice(2, 10);
   const chatCap = ctx.chatCap || 400;
@@ -36,5 +49,5 @@ module.exports = function createBridge(ctx) {
   const snapshot = () => Object.assign({ boot, cursor: seq }, ctx.snapshot ? ctx.snapshot() : {});
   /** the lists the viewer commands answer from (commands, games, points top, text-to-speech help) */
   const info = () => (ctx.info ? ctx.info() : {});
-  return { publish, since, snapshot, info, boot };
+  return { publish, since, snapshot, info, discordAlert, boot };
 };

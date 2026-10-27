@@ -121,6 +121,9 @@ const THEME = {   // [tag, accent, sound, icon, sub line, title]
   hype_end: ['HYPE TRAIN OVER', '@secondary', 'alert_raid.wav', 'stock/mono_flame.png', 'Thanks everyone!', 'Level {level} reached'], goal: ['GOAL REACHED', '@primary', 'alert_follow.wav', 'stock/mono_bell.png', '{value} / {target}', '{title}'],
   charity: ['CHARITY {amount}', '@text', 'alert_tip.wav', 'stock/mono_heart.png', '{charity}', '{name}'], tip: ['{amount} TIP', '@text', 'alert_tip.wav', 'stock/mono_coin.png', '{message}', '{name}'],
   custom: ['ALERT', '@primary', 'alert_follow.wav', 'stock/mono_sparkle.png', '{message}', '{name}'],
+  discord_boost: ['SERVER BOOST', '@accent', 'alert_sub.wav', 'stock/mono_gem.png', 'Thanks for boosting the Discord! // {boosts} boosts', '{name}'],
+  discord_join: ['NEW DISCORD MEMBER', '@primary', 'alert_follow.wav', 'stock/mono_heart.png', 'Welcome to the Discord!', '{name}'],
+  discord_milestone: ['DISCORD MILESTONE', '@primary', 'alert_follow.wav', 'stock/mono_sparkle.png', 'The Discord is growing!', '{members} members'],
 };
 const mo = (a, ms, delay, ease) => ({ a, ms, delay, ease: ease || 'ease-out' });
 function makeStarter(style, ev) {

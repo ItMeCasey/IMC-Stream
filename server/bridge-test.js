@@ -27,4 +27,10 @@ C.publish('chat.message', { text: 'b' }); C.publish('chat.message', { text: 'c' 
 assert.deepEqual(C.since(0, true).events.map((e) => e.type + (e.data.text || '')), ['stream.update', 'chat.messageb', 'chat.messagec', 'stream.offline'], 'a busy chat only pushes out older chat, never stream events');
 t2 += 61000; assert.equal(C.publish('chat.message', { text: 'late' }), null, 'switches itself off a minute after the bot stops asking');
 assert.deepEqual(createBridge({}).info(), {}, 'no info source means an empty answer'); assert.deepEqual(createBridge({ info: () => ({ top: [1] }) }).info(), { top: [1] });
+// Discord alerts from IMC-Bot: only known events, only their variables, plain short text
+const DA = B.discordAlert;
+assert.deepEqual(DA({ event: 'discord_boost', vars: { name: '  Sam\n  the Great ', boosts: 7.6, level: 2, evil: '<script>' } }), { event: 'discord_boost', vars: { name: 'Sam the Great', boosts: 8, level: 2 }, num: 8 });
+assert.deepEqual(DA({ event: 'discord_join', vars: { name: 'x'.repeat(200), members: 5 } }), { event: 'discord_join', vars: { name: 'x'.repeat(60) }, num: 0 });
+assert.deepEqual(DA({ event: 'discord_milestone', vars: { members: 500 } }), { event: 'discord_milestone', vars: { members: 500 }, num: 500 }); assert.deepEqual(DA({ event: 'discord_boost' }).vars, { name: '', boosts: '', level: '' }, 'missing variables are empty');
+for (const bad of [{ event: 'follow', vars: { name: 'Fake' } }, { event: 'tip' }, { event: 'custom' }, {}, null, { event: '__proto__' }, { event: 'constructor' }, { event: 'toString' }]) assert.throws(() => DA(bad), /Unknown Discord event/, JSON.stringify(bad));
 console.log('bridge test passed');
