@@ -109,6 +109,7 @@ const KINDS = {   // the basic parts that ship with the app
   'Glow bar': () => SHAPE({ name: 'Glow bar', h: 18, fill: '@primary', fill2: '@accent', angle: 0, glow: 30 }),
   'Image / GIF / WebP': () => BASEP({ type: 'image', name: 'Image', src: (M.assets.images.includes('logo.png') ? 'logo.png' : ''), w: 300, h: 300, fit: 'contain', radius: 0, pixel: false }),
   'Video': () => BASEP({ type: 'video', name: 'Video', src: '', w: 640, h: 360, fit: 'contain', radius: 0, loop: true, volume: 0 }),
+  'Sound from file': null,   // picks a file, uploads it and adds a sound part for it
   'Sound': () => BASEP({ type: 'sound', name: 'Sound', src: (M.assets.sounds[0] || ''), volume: 60, w: 1, h: 1, x: 0, y: 0 }),
 };
 // ready-made layouts: a style for an event type (its words, colour, sound and icon); every part stays editable
@@ -388,7 +389,9 @@ function insertParts(list) {
 
 // ---------- parts palette, stock art, templates and layers
 $('parts').insertAdjacentHTML('beforeend', Object.keys(KINDS).map((k) => `<button class="ghost" data-k="${esc(k)}">+ ${esc(k)}</button>`).join(''));
-$('parts').onclick = (e) => { const k = e.target.dataset.k; if (!k) return; if (D.parts.length >= M.limits.parts) return toast('At most ' + M.limits.parts + ' parts', true); push(); const p = KINDS[k](); D.parts.push(p); changed(); select(p.id, 'one'); };
+$('parts').onclick = (e) => {
+  const k = e.target.dataset.k; if (!k) return;
+  if (k === 'Sound from file') { upKind = 'sound'; upNew = true; $('upIn').accept = '.wav,.mp3,.ogg,audio/*'; $('upIn').click(); return; } if (D.parts.length >= M.limits.parts) return toast('At most ' + M.limits.parts + ' parts', true); push(); const p = KINDS[k](); D.parts.push(p); changed(); select(p.id, 'one'); };
 function drawStock() {
   $('stock').innerHTML = M.assets.images.filter((f) => f.startsWith('stock/')).map((f) => `<img src="/assets/${esc(f)}" data-s="${esc(f)}" title="${esc(f.slice(6, -4).replace(/_/g, ' '))}" alt="">`).join('');
   const cats = [...new Set(WIDGETS.map((w) => w.cat))];
@@ -506,13 +509,14 @@ $('insp').addEventListener('click', (e) => {
   else if (t.dataset.play && p && p.src) { const a = new Audio('/sounds/' + p.src); a.volume = p.volume / 100; a.play(); }
   else if (t.dataset.up) { upKind = t.dataset.up; $('upIn').accept = { font: '.ttf,.otf,.woff,.woff2', image: '.png,.gif,.webp,.jpg,.jpeg,.svg,image/*', video: '.mp4,.webm', sound: '.wav,.mp3,.ogg,audio/*' }[upKind]; $('upIn').click(); }
 });
-let upKind = ''; document.body.insertAdjacentHTML('beforeend', '<input type="file" id="upIn" style="display:none">');
+let upKind = '', upNew = false; document.body.insertAdjacentHTML('beforeend', '<input type="file" id="upIn" style="display:none">');
 $('upIn').onchange = async (e) => {
-  const f = e.target.files[0], p = part(sel); e.target.value = ''; if (!f || (!p && upKind !== 'font')) return;
+  const f = e.target.files[0], p = part(sel), mk = upNew; upNew = false; e.target.value = ''; if (!f || (!p && upKind !== 'font' && !mk)) return;
   const r = await fetch('/api/alerts/upload?kind=' + upKind + '&name=' + encodeURIComponent(f.name), { method: 'POST', body: f }).then((x) => x.json());
   if (r.error) return toast(r.error, true);
   M.assets = (await fetch('/api/alertdesigns').then((x) => x.json())).assets;
   if (upKind === 'font') { if (p && p.type === 'text' && multi.size === 1) { push(); p.font = r.path; changed(); } drawTheme(); drawInsp(); toast('Font added: ' + fontName(r.path)); return; }
+  if (mk) { push(); const n = KINDS.Sound(); n.src = r.path; n.name = f.name.replace(/\.[^.]+$/, '').slice(0, 30); D.parts.push(n); changed(); select(n.id, 'one'); toast('Sound added: ' + n.name); return; }
   push(); p.src = r.path; changed(); drawInsp();
 };
 

@@ -1760,6 +1760,7 @@ async function route(req, res) {
       for await (const c of req) { size += c.length; if (size > limit) return json(res, 413, { error: 'File is over ' + Math.round(limit / 1e6) + ' MB' }); chunks.push(c); }
       const all = Buffer.concat(chunks);
       if (ext === '.svg' && !alertDesign.svgOk(all)) return json(res, 400, { error: 'That .svg has something a picture should not (scripts, links or embedded pages): export it again as a plain image' });
+      if (kind === 'sound' && !alertImport.magicOk('sound', ext, all)) return json(res, 400, { error: 'That does not look like a ' + ext + ' sound file' });
       if (kind === 'font' && !alertDesign.fontOk(ext, all)) return json(res, 400, { error: 'That does not look like a ' + ext + ' font file' });
       const base = path.basename(raw, ext).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'upload';
       const dir = path.join(CUSTOM, kind === 'image' ? 'assets' : kind === 'video' ? 'video' : kind === 'font' ? 'fonts' : 'sounds'); fs.mkdirSync(dir, { recursive: true });
