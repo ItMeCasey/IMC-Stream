@@ -112,7 +112,7 @@ const defaultState = () => ({
   board: [],
   site: { project: '', auto: true, published: false, lastHash: '', lastDeploy: 0, lastUrl: '', lastError: '', lastTry: 0 },   // the viewers' website on Cloudflare Pages
   rewardHooks: [], obsCfg: { host: '127.0.0.1', port: 4455, password: '' },
-  alertRules: [], alertsSeeded: false,
+  alertRules: [], alertsSeeded: false, alertDesigns: [], alertTemplates: [], alertThemes: [],   // alertDesigns: layouts made in the Alert Builder (rules point at them by id); alertTemplates: parts you saved to reuse; alertThemes: colour and font sets you saved
   customGoals: [],   // user-made goals shown as progress bars
 });
 // Overlay saved state on the defaults so a state.json from an older version still gets any newly added keys (arrays and scalars are taken from the saved copy as-is).
@@ -518,8 +518,11 @@ function pickRule(event, num, vars, key) {
 }
 // Turn a rule plus the event's variables into the alert object the overlay plays (text, sound, image, video, sub tier, etc.).
 function buildAlert(rule, vars) {
-  return { kind: ALERT_EVENTS[rule.event].kind, event: rule.event, ruleId: rule.id, tag: tpl(rule.tag, vars), name: tpl(rule.title, vars), msg: tpl(rule.msg, vars),
+  const dz = rule.design && state.alertDesigns.find((d) => d.id === rule.design);   // a rule with an Alert Builder design shows that instead of the default banner
+  const a = { kind: ALERT_EVENTS[rule.event].kind, event: rule.event, ruleId: rule.id, tag: tpl(rule.tag, vars), name: tpl(rule.title, vars), msg: tpl(rule.msg, vars),
     bits: rule.event === 'bits' ? Math.floor(Number(vars.amount) || 0) : 0, sub: ['sub', 'resub', 'giftsub'].includes(rule.event) ? { tier: ({ 2000: 2, 3000: 3 })[Number(vars.tierId)] || 1, months: rule.event === 'resub' ? Math.max(0, Math.floor(Number(vars.months) || 0)) : 0 } : null, accent: rule.color, sound: rule.sound ? '/sounds/' + rule.sound : '', volume: rule.volume, seconds: rule.seconds, image: rule.image ? '/assets/' + rule.image : '', video: rule.video ? '/video/' + rule.video : '' };
+  if (dz) { a.design = dz.id; a.vars = alertDesign.vars(ALERT_EVENTS[rule.event], vars); a.seconds = dz.seconds; }
+  return a;
 }
 /** Fire an alert for an event: the best-matching enabled rule decides what it looks and sounds like (no rule = no alert). */
 const EXPLODE_ON = { goal: 'goal', raid: 'raid', hype_start: 'hype', sub: 'sub', resub: 'sub', giftsub: 'giftsub', bits: 'bits' };
@@ -578,6 +581,7 @@ function saveAlertRule(b) {
     event: b.event, name: oneLine(b.name, 40) || ev.label, enabled: b.enabled !== false, min, max,
     match: ev.match ? oneLine(b.match, 60) : '', key: ev.key ? String(b.key || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 30) : '',
     tag: oneLine(b.tag, 60), title: oneLine(b.title, 80), msg: oneLine(b.msg, 140),
+    design: b.design && state.alertDesigns.some((d) => d.id === b.design) ? b.design : '',
     color: /^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : C_AQUA, sound: safeRel(b.sound, A.sounds), image: safeRel(b.image, A.images), video: safeRel(b.video, A.videos),
     volume: Math.min(100, Math.max(0, num(b.volume) == null ? 60 : num(b.volume))), seconds: Math.min(30, Math.max(2, num(b.seconds) || 6)),
     tts: { on: !!(b.tts && b.tts.on), text: oneLine(b.tts && b.tts.text, 200) || '{name} says {message}', voice: String((b.tts && b.tts.voice) || '').slice(0, 100) },
@@ -585,6 +589,56 @@ function saveAlertRule(b) {
   if (ev.key && !r.key) throw new Error('Custom alerts need a trigger key (letters/numbers, e.g. "lurk")');
   persist();
   return r;
+}
+
+// ------------------------------------------------------------------ Alert Builder designs (layouts the overlay draws; see alertdesign.js)
+// Images a design may use: the app's own badges and logo plus your uploads.
+const designAssets = () => {
+  const A = alertAssets(), own = (d) => listFiles(path.join(ROOT, 'assets', d), ['.png'], path.join(ROOT, 'assets'));
+  return { images: Array.from(new Set(A.images.concat(own('bits'), own('subs'), own('stock')))), sounds: A.sounds, videos: A.videos };
+};
+// Validate and save a design from the builder; keeps its place in the list when it already exists.
+function saveAlertDesign(b) {
+  const d = alertDesign.sanitize(b, designAssets()), i = state.alertDesigns.findIndex((x) => x.id === d.id);
+  if (i < 0 && state.alertDesigns.length >= alertDesign.LIMITS.designs) throw new Error('At most ' + alertDesign.LIMITS.designs + ' designs');
+  if (i < 0) state.alertDesigns.push(d); else state.alertDesigns[i] = d;
+  persist(); broadcast('alertdesign', { id: d.id });   // overlays drop their copy and fetch the new one
+  return d;
+}
+function deleteAlertDesign(id) {
+  state.alertDesigns = state.alertDesigns.filter((d) => d.id !== id);
+  for (const r of state.alertRules) if (r.design === id) r.design = '';   // those rules go back to the default banner
+  persist(); broadcast('alertdesign', { id });
+}
+// Parts you saved to reuse (a selection or a whole layout): cleaned like a design's parts and moved to the top left corner.
+function saveAlertTemplate(b) {
+  const parts = alertDesign.sanitizeParts(b.parts, designAssets()).filter((p) => p.type !== 'sound' || p.src);
+  if (!parts.length) throw new Error('Nothing to save');
+  if (state.alertTemplates.length >= alertDesign.LIMITS.templates) throw new Error('At most ' + alertDesign.LIMITS.templates + ' templates');
+  const vis = parts.filter((p) => p.type !== 'sound'), x0 = vis.length ? Math.min(...vis.map((p) => p.x)) : 0, y0 = vis.length ? Math.min(...vis.map((p) => p.y)) : 0;
+  for (const p of vis) { p.x -= x0; p.y -= y0; }
+  const t = { id: 't-' + Math.random().toString(36).slice(2, 8), name: oneLine(b.name, alertDesign.LIMITS.name) || 'My template', parts };
+  state.alertTemplates.push(t); persist(); return t;
+}
+// A colour and font set (see alertdesign.js) kept under a name, to start new designs from.
+function saveAlertTheme(b) {
+  const t = Object.assign({ id: /^th-[a-z0-9]{4,8}$/.test(String(b.id || '')) ? b.id : 'th-' + Math.random().toString(36).slice(2, 8), name: oneLine(b.name, alertDesign.LIMITS.name) || 'My theme' }, alertDesign.sanitizeTheme(b)), i = state.alertThemes.findIndex((x) => x.id === t.id);
+  if (i < 0 && state.alertThemes.length >= alertDesign.LIMITS.themes) throw new Error('At most ' + alertDesign.LIMITS.themes + ' themes');
+  if (i < 0) state.alertThemes.push(t); else state.alertThemes[i] = t;
+  persist(); return t;
+}
+// Pull in art and custom code you already own (see alertimport.js); the result is saved as a new design.
+function importAlertFile(file, name) {
+  const r = alertImport.run({ file, name, custom: CUSTOM });
+  if (!r.design) return { ok: false, error: r.report.summary, report: r.report };
+  const d = saveAlertDesign(r.design);
+  return { ok: true, id: d.id, name: d.name, report: r.report };
+}
+// Show a design on stream with sample (or given) values, without needing a rule.
+function testAlertDesign(b) {
+  const d = state.alertDesigns.find((x) => x.id === b.id); if (!d) throw new Error('Save the design first');
+  const ev = ALERT_EVENTS[b.event] ? b.event : 'follow', v = alertDesign.vars(ALERT_EVENTS[ev], SAMPLE_VARS[ev]);
+  emitAlert({ kind: ALERT_EVENTS[ev].kind, event: ev, ruleId: '', tag: 'DESIGN TEST', name: d.name, msg: '', bits: 0, sub: null, sound: '', volume: 60, seconds: d.seconds, image: '', video: '', design: d.id, vars: v });
 }
 
 const TIERS = { '1000': 'Tier 1', '2000': 'Tier 2', '3000': 'Tier 3' };
@@ -1502,10 +1556,10 @@ function status() {
   };
 }
 // Block cross-site POSTs: allowed are this app's own pages and programs that send no Origin (OBS, Stream Deck); "Origin: null" and other sites are refused (see webguard.js).
-const webguard = require('./webguard.js');
+const webguard = require('./webguard.js'), alertDesign = require('./alertdesign.js'), alertImport = require('./alertimport.js');
 function originOk(req) { return webguard.postAllowed(req.headers); }
 // Routes that can leak logins, run code or change what the PC does: only from this PC, even when a phone is logged in over the LAN.
-const LOCAL_ONLY = /^\/api\/(backup\/create|app\/restart|update\/install|obs\/install|vm\/install|site\/(login|publish)|hooks\/(save|delete|test|obs\/save))$/;
+const LOCAL_ONLY = /^\/api\/(alertdesign\/(save|import)|backup\/create|app\/restart|update\/install|obs\/install|vm\/install|site\/(login|publish)|hooks\/(save|delete|test|obs\/save))$/;
 // Read a JSON request body, capped in size (default 100 KB); bad JSON becomes {}.
 function readJson(req, limit) {
   return new Promise((resolve) => {
@@ -1579,6 +1633,7 @@ async function route(req, res) {
   }
   if (p === '/api/tts/install' && req.method === 'GET') return json(res, 200, kokoroInstall);
   if (p === '/api/overlay-settings') return json(res, 200, state.overlayCfg);
+  if (p === '/alert-builder' || p === '/alert-builder/') return serveFile(res, path.join(__dirname, 'public', 'alert-builder.html'));
   if (p === '/overlay-editor' || p === '/overlay-editor/') return serveFile(res, path.join(__dirname, 'public', 'overlay-editor.html'));
   if (p === '/api/automod') return json(res, 200, automodView());
   if (p === '/ui-theme.js') return serveFile(res, path.join(__dirname, 'public', 'ui-theme.js'));
@@ -1661,7 +1716,9 @@ async function route(req, res) {
   if (p === '/api/tts') { await tts.voices(); return json(res, 200, tts.view()); }
   if (p.startsWith('/tts/')) { const f = tts.clip(p.slice(5)); if (!f) { res.writeHead(404); return res.end(); } return serveFile(res, f); }
   if (p === '/tts' || p === '/tts/') return serveFile(res, path.join(__dirname, 'public', 'tts.html'));
-  if (p === '/api/alerts') return json(res, 200, { ctl: alertCtl, rules: state.alertRules, events: ALERT_EVENTS, samples: SAMPLE_VARS, assets: alertAssets() });
+  if (p === '/api/alerts') return json(res, 200, { ctl: alertCtl, rules: state.alertRules, events: ALERT_EVENTS, samples: SAMPLE_VARS, assets: alertAssets(), designs: state.alertDesigns.map((d) => ({ id: d.id, name: d.name })) });
+  if (p === '/api/alertdesigns') return json(res, 200, { designs: state.alertDesigns, templates: state.alertTemplates, themes: state.alertThemes, defaultTheme: alertDesign.DEFAULT_THEME, events: ALERT_EVENTS, samples: SAMPLE_VARS, assets: designAssets(), fonts: alertDesign.FONTS, anims: alertDesign.ANIM_IN, idles: alertDesign.ANIM_IDLE, eases: alertDesign.EASES, limits: alertDesign.LIMITS });
+  if (p === '/api/alertdesign') { const d = state.alertDesigns.find((x) => x.id === u.searchParams.get('id')); return d ? json(res, 200, d) : json(res, 404, { error: 'No such design' }); }
   if (p === '/api/goals') return json(res, 200, { goals: goalViews(), metrics: Object.fromEntries(Object.entries(GOAL_METRICS).map(([k, v]) => [k, v[0]])), colors: GOAL_COLORS });
   if (p === '/api/emotes') return json(res, 200, { emotes, updated: emotesUpdated });
   if (p === '/api/badges') return json(res, 200, badges);
@@ -1706,8 +1763,14 @@ async function route(req, res) {
       fs.writeFileSync(path.join(dir, file), Buffer.concat(chunks));
       return json(res, 200, { ok: true, path: 'custom/' + file });
     }
+    if (p === '/api/alertdesign/import') {   // a .zip or file you own: art and custom code become a design (local only, because imported code runs in OBS)
+      const raw = u.searchParams.get('name') || 'import', chunks = []; let size = 0;
+      for await (const c of req) { size += c.length; if (size > 150e6) return json(res, 413, { error: 'The file is over 150 MB' }); chunks.push(c); }
+      const tmp = path.join(os.tmpdir(), 'icm-aimport-' + Date.now() + path.extname(raw).toLowerCase().replace(/[^.a-z0-9]/g, '')); fs.writeFileSync(tmp, Buffer.concat(chunks));
+      try { return json(res, 200, importAlertFile(tmp, raw)); } catch (e) { return json(res, 400, { error: e.message }); } finally { try { fs.unlinkSync(tmp); } catch (e) { /* gone */ } }
+    }
     // panel images are sent as base64 so they get a larger body limit
-    const body = await readJson(req, req.url.startsWith('/api/panels/image') ? 1.6e6 : 1e5);
+    const body = await readJson(req, req.url.startsWith('/api/panels/image') ? 1.6e6 : req.url.startsWith('/api/alertdesign/save') ? 3e5 : 1e5);
     try {
       if (p === '/api/test') {
         if (body.type === 'duel') { const n = ['RetroRider', 'VinylVince', 'TealTina', 'ChaosChad', 'BitBaron', 'GenerousGamer'], x = n[Math.floor(Math.random() * 6)]; duelPlay({ a: x, b: n[(n.indexOf(x) + 1 + Math.floor(Math.random() * 5)) % 6], winner: Math.random() < .5 ? 'a' : 'b', amount: 500, currency: 'coins' }); return json(res, 200, { ok: true }); }
@@ -1980,6 +2043,13 @@ async function route(req, res) {
       if (p.startsWith('/api/polls/')) return json(res, 200, await pollAction(p.slice(11), body));
       if (p.startsWith('/api/bot/')) return json(res, 200, await bot.api(p.slice(9), body));
       if (p === '/api/alerts/save') return json(res, 200, saveAlertRule(body));
+      if (p === '/api/alertdesign/save') return json(res, 200, saveAlertDesign(body));
+      if (p === '/api/alertdesign/theme/save') return json(res, 200, saveAlertTheme(body));
+      if (p === '/api/alertdesign/theme/delete') { state.alertThemes = state.alertThemes.filter((t) => t.id !== body.id); persist(); return json(res, 200, { ok: true }); }
+      if (p === '/api/alertdesign/template/save') return json(res, 200, saveAlertTemplate(body));
+      if (p === '/api/alertdesign/template/delete') { state.alertTemplates = state.alertTemplates.filter((t) => t.id !== body.id); persist(); return json(res, 200, { ok: true }); }
+      if (p === '/api/alertdesign/delete') { deleteAlertDesign(body.id); return json(res, 200, { ok: true }); }
+      if (p === '/api/alertdesign/test') { testAlertDesign(body); return json(res, 200, { ok: true }); }
       if (p === '/api/alerts/delete') { state.alertRules = state.alertRules.filter((r) => r.id !== body.id); persist(); return json(res, 200, { ok: true }); }
       if (p === '/api/alerts/reset') { state.alertRules = defaultRules(); persist(); return json(res, 200, { ok: true }); }
       if (p === '/api/alerts/test') {
@@ -2178,5 +2248,5 @@ function main() {
   });
 }
 
-module.exports = { subathon, paypal, audio, modules, scenes, access, backup, tts, alertControl, replayAlert, countdown, media, hooks, adStarted, adTicker, adsView, setChannel, searchCategories, bot, fire, pickRule, buildAlert, saveAlertRule, ALERT_EVENTS, saveGoal, goalViews, chatBuf, loadEmotes, handleEvent, SAMPLES, state, renderLabels, LABELS, labelCache, labelDocs, resetSession };
+module.exports = { subathon, paypal, audio, modules, scenes, access, backup, tts, alertControl, replayAlert, countdown, media, hooks, adStarted, adTicker, adsView, setChannel, searchCategories, bot, fire, pickRule, buildAlert, saveAlertRule, saveAlertDesign, deleteAlertDesign, designAssets, ALERT_EVENTS, saveGoal, goalViews, chatBuf, loadEmotes, handleEvent, SAMPLES, state, renderLabels, LABELS, labelCache, labelDocs, resetSession };
 if (require.main === module) main();

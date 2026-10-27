@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IMC-Stream Alert Builder</title>
+<script src="/ui-theme.js"></script>
+<style>
+  :root { --iron:#222A2A; --iron-d:#1A2020; --aqua:#4FBBBC; --rust:#EC4624; --heat:#F39120; --cream:#E2DAC2; --drust:#B13A22; --line:#2f3938; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body { background: var(--iron); color: var(--cream); font-family: "Bahnschrift","Segoe UI",sans-serif; font-size: 14px; display: grid; grid-template-columns: 220px 1fr 300px; }
+  h2 { font-size: 11px; letter-spacing: 4px; color: var(--aqua); margin: 12px 0 6px; text-transform: uppercase; }
+  .muted { color: #9aa39f; font-size: 12px; line-height: 1.4; }
+  button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-size: 11px; padding: 6px 10px; border: 0; cursor: pointer; background: var(--heat); color: var(--iron); } button:hover { filter: brightness(1.12); }
+  button.alt { background: var(--aqua); } button.ghost { background: transparent; color: var(--cream); outline: 2px solid #46504f; } button.on { background: var(--aqua); color: var(--iron); outline: 0; }
+  select, input, textarea { font: inherit; font-size: 13px; padding: 4px 6px; background: var(--iron); color: var(--cream); border: 2px solid #46504f; width: 100%; min-width: 0; } input[type=checkbox] { width: auto; } input[type=color] { padding: 0; height: 28px; } input[type=range] { padding: 0; accent-color: var(--heat); }
+  textarea { font-family: Consolas, monospace; font-size: 12px; resize: none; }
+  .col { background: var(--iron-d); overflow-y: auto; padding: 8px 12px 20px; min-height: 0; } #left { border-right: 1px solid var(--line); } #right { border-left: 1px solid var(--line); }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .fld { display: flex; flex-direction: column; gap: 2px; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #9aa39f; margin-bottom: 6px; } .fld.chk { flex-direction: row; align-items: center; gap: 6px; }
+  #parts button { width: 100%; text-align: left; margin-bottom: 4px; }
+  .layer { display: flex; align-items: center; gap: 4px; padding: 4px 6px; border-left: 3px solid transparent; cursor: pointer; font-size: 13px; } .layer:hover { background: rgba(255,255,255,.05); } .layer.on { background: rgba(79,187,188,.16); border-left-color: var(--aqua); }
+  .layer span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .layer button { padding: 1px 5px; font-size: 10px; }
+  #mid { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  #bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 6px 10px; background: var(--iron-d); border-bottom: 2px solid var(--line); } #bar select, #bar input[type=number] { width: auto; }
+  #vp { position: relative; flex: 1; min-height: 0; overflow: hidden; background: repeating-conic-gradient(#2a3433 0 25%, #202928 0 50%) 0 0 / 24px 24px; }
+  #vp.dark { background: #0b0d0d; } #vp.light { background: #e8e8e8; } #vp.green { background: #00b140; }
+  #cv { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; outline: 2px dashed rgba(226,218,194,.35); overflow: visible; user-select: none; touch-action: none; }
+  #pv { position: absolute; inset: 0; pointer-events: none; }
+  #sel { position: absolute; border: 2px solid var(--heat); pointer-events: none; display: none; } #sel i { position: absolute; width: 14px; height: 14px; background: var(--heat); pointer-events: auto; }
+  .gl { position: absolute; background: #ff3df5; pointer-events: none; } .gv { width: 2px; top: 0; height: 1080px; } .gh { height: 2px; left: 0; width: 1920px; }
+  #code { display: none; height: 250px; border-top: 2px solid var(--line); background: var(--iron-d); padding: 6px 10px; flex: none; } #code .t { display: flex; gap: 6px; margin-bottom: 6px; } #code textarea { height: 188px; }
+  #toast { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: var(--aqua); color: var(--iron); padding: 6px 14px; font-weight: 700; display: none; z-index: 9; } #toast.bad { background: var(--rust); color: var(--cream); }
+  .chip { display: inline-block; padding: 0 6px; margin: 0 4px 4px 0; background: #2f3938; cursor: pointer; font-size: 12px; } .chip:hover { background: var(--aqua); color: var(--iron); }
+  body.html #parts, body.html #layers, body.html #stockbox, body.html #tplbox { display: none; } body.html #code { display: block; } body:not(.html) #htmlhelp { display: none; }
+  #stock { display: flex; flex-wrap: wrap; gap: 4px; } #stock img { width: 46px; height: 46px; object-fit: contain; background: #2a3433; cursor: pointer; padding: 2px; } #stock img:hover { outline: 2px solid var(--aqua); }
+  #tpls button { width: 100%; text-align: left; margin-bottom: 4px; }
+  #rep { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none; align-items: center; justify-content: center; z-index: 8; } #rep > div { background: var(--iron-d); border-top: 3px solid var(--aqua); padding: 14px 18px; max-width: 640px; max-height: 80vh; overflow: auto; } #rep li { margin: 2px 0 2px 18px; font-size: 13px; }
+  html.embed #hdr { display: none; }
+</style></head><body>
+<div id="left" class="col">
+  <div id="hdr" style="margin-bottom:4px"><b style="letter-spacing:4px;font-size:13px">ALERT BUILDER</b></div>
+  <h2>Design</h2>
+  <select id="dsel"></select>
+  <div class="row"><button id="dNew" class="alt">New</button><button id="dDup" class="ghost">Copy</button><button id="dDel" class="ghost">Delete</button><button id="dImp" class="ghost" title="Art or custom code you own (.zip, .html, .css, .js, .json, pictures, video, sound)">Import</button></div>
+  <input type="file" id="impIn" accept=".zip,.html,.htm,.css,.js,.json,.png,.gif,.webp,.jpg,.jpeg,.webm,.mp4,.wav,.mp3,.ogg" style="display:none">
+  <div id="newBox" style="display:none"><label class="fld">Start from<select id="nStyle"><option value="banner">Banner</option><option value="lower">Lower third</option><option value="card">Framed card</option><option value="pop">Pop-up with icon</option><option value="ribbon">Ribbon</option><option value="split">Split panel</option><option value="neon">Neon frame</option><option value="minimal">Minimal text</option></select></label><label class="fld">For<select id="nEv"></select></label><div class="row"><button id="nGo">Create</button><button id="nBlank" class="ghost">Blank</button></div></div>
+  <div id="parts"><h2>Add a part</h2></div>
+  <div id="stockbox"><h2>Stock art <span class="muted">(white ones take any colour)</span></h2><div id="stock"></div></div>
+  <div id="tplbox"><h2>Widgets and templates</h2><div id="tpls"></div><div class="row" style="flex-wrap:nowrap"><input id="tName" placeholder="Template name" maxlength="40"><button id="tSave" class="ghost" title="Saves the selected parts, or the whole layout if nothing is selected">Save</button></div></div>
+  <div id="layers"><h2>Layers <span class="muted">(top = front)</span></h2><div id="lyr"></div></div>
+  <div id="htmlhelp"><h2>Your own HTML</h2><p class="muted">Write the page for a 1920x1080 frame. <code>{name}</code>, <code>{message}</code> and the other variables are filled in (safely escaped) in your HTML; in JavaScript use <code>ALERT.vars.name</code>. Your uploaded images work as <code>/assets/custom/file.png</code>. Listen for <code>alertleave</code> to run your own exit animation.</p>
+    <div class="row"><button id="hFile" class="ghost">Load .html / .css / .js file</button><button id="hStart" class="ghost">Starter</button></div><input type="file" id="hFileIn" accept=".html,.htm,.css,.js" multiple style="display:none">
+    <p class="muted">Your code runs in a sandboxed frame with no network and no access to this app. Only use code you trust.</p></div>
+</div>
+<div id="mid">
+  <div id="bar">
+    <button id="bSave">Save</button><button id="bPlay" class="alt">&#9654; Preview</button><button id="bTest" class="alt">Send to OBS</button>
+    <button id="bBuilder" class="on">Builder</button><button id="bHtml" class="ghost">HTML / CSS</button>
+    <span class="muted">Sample:</span><select id="evSel"></select>
+    <label class="muted"><input type="checkbox" id="snapOn" checked> Snap</label><select id="gridSel"><option value="0">no grid</option><option value="10">10 px</option><option value="20" selected>20 px</option><option value="40">40 px</option></select>
+    <select id="bgSel"><option value="">Checker</option><option value="dark">Dark</option><option value="light">Light</option><option value="green">Green</option></select>
+    <span class="muted" id="dirty"></span>
+  </div>
+  <div id="vp"><div id="cv"><div id="pc" style="position:absolute;inset:0"></div><div id="pv"></div><div id="gl"></div><div id="sel"></div></div></div>
+  <div id="code"><div class="t"><button data-c="html" class="on">HTML</button><button data-c="css" class="ghost">CSS</button><button data-c="js" class="ghost">JavaScript</button><button data-c="fields" class="ghost" title="Settings of an imported widget (StreamElements FIELDS JSON); {{name}} in your HTML and CSS is filled from here">Fields</button><span class="muted" id="cErr" style="align-self:center"></span></div>
+    <textarea id="ta" spellcheck="false"></textarea></div>
+</div>
+<div id="right" class="col">
+  <h2>Alert</h2>
+  <label class="fld">Name<input id="dName" maxlength="40"></label>
+  <label class="fld">Seconds on screen<input id="dSecs" type="number" min="2" max="30"></label>
+  <label class="fld" id="fOut" style="display:none">Exit time (ms)<input id="dOut" type="number" min="0" max="5000"></label>
+  <div><span class="muted">Insert variable in the selected text: </span><div id="vars" style="margin-top:4px"></div></div>
+  <details id="themeBox" open><summary class="muted" style="cursor:pointer;letter-spacing:3px;margin-top:10px">THEME</summary>
+    <p class="muted">Parts set to a theme colour or font follow these. Change one here and they all change.</p>
+    <label class="fld">Start from<select id="thPreset"></select></label>
+    <div class="grid2" id="thColors"></div>
+    <div class="grid2"><label class="fld">Heading font<select id="thHead"></select></label><label class="fld">Body font<select id="thBody"></select></label></div>
+    <div class="row" style="flex-wrap:nowrap"><input id="thName" placeholder="Theme name" maxlength="40"><button id="thSave" class="ghost">Save</button><button id="thDel" class="ghost" title="Delete the chosen saved theme">&times;</button></div>
+  </details>
+  <div id="insp"></div>
+  <p class="muted" style="margin-top:14px">To use a design: Dashboard &rarr; Alerts &rarr; edit an alert &rarr; <b>Design</b>. Its event, amount range, sound and voice settings stay in the alert.</p>
+</div>
+<div id="toast"></div>
+<div id="rep"><div id="repBody"></div></div>
+<script src="/overlays/alert-design.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = AlertDesign.esc, ORIGIN = location.origin;
+const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b || {}) }).then((r) => r.json());
+function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = bad ? 'bad' : ''; e.style.display = 'block'; clearTimeout(toast.t); toast.t = setTimeout(() => e.style.display = 'none', 3200); }
+if (self !== top) document.documentElement.classList.add('embed');
+
+let M = null, D = null, sel = '', dirty = false, scale = 1, hist = [], timer = null, playing = null, codeTab = 'html', sampleEv = 'follow';
+const rid = () => 'p' + Math.random().toString(36).slice(2, 8);
+const part = (id) => D && D.parts.find((p) => p.id === id);
+const MOTION = () => ({ in: { a: 'fade', ms: 500, delay: 0, ease: 'ease-out' }, out: { a: 'fade', ms: 400, delay: 0, ease: 'ease-out' }, idle: 'none' });
+const BASEP = (o) => Object.assign({ id: rid(), x: 660, y: 440, w: 600, h: 200, rot: 0, opacity: 1, locked: false }, MOTION(), o);
+const SHAPE = (o) => BASEP(Object.assign({ type: 'shape', kind: 'rect', fill: '@bg', fill2: '', angle: 90, border: 0, borderColor: '@primary', radius: 0, skew: 0, glow: 0, glowColor: '@primary' }, o));
+const KINDS = {   // the basic parts that ship with the app
+  'Text': () => BASEP({ type: 'text', name: 'Text', text: '{name}', w: 700, h: 120, font: '@body', size: 80, weight: 700, color: '@text', align: 'center', valign: 'middle', caps: true, italic: false, shadow: true, shadowColor: '#000000', stroke: 0, strokeColor: '#000000', spacing: 2, lh: 1.1, fit: 'shrink' }),
+  'Rectangle': () => SHAPE({ name: 'Rectangle' }),
+  'Rounded panel': () => SHAPE({ name: 'Panel', radius: 28, border: 4, h: 260 }),
+  'Pill': () => SHAPE({ name: 'Pill', radius: 999, h: 90, fill: '@primary' }),
+  'Circle': () => SHAPE({ name: 'Circle', kind: 'ellipse', w: 240, h: 240, fill: '@accent' }),
+  'Slanted banner': () => SHAPE({ name: 'Banner', skew: -12, fill: '@bg', fill2: '#00000055', angle: 90, h: 220, border: 0 }),
+  'Frame': () => SHAPE({ name: 'Frame', fill: '#00000000', border: 8, radius: 12, h: 300 }),
+  'Glow bar': () => SHAPE({ name: 'Glow bar', h: 18, fill: '@primary', fill2: '@accent', angle: 0, glow: 30 }),
+  'Image / GIF / WebP': () => BASEP({ type: 'image', name: 'Image', src: (M.assets.images.includes('logo.png') ? 'logo.png' : ''), w: 300, h: 300, fit: 'contain', radius: 0, pixel: false }),
+  'Video': () => BASEP({ type: 'video', name: 'Video', src: '', w: 640, h: 360, fit: 'contain', radius: 0, loop: true, volume: 0 }),
+  'Sound': () => BASEP({ type: 'sound', name: 'Sound', src: (M.assets.sounds[0] || ''), volume: 60, w: 1, h: 1, x: 0, y: 0 }),
+};
+// ready-made layouts: a style for an event type (its words, colour, sound and icon); every part stays editable
+const THEME = {   // [tag, accent, sound, icon, sub line, title]
+  follow: ['NEW FOLLOWER', '@primary', 'alert_follow.wav', 'stock/mono_heart.png', 'Thanks for the follow!', '{name}'], sub: ['NEW SUB', '@accent', 'alert_sub.wav', 'stock/mono_star.png', '{tier}', '{name}'],
+  resub: ['RESUB', '@accent', 'alert_sub.wav', 'stock/mono_crown.png', '{months} months // {message}', '{name}'], giftsub: ['GIFT SUBS', '@accent', 'alert_sub.wav', 'stock/mono_gift.png', '{total} gifted // {tier}', '{name}'],
+  bits: ['{amount} BITS', '@accent', 'alert_bits.wav', 'stock/mono_gem.png', '{message}', '{name}'], raid: ['INCOMING RAID', '@secondary', 'alert_raid.wav', 'stock/mono_flame.png', '{viewers} raiders incoming', '{name}'],
+  redeem: ['REDEEMED', '@primary', 'alert_follow.wav', 'stock/mono_bolt.png', '{reward}', '{name}'], hype_start: ['HYPE TRAIN', '@secondary', 'alert_raid.wav', 'stock/mono_flame.png', 'Level {level}', 'Hype train started!'],
+  hype_end: ['HYPE TRAIN OVER', '@secondary', 'alert_raid.wav', 'stock/mono_flame.png', 'Thanks everyone!', 'Level {level} reached'], goal: ['GOAL REACHED', '@primary', 'alert_follow.wav', 'stock/mono_bell.png', '{value} / {target}', '{title}'],
+  charity: ['CHARITY {amount}', '@text', 'alert_tip.wav', 'stock/mono_heart.png', '{charity}', '{name}'], tip: ['{amount} TIP', '@text', 'alert_tip.wav', 'stock/mono_coin.png', '{message}', '{name}'],
+  custom: ['ALERT', '@primary', 'alert_follow.wav', 'stock/mono_sparkle.png', '{message}', '{name}'],
+};
+const mo = (a, ms, delay, ease) => ({ a, ms, delay, ease: ease || 'ease-out' });
+function makeStarter(style, ev) {
+  const [tag, c, snd, icon, sub, title] = THEME[ev] || THEME.follow, has = (f) => M.assets.images.includes(f);
+  const T = (name, text, x, y, w, h, size, o) => Object.assign(KINDS.Text(), { name, text, x, y, w, h, size }, name === 'Name' ? { font: '@heading' } : {}, o);
+  const IMG = (name, src, x, y, w, h, o) => (has(src) ? [Object.assign(KINDS['Image / GIF / WebP'](), { name, src, x, y, w, h, tint: c }, o)] : []);
+  const out = mo('fade', 400, 0), dark = '@bg';
+  // building blocks: a lit panel with a soft shadow and moving shine, a shade over it for depth, a tag chip, a round medal behind the icon, sparkles
+  const P = (name, x, y, w, h, o) => SHAPE(Object.assign({ name, x, y, w, h, fill: dark, drop: true, bevel: true, sheen: true, in: mo('left', 600, 0), out: mo('left', 500, 0, 'ease-in-out') }, o));
+  const shade = (x, y, w, h, o) => SHAPE(Object.assign({ name: 'Shade', x, y, w, h, fill: '#FFFFFF16', fill2: '#00000066', angle: 180, in: mo('left', 600, 0), out: mo('left', 500, 0, 'ease-in-out') }, o));
+  const chip = (text, x, y, w, h, delay, o) => [SHAPE(Object.assign({ name: 'Tag chip', x, y, w, h, radius: 999, fill: c, bevel: true, drop: true, in: mo('left', 500, delay), out }, o)), T('Tag', text, x + 10, y, w - 20, h, Math.round(h * 0.56), { color: '@bg', align: 'center', spacing: 5, shadow: false, in: mo('fade', 400, delay + 150), out })];
+  const medal = (cx, cy, r, delay) => [...IMG('Rays', 'stock/mono_burst.png', cx - r * 1.35, cy - r * 1.35, r * 2.7, r * 2.7, { opacity: 0.35, idle: 'spin', in: mo('zoom', 700, delay, 'bounce'), out }),
+    SHAPE({ name: 'Medal', x: cx - r, y: cy - r, w: r * 2, h: r * 2, kind: 'ellipse', fill: '#000000AA', border: Math.max(4, Math.round(r / 16)), borderColor: c, glow: Math.round(r / 4), glowColor: c, bevel: true, in: mo('zoom', 500, delay, 'bounce'), out }),
+    ...IMG('Icon', icon, cx - r * 0.62, cy - r * 0.62, r * 1.24, r * 1.24, { idle: 'pulse', in: mo('zoom', 500, delay + 200, 'bounce'), out })];
+  const spark = (x, y, s, delay) => IMG('Sparkle', 'stock/mono_sparkle.png', x, y, s, s, { tint: '@text', idle: 'pulse', in: mo('zoom', 400, delay, 'bounce'), out });
+  const bullet = (x, y) => IMG('Bullet', 'stock/mono_diamond.png', x, y, 22, 22, { in: mo('fade', 400, 700), out });
+  let ps = [];
+  if (style === 'lower') ps = [
+    P('Panel', 80, 800, 900, 150, { skew: -10 }), shade(80, 800, 900, 150, { skew: -10 }), ...IMG('Pattern', 'stock/mono_stripes.png', 230, 800, 740, 150, { tint: '@text', opacity: 0.05, fit: 'cover', in: mo('fade', 600, 300), out }),
+    SHAPE({ name: 'Color block', x: 50, y: 800, w: 170, h: 150, skew: -10, fill: c, fill2: '@accent', angle: 135, drop: true, bevel: true, sheen: true, in: mo('left', 500, 100), out }),
+    ...IMG('Icon', icon, 90, 822, 100, 100, { tint: '@bg', idle: 'pulse', in: mo('zoom', 500, 450, 'bounce'), out }), ...chip(tag, 130, 756, 340, 40, 300),
+    T('Name', title, 250, 812, 700, 90, 72, { align: 'left', in: mo('left', 500, 450), out }),
+    SHAPE({ name: 'Sub strip', x: 105, y: 955, w: 880, h: 40, skew: -10, fill: c, fill2: '@accent', angle: 0, bevel: true, in: mo('wipe', 500, 600), out }), T('Sub', sub, 240, 955, 720, 40, 24, { color: '@bg', align: 'left', spacing: 4, shadow: false, in: mo('fade', 400, 800), out }),
+    ...spark(960, 780, 44, 900), ...spark(1010, 830, 26, 1000)];
+  else if (style === 'card') ps = [
+    SHAPE({ name: 'Glow', x: 560, y: 150, w: 800, h: 780, radius: 40, fill: '#00000000', border: 4, borderColor: c, glow: 60, glowColor: c, in: mo('zoom', 600, 0, 'bounce'), out: mo('zoom', 400, 0, 'ease-in-out') }),
+    P('Card', 560, 150, 800, 780, { radius: 40, in: mo('zoom', 600, 0, 'bounce'), out: mo('zoom', 400, 0, 'ease-in-out') }), shade(560, 150, 800, 780, { radius: 40, in: mo('zoom', 600, 0, 'bounce'), out: mo('zoom', 400, 0) }),
+    ...IMG('Pattern', 'stock/mono_halftone.png', 584, 700, 752, 210, { tint: '@text', opacity: 0.06, fit: 'cover', in: mo('fade', 600, 500), out }),
+    SHAPE({ name: 'Inner frame', x: 584, y: 174, w: 752, h: 732, radius: 28, fill: '#00000000', border: 2, borderColor: '@muted', opacity: 0.6, in: mo('fade', 600, 300), out }),
+    ...medal(960, 390, 125, 250), ...chip(tag, 740, 570, 440, 54, 500), T('Name', title, 600, 640, 720, 120, 100, { in: mo('bottom', 500, 600), out }),
+    ...IMG('Divider', 'stock/mono_divider.png', 660, 775, 600, 24, { in: mo('wipe', 600, 700), out }), T('Sub', sub, 600, 810, 720, 70, 36, { color: '@muted', align: 'center', spacing: 3, shadow: false, in: mo('fade', 400, 850), out }),
+    ...IMG('Corner', 'stock/mono_diamond.png', 574, 164, 22, 22, { in: mo('fade', 400, 900), out }), ...IMG('Corner', 'stock/mono_diamond.png', 1324, 164, 22, 22, { in: mo('fade', 400, 900), out }), ...IMG('Corner', 'stock/mono_diamond.png', 574, 894, 22, 22, { in: mo('fade', 400, 900), out }), ...IMG('Corner', 'stock/mono_diamond.png', 1324, 894, 22, 22, { in: mo('fade', 400, 900), out }),
+    ...spark(520, 200, 50, 1000), ...spark(1350, 840, 40, 1100)];
+  else if (style === 'pop') ps = [
+    ...IMG('Rays', 'stock/mono_burst.png', 600, 10, 720, 720, { opacity: 0.9, idle: 'spin', in: mo('zoom', 700, 0, 'bounce'), out: mo('zoom', 400, 0) }), ...IMG('Rays soft', 'stock/mono_burst.png', 700, 110, 520, 520, { tint: '@text', opacity: 0.25, idle: 'spin', in: mo('zoom', 700, 100, 'bounce'), out }),
+    SHAPE({ name: 'Disc', x: 790, y: 200, w: 340, h: 340, kind: 'ellipse', fill: dark, border: 8, borderColor: '@text', glow: 40, glowColor: c, drop: true, bevel: true, in: mo('zoom', 600, 200, 'bounce'), out }),
+    ...IMG('Icon', icon, 840, 250, 240, 240, { idle: 'pulse', in: mo('spin', 700, 350, 'bounce'), out }), ...chip(tag, 700, 700, 520, 58, 500),
+    T('Name', title, 260, 765, 1400, 150, 128, { stroke: 6, strokeColor: '@bg', in: mo('zoom', 500, 650, 'bounce'), out }), T('Sub', sub, 360, 925, 1200, 60, 40, { color: c, align: 'center', spacing: 4, in: mo('fade', 400, 850), out }),
+    ...spark(600, 150, 70, 700), ...spark(1250, 120, 50, 800), ...spark(540, 520, 40, 900), ...spark(1330, 500, 64, 1000), ...spark(900, 40, 34, 1100), ...spark(1100, 690, 30, 1200)];
+  else if (style === 'ribbon') ps = [
+    ...IMG('Ribbon shadow', 'stock/mono_ribbon.png', 418, 84, 1100, 200, { tint: '#000000', opacity: 0.35, in: mo('zoom', 600, 0, 'bounce'), out: mo('zoom', 400, 0) }), ...IMG('Ribbon', 'stock/mono_ribbon.png', 410, 70, 1100, 200, { tint: '@secondary', in: mo('zoom', 600, 0, 'bounce'), out: mo('zoom', 400, 0) }),
+    SHAPE({ name: 'Ribbon light', x: 450, y: 76, w: 1020, h: 8, fill: '#FFFFFF44', radius: 4, in: mo('wipe', 600, 400), out }), T('Tag', tag, 510, 112, 900, 80, 56, { align: 'center', spacing: 12, stroke: 0, in: mo('fade', 400, 450), out }),
+    ...IMG('Star', 'stock/mono_star.png', 330, 310, 110, 110, { tint: '@accent', idle: 'pulse', in: mo('zoom', 500, 700, 'bounce'), out }), ...IMG('Star', 'stock/mono_star.png', 1480, 310, 110, 110, { tint: '@accent', idle: 'pulse', in: mo('zoom', 500, 750, 'bounce'), out }),
+    T('Name', title, 450, 290, 1020, 150, 124, { stroke: 6, strokeColor: '@bg', in: mo('top', 500, 500, 'bounce'), out }),
+    ...IMG('Line', 'stock/mono_divider.png', 410, 470, 380, 24, { in: mo('wipe', 500, 800), out }), ...IMG('Line', 'stock/mono_divider.png', 1130, 470, 380, 24, { in: mo('wipe', 500, 800), out }),
+    SHAPE({ name: 'Sub pill', x: 800, y: 440, w: 320, h: 84, radius: 999, fill: dark, border: 4, borderColor: c, drop: true, bevel: true, in: mo('zoom', 400, 850, 'bounce'), out }), T('Sub', sub, 820, 440, 280, 84, 30, { color: c, align: 'center', spacing: 2, shadow: false, in: mo('fade', 400, 950), out }),
+    ...spark(380, 120, 56, 900), ...spark(1500, 150, 44, 1000), ...spark(1450, 490, 34, 1100)];
+  else if (style === 'split') ps = [
+    SHAPE({ name: 'Color block', x: 340, y: 360, w: 300, h: 360, fill: c, fill2: '@accent', angle: 135, drop: true, bevel: true, sheen: true, in: mo('left', 500, 0), out: mo('left', 400, 0) }),
+    ...IMG('Pattern', 'stock/mono_stripes.png', 340, 360, 300, 360, { tint: '#000000', opacity: 0.12, fit: 'cover', in: mo('fade', 500, 300), out }), ...IMG('Icon', icon, 385, 420, 210, 210, { tint: '@bg', idle: 'pulse', in: mo('zoom', 500, 450, 'bounce'), out }),
+    P('Panel', 640, 360, 940, 360, { in: mo('wipe', 600, 200), out }), shade(640, 360, 940, 360, { in: mo('wipe', 600, 200), out }), ...IMG('Pattern', 'stock/mono_halftone.png', 1180, 360, 400, 360, { tint: '@text', opacity: 0.07, fit: 'cover', in: mo('fade', 600, 500), out }),
+    ...chip(tag, 690, 392, 430, 48, 450), T('Name', title, 690, 450, 860, 140, 112, { align: 'left', in: mo('right', 500, 600), out }),
+    SHAPE({ name: 'Line', x: 690, y: 604, w: 320, h: 6, radius: 3, fill: c, glow: 16, glowColor: c, in: mo('wipe', 500, 800), out }), T('Sub', sub, 690, 620, 860, 70, 36, { align: 'left', spacing: 3, shadow: false, color: '@muted', in: mo('fade', 400, 900), out }),
+    SHAPE({ name: 'Base line', x: 340, y: 724, w: 1240, h: 10, radius: 5, fill: c, fill2: '@accent', angle: 0, glow: 24, glowColor: c, in: mo('wipe', 700, 700), out }), ...spark(1540, 330, 46, 1000)];
+  else if (style === 'neon') ps = [
+    SHAPE({ name: 'Backdrop', x: 420, y: 60, w: 1080, h: 360, radius: 34, fill: '#000000AA', in: mo('zoom', 500, 0, 'bounce'), out: mo('zoom', 400, 0) }),
+    SHAPE({ name: 'Neon frame', x: 440, y: 80, w: 1040, h: 320, fill: '#00000000', border: 8, borderColor: c, glow: 60, glowColor: c, radius: 28, in: mo('zoom', 500, 0, 'bounce'), out: mo('zoom', 400, 0) }),
+    SHAPE({ name: 'Inner frame', x: 464, y: 104, w: 992, h: 272, fill: '#00000000', border: 2, borderColor: c, opacity: 0.6, radius: 18, in: mo('fade', 500, 300), out }), ...IMG('Scanlines', 'stock/mono_stripes.png', 464, 104, 992, 272, { opacity: 0.07, fit: 'cover', in: mo('fade', 500, 400), out }),
+    SHAPE({ name: 'Line', x: 520, y: 142, w: 300, h: 4, radius: 2, fill: c, glow: 16, glowColor: c, in: mo('wipe', 500, 400), out }), T('Tag', tag, 830, 120, 260, 44, 28, { color: c, align: 'center', spacing: 8, shadow: true, shadowColor: c, in: mo('fade', 400, 450), out }), SHAPE({ name: 'Line', x: 1100, y: 142, w: 300, h: 4, radius: 2, fill: c, glow: 16, glowColor: c, in: mo('wipe', 500, 400), out }),
+    T('Name', title, 480, 170, 960, 130, 108, { shadowColor: c, in: mo('zoom', 500, 550, 'bounce'), out }), T('Sub', sub, 480, 312, 960, 56, 34, { color: c, align: 'center', spacing: 3, shadowColor: c, in: mo('fade', 400, 850), out }),
+    ...IMG('Corner', 'stock/mono_diamond.png', 426, 66, 28, 28, { in: mo('zoom', 400, 700, 'bounce'), out }), ...IMG('Corner', 'stock/mono_diamond.png', 1466, 66, 28, 28, { in: mo('zoom', 400, 700, 'bounce'), out }), ...IMG('Corner', 'stock/mono_diamond.png', 426, 386, 28, 28, { in: mo('zoom', 400, 700, 'bounce'), out }), ...IMG('Corner', 'stock/mono_diamond.png', 1466, 386, 28, 28, { in: mo('zoom', 400, 700, 'bounce'), out })];
+  else if (style === 'minimal') ps = [
+    SHAPE({ name: 'Top shade', x: 0, y: 0, w: 1920, h: 380, fill: '#000000AA', fill2: '#00000000', angle: 180, in: mo('fade', 600, 0), out }),
+    SHAPE({ name: 'Line', x: 540, y: 90, w: 280, h: 3, radius: 2, fill: c, in: mo('wipe', 500, 200), out }), T('Tag', tag, 830, 68, 260, 44, 30, { color: c, align: 'center', spacing: 12, shadow: false, in: mo('fade', 500, 250), out }), SHAPE({ name: 'Line', x: 1100, y: 90, w: 280, h: 3, radius: 2, fill: c, in: mo('wipe', 500, 200), out }),
+    T('Name', title, 360, 118, 1200, 150, 132, { stroke: 4, strokeColor: '@bg', in: mo('bottom', 500, 300), out }), SHAPE({ name: 'Underline', x: 810, y: 290, w: 300, h: 6, radius: 3, fill: c, glow: 20, glowColor: c, in: mo('wipe', 600, 600), out }),
+    T('Sub', sub, 360, 310, 1200, 56, 36, { align: 'center', spacing: 3, in: mo('fade', 400, 800), out })];
+  else ps = [   // banner
+    SHAPE({ name: 'Glow edge', x: 394, y: 70, w: 1100, h: 260, skew: -8, fill: c, opacity: 0.55, glow: 40, glowColor: c, in: mo('left', 700, 100), out }),
+    P('Panel', 410, 60, 1100, 260, { skew: -8 }), shade(410, 60, 1100, 260, { skew: -8 }), ...IMG('Pattern', 'stock/mono_stripes.png', 450, 72, 1020, 236, { tint: '@text', opacity: 0.05, fit: 'cover', in: mo('fade', 600, 400), out }),
+    SHAPE({ name: 'Top bar', x: 410, y: 60, w: 1100, h: 12, skew: -8, fill: c, fill2: '@accent', angle: 0, in: mo('wipe', 700, 300), out }),
+    SHAPE({ name: 'End cap', x: 1440, y: 60, w: 70, h: 260, skew: -8, fill: c, bevel: true, in: mo('right', 500, 300), out }), ...medal(545, 195, 78, 350), ...chip(tag, 690, 94, 420, 46, 450),
+    T('Name', title, 690, 144, 740, 100, 88, { align: 'left', in: mo('left', 600, 550, 'bounce'), out }), ...bullet(692, 262), T('Sub', sub, 728, 250, 690, 46, 30, { color: '@muted', align: 'left', spacing: 3, shadow: false, in: mo('fade', 400, 750), out }),
+    ...spark(1360, 100, 44, 950), ...spark(1320, 258, 28, 1050)];
+  if (M.assets.sounds.includes(snd)) ps.push(Object.assign(KINDS.Sound(), { src: snd }));
+  return { id: '', name: 'New ' + ((M.events[ev] || {}).label || 'alert').toLowerCase() + ' alert', mode: 'builder', seconds: 8, parts: ps, html: '', css: '', js: '', fields: {}, outMs: 500 };
+}
+const blank = () => ({ id: '', name: 'New alert', mode: 'builder', seconds: 8, parts: [], html: '', css: '', js: '', fields: {}, outMs: 500 });
+// ready-made parts: each comes in as a group, and every colour and font follows the theme (@primary, @accent, @heading ...) so one theme change recolours them all
+const TXT = (o) => Object.assign(KINDS.Text(), o);
+const S2 = (name, x, y, w, h, o) => SHAPE(Object.assign({ name, x, y, w, h }, o));
+const X = (name, text, x, y, w, h, size, o) => TXT(Object.assign({ name, text, x, y, w, h, size }, o));
+const IC = (name, src, x, y, w, h, tint, o) => Object.assign(KINDS['Image / GIF / WebP'](), { name, src, x, y, w, h, tint: tint || '' }, o);
+const DIM = '#00000055';   // a darker strip that works on any theme (bar tracks)
+const WIDGETS = [
+  // ---- name plates
+  { cat: 'Name plates', name: 'Slanted plate', parts: () => [S2('Plate', 0, 0, 620, 120, { skew: -10 }), S2('Accent', -4, 0, 22, 120, { skew: -10, fill: '@primary' }), X('Name', '{name}', 60, 10, 540, 100, 64, { align: 'left', font: '@heading' })] },
+  { cat: 'Name plates', name: 'Two-line plate', parts: () => [S2('Plate', 0, 0, 660, 160, { skew: -6 }), S2('Bar', 0, 0, 660, 10, { skew: -6, fill: '@primary', fill2: '@accent', angle: 0 }), X('Tag', 'NEW FOLLOWER', 50, 22, 560, 36, 26, { align: 'left', color: '@primary', spacing: 6, shadow: false }), X('Name', '{name}', 50, 58, 580, 90, 70, { align: 'left', font: '@heading' })] },
+  { cat: 'Name plates', name: 'Pill tag', parts: () => [S2('Pill', 0, 0, 420, 70, { radius: 999, fill: '@primary' }), X('Text', 'NEW', 20, 5, 380, 60, 38, { color: '@bg', shadow: false, spacing: 6, font: '@heading' })] },
+  { cat: 'Name plates', name: 'Underlined name', parts: () => [X('Name', '{name}', 0, 0, 600, 100, 76, { align: 'left', font: '@heading' }), S2('Line', 0, 104, 600, 8, { radius: 4, fill: '@accent', fill2: '@primary', angle: 0 })] },
+  { cat: 'Name plates', name: 'Boxed name', parts: () => [S2('Box', 0, 0, 600, 110, { fill: '#00000000', border: 6, borderColor: '@primary', radius: 10 }), X('Name', '{name}', 20, 5, 560, 100, 64, { font: '@heading' })] },
+  { cat: 'Name plates', name: 'Glass panel with text', parts: () => [S2('Glass', 0, 0, 640, 260, { fill: '#000000aa', border: 2, borderColor: '@muted', radius: 28 }), X('Title', '{name}', 30, 20, 580, 90, 60, { align: 'left', font: '@heading' }), S2('Rule', 30, 120, 580, 4, { fill: '@primary' }), X('Text', '{message}', 30, 135, 580, 110, 32, { align: 'left', valign: 'top', caps: false, shadow: false, fit: 'wrap', weight: 400 })] },
+  // ---- badges
+  { cat: 'Badges', name: 'Icon badge', parts: () => [S2('Ring', 0, 0, 220, 220, { kind: 'ellipse', border: 8, borderColor: '@primary', glow: 20, glowColor: '@primary' }), IC('Icon', 'stock/mono_star.png', 50, 50, 120, 120, '@accent')] },
+  { cat: 'Badges', name: 'Ribbon tag', parts: () => [IC('Ribbon', 'stock/mono_ribbon.png', 0, 0, 520, 104, '@secondary'), X('Text', 'HYPE', 60, 10, 400, 70, 48, { shadow: false, spacing: 8, font: '@heading' })] },
+  { cat: 'Badges', name: 'Hexagon number', parts: () => [IC('Hex', 'stock/mono_hexagon.png', 0, 0, 200, 200, '@primary'), X('Number', '{amount}', 20, 60, 160, 80, 56, { color: '@bg', shadow: false })] },
+  { cat: 'Badges', name: 'Shield', parts: () => [IC('Shield', 'stock/mono_shield.png', 0, 0, 200, 230, '@secondary'), IC('Icon', 'stock/mono_bolt.png', 55, 60, 90, 100, '@text')] },
+  { cat: 'Badges', name: 'Burst number', parts: () => [IC('Burst', 'stock/mono_burst.png', 0, 0, 300, 300, '@accent', { idle: 'spin' }), X('Number', '{amount}', 50, 100, 200, 100, 70, { color: '@bg', shadow: false })] },
+  { cat: 'Badges', name: 'Ticket', parts: () => [IC('Ticket', 'stock/mono_ticket.png', 0, 0, 420, 170, '@accent'), X('Text', '{reward}', 30, 30, 360, 110, 44, { color: '@bg', shadow: false })] },
+  // ---- bars and counters
+  { cat: 'Bars and counters', name: 'Progress bar', parts: () => [S2('Track', 0, 0, 700, 44, { radius: 22, fill: DIM }), S2('Fill', 0, 0, 420, 44, { radius: 22, fill: '@primary', fill2: '@accent', angle: 0 }), X('Value', '60%', 0, 0, 700, 44, 28, { shadow: false, caps: false })] },
+  { cat: 'Bars and counters', name: 'Segmented bar', parts: () => [0, 1, 2, 3, 4].map((i) => S2('Block ' + (i + 1), i * 140, 0, 130, 40, { radius: 6, fill: i < 3 ? '@primary' : DIM })) },
+  { cat: 'Bars and counters', name: 'Thin line bar', parts: () => [S2('Track', 0, 0, 700, 10, { radius: 5, fill: DIM }), S2('Fill', 0, 0, 440, 10, { radius: 5, fill: '@accent' })] },
+  { cat: 'Bars and counters', name: 'Goal bar', parts: () => [X('Goal', '{title}', 0, 0, 700, 50, 34, { align: 'left', color: '@primary', spacing: 4, shadow: false }), S2('Track', 0, 56, 700, 36, { radius: 18, fill: DIM }), S2('Fill', 0, 56, 480, 36, { radius: 18, fill: '@primary', fill2: '@accent', angle: 0 }), X('Count', '{value} / {target}', 0, 100, 700, 40, 28, { align: 'right', shadow: false, caps: false })] },
+  { cat: 'Bars and counters', name: 'Ring counter', parts: () => [IC('Ring', 'stock/mono_ring.png', 0, 0, 260, 260, '@primary'), X('Number', '{amount}', 30, 80, 200, 100, 80, { color: '@accent' })] },
+  { cat: 'Bars and counters', name: 'Counter', parts: () => [S2('Panel', 0, 0, 360, 210, { radius: 20, border: 4, borderColor: '@primary' }), X('Number', '{amount}', 10, 15, 340, 120, 110, { color: '@accent' }), X('Label', 'BITS', 10, 140, 340, 50, 30, { color: '@primary', spacing: 8, shadow: false })] },
+  { cat: 'Bars and counters', name: 'Stat card', parts: () => [S2('Card', 0, 0, 440, 180, { radius: 22 }), IC('Icon', 'stock/mono_heart.png', 24, 36, 110, 110, '@secondary'), X('Number', '{amount}', 150, 20, 270, 100, 80, { align: 'left', font: '@heading' }), X('Label', 'TOTAL', 150, 122, 270, 40, 28, { align: 'left', color: '@muted', spacing: 5, shadow: false })] },
+  { cat: 'Bars and counters', name: 'Big number', parts: () => [X('Number', '{amount}', 0, 0, 500, 160, 140, { color: '@accent', font: '@heading' }), S2('Underline', 100, 160, 300, 8, { radius: 4, fill: '@primary' })] },
+  // ---- frames
+  { cat: 'Frames', name: 'Corner brackets', parts: () => [IC('Corners', 'stock/mono_frame_corners.png', 0, 0, 900, 450, '@primary')] },
+  { cat: 'Frames', name: 'Double frame', parts: () => [IC('Frame', 'stock/mono_frame_double.png', 0, 0, 900, 450, '@text')] },
+  { cat: 'Frames', name: 'Notched frame', parts: () => [IC('Frame', 'stock/mono_frame_notch.png', 0, 0, 900, 450, '@accent')] },
+  { cat: 'Frames', name: 'Rounded frame', parts: () => [IC('Frame', 'stock/mono_frame_rounded.png', 0, 0, 900, 450, '@primary')] },
+  { cat: 'Frames', name: 'Neon outline', parts: () => [S2('Outline', 0, 0, 800, 400, { fill: '#00000000', border: 6, borderColor: '@primary', glow: 40, glowColor: '@primary', radius: 24 })] },
+  // ---- decorations
+  { cat: 'Decorations', name: 'Divider', parts: () => [IC('Divider', 'stock/mono_divider.png', 0, 0, 600, 24, '@primary')] },
+  { cat: 'Decorations', name: 'Sparkles', parts: () => [IC('Big', 'stock/mono_sparkle.png', 0, 40, 90, 90, '@accent', { idle: 'pulse' }), IC('Small', 'stock/mono_sparkle.png', 100, 0, 50, 50, '@text', { idle: 'pulse' }), IC('Tiny', 'stock/mono_sparkle.png', 110, 100, 36, 36, '@primary', { idle: 'pulse' })] },
+  { cat: 'Decorations', name: 'Chevron row', parts: () => [0, 1, 2].map((i) => IC('Chevron ' + (i + 1), 'stock/mono_chevron.png', i * 70, 0, 60, 60, '@primary', { opacity: 1 - i * 0.3 })) },
+  { cat: 'Decorations', name: 'Dots', parts: () => [IC('Dots', 'stock/mono_dots.png', 0, 0, 300, 60, '@accent')] },
+  { cat: 'Decorations', name: 'Wave line', parts: () => [IC('Wave', 'stock/mono_wave.png', 0, 0, 600, 120, '@primary', { idle: 'float' })] },
+  { cat: 'Decorations', name: 'Arrow', parts: () => [IC('Arrow', 'stock/mono_arrow.png', 0, 0, 256, 128, '@accent', { idle: 'float' })] },
+  // ---- text styles
+  { cat: 'Text styles', name: 'Outlined heading', parts: () => [X('Text', '{name}', 0, 0, 900, 150, 120, { stroke: 6, strokeColor: '@bg', font: '@heading' })] },
+  { cat: 'Text styles', name: 'Glowing title', parts: () => [X('Text', '{name}', 0, 0, 900, 140, 110, { shadowColor: '@primary', font: '@heading' })] },
+  { cat: 'Text styles', name: 'Bullet line', parts: () => [IC('Bullet', 'stock/mono_diamond.png', 0, 14, 30, 30, '@accent'), X('Text', '{message}', 46, 0, 800, 60, 40, { align: 'left', caps: false, shadow: false, weight: 400 })] },
+  { cat: 'Text styles', name: 'Speech bubble', parts: () => [IC('Bubble', 'stock/mono_bubble.png', 0, 0, 640, 400, '@text'), X('Text', '{message}', 40, 30, 560, 230, 50, { color: '@bg', caps: false, shadow: false, fit: 'wrap', weight: 500, font: '@body' })] },
+  // ---- picture slots
+  { cat: 'Picture slots', name: 'Round slot (emote / avatar)', parts: () => [S2('Ring', 0, 0, 260, 260, { kind: 'ellipse', fill: DIM, border: 8, borderColor: '@primary', glow: 24, glowColor: '@primary' }), Object.assign(KINDS['Image / GIF / WebP'](), { name: 'Picture', x: 20, y: 20, w: 220, h: 220, radius: 3000, fit: 'cover' })] },
+  { cat: 'Picture slots', name: 'Square slot', parts: () => [S2('Frame', 0, 0, 260, 260, { fill: DIM, border: 8, borderColor: '@primary', radius: 24 }), Object.assign(KINDS['Image / GIF / WebP'](), { name: 'Picture', x: 20, y: 20, w: 220, h: 220, radius: 12, fit: 'cover' })] },
+];
+const HTML_STARTER = { html: '<div class="card">\n  <div class="tag">NEW ALERT</div>\n  <div class="who">{name}</div>\n</div>', css: '.card { position:absolute; left:460px; top:80px; width:1000px; padding:30px 50px; background:#222A2A; color:#E2DAC2; font-family:Bahnschrift,"Segoe UI",sans-serif; animation: in .6s ease-out both; border-top:10px solid #4FBBBC }\n.tag { color:#4FBBBC; letter-spacing:8px; font-size:32px }\n.who { font-size:84px; text-transform:uppercase }\n@keyframes in { from { transform:translateX(-300px); opacity:0 } }', js: '// ALERT.vars.name is the viewer\'s name; ALERT.seconds is how long the alert stays.\ndocument.addEventListener("alertleave", () => { document.querySelector(".card").style.transition = "opacity .4s"; document.querySelector(".card").style.opacity = 0; });' };
+
+// ---------- data
+const sampleVars = () => Object.assign({}, M.samples[sampleEv] || {});
+const stateStr = () => JSON.stringify(D);
+function push() { hist.push(stateStr()); if (hist.length > 60) hist.shift(); }
+function changed(redraw) { dirty = true; $('dirty').textContent = 'unsaved changes'; if (redraw !== false) drawCanvas(); if (D.mode === 'html') livePreview(); }
+function undo() { if (!hist.length) return; D = JSON.parse(hist.pop()); drawAll(); changed(); }
+async function load(keepId) {
+  M = await fetch('/api/alertdesigns').then((r) => r.json());
+  $('dsel').innerHTML = M.designs.map((d) => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join('') + '<option value="">+ new (unsaved)</option>';
+  $('evSel').innerHTML = Object.entries(M.events).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join(''); $('evSel').value = sampleEv;
+  const want = keepId !== undefined ? keepId : $('dsel').value;
+  const d = M.designs.find((x) => x.id === want) || M.designs[0];
+  open_(d ? JSON.parse(JSON.stringify(d)) : makeStarter('banner', sampleEv), !d);
+}
+function open_(d, isNew) { D = d; D.theme = D.theme || JSON.parse(JSON.stringify(M.defaultTheme)); sel = ''; multi = new Set(); hist = []; dirty = !!isNew; $('dirty').textContent = isNew ? 'not saved yet' : ''; $('dsel').value = d.id; setMode(D.mode); drawAll(); }
+function setMode(m) {
+  D.mode = m; document.body.classList.toggle('html', m === 'html'); $('bBuilder').className = m === 'html' ? 'ghost' : 'on'; $('bHtml').className = m === 'html' ? 'on' : 'ghost';
+  $('fOut').style.display = m === 'html' ? '' : 'none'; $('ta').value = getCode(); stopPlay(); if (m === 'html') livePreview(); else $('pv').innerHTML = '';
+}
+
+// ---------- canvas
+function fit() { const vp = $('vp'); scale = Math.min(vp.clientWidth / 1920, vp.clientHeight / 1080) * 0.98; const cv = $('cv'); cv.style.transform = 'scale(' + scale + ')'; cv.style.left = (vp.clientWidth - 1920 * scale) / 2 + 'px'; cv.style.top = (vp.clientHeight - 1080 * scale) / 2 + 'px'; }
+addEventListener('resize', fit);
+function drawCanvas() {
+  const pc = $('pc'); pc.innerHTML = '';
+  if (D.mode !== 'html') {
+    const v = sampleVars();
+    for (const p of D.parts) { const el = AlertDesign.partEl(document, p, v, { base: ORIGIN, muted: true, edit: true, theme: D.theme }); if (el) { if (p.locked) el.style.cursor = 'default'; pc.appendChild(el); } }
+    AlertDesign.fitText(pc);
+  }
+  drawSel(); drawLayers();
+}
+// the selection: one part, every part of a group (clicked on the canvas), or several picked with Shift
+let multi = new Set();
+const selParts = () => (D ? D.parts.filter((p) => multi.has(p.id)) : []);
+function bbox(list) {
+  const v = list.filter((p) => p.type !== 'sound'); if (!v.length) return null;
+  const x0 = Math.min(...v.map((p) => p.x)), y0 = Math.min(...v.map((p) => p.y)), x1 = Math.max(...v.map((p) => p.x + p.w)), y1 = Math.max(...v.map((p) => p.y + p.h));
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+function drawSel() {
+  const list = selParts(), b = bbox(list), s = $('sel');
+  if (!b || D.mode === 'html') { s.style.display = 'none'; return; }
+  const locked = list.every((p) => p.locked);
+  s.style.cssText = `display:block;left:${b.x - 2}px;top:${b.y - 2}px;width:${b.w + 4}px;height:${b.h + 4}px;border-style:${locked ? 'dashed' : 'solid'}`;
+  const pos = { nw: [-9, -9], n: [b.w / 2 - 7, -9], ne: [b.w - 5, -9], e: [b.w - 5, b.h / 2 - 7], se: [b.w - 5, b.h - 5], s: [b.w / 2 - 7, b.h - 5], sw: [-9, b.h - 5], w: [-9, b.h / 2 - 7] };
+  const sz = 10 / scale; s.innerHTML = locked ? '' : Object.entries(pos).map(([k, [x, y]]) => `<i data-h="${k}" style="left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;cursor:${k}-resize"></i>`).join('');
+}
+function drawLayers() {
+  $('lyr').innerHTML = D.parts.slice().reverse().map((p) => `<div class="layer ${multi.has(p.id) ? 'on' : ''}" data-id="${p.id}"><span>${p.group ? '&#10697; ' : ''}${esc(p.name || p.type)} <small class="muted">${p.type}</small></span><button class="ghost" data-a="up" title="Bring forward">&#9650;</button><button class="ghost" data-a="down" title="Send back">&#9660;</button><button class="ghost" data-a="lock" title="Lock">${p.locked ? '&#128274;' : '&#128275;'}</button></div>`).join('') || '<p class="muted">Nothing yet. Add a part above.</p>';
+}
+// mode: 'group' (a canvas click picks the whole group), 'one' (just this part, from the layers list) or 'toggle' (Shift: add / remove)
+function select(id, mode) {
+  const p = part(id);
+  if (!p) { sel = ''; multi = new Set(); }
+  else if (mode === 'toggle') { if (multi.has(id)) multi.delete(id); else multi.add(id); sel = multi.has(id) ? id : ([...multi][0] || ''); }
+  else { sel = id; multi = new Set(mode === 'one' || !p.group ? [id] : D.parts.filter((x) => x.group === p.group).map((x) => x.id)); }
+  drawSel(); drawLayers(); drawInsp();
+}
+const pickAll = (c) => { multi = new Set(c.map((p) => p.id)); sel = c[0].id; drawSel(); drawLayers(); drawInsp(); };
+
+// moving, resizing, snapping (all of the selection together; resizing scales a group in proportion)
+let drag = null;
+const T = () => 10 / scale;
+function snapPoints(skip) { const xs = [0, 960, 1920], ys = [0, 540, 1080]; for (const o of D.parts) if (!skip.has(o.id) && o.type !== 'sound') { xs.push(o.x, o.x + o.w / 2, o.x + o.w); ys.push(o.y, o.y + o.h / 2, o.y + o.h); } return { xs, ys }; }
+function nearest(vals, cands) { let best = null; for (const v of vals) for (const c of cands) { const d = c - v; if (Math.abs(d) <= T() && (best == null || Math.abs(d) < Math.abs(best.d))) best = { d, at: c }; } return best; }
+function guide(x, y) { $('gl').innerHTML = (x != null ? `<div class="gl gv" style="left:${x - 1}px"></div>` : '') + (y != null ? `<div class="gl gh" style="top:${y - 1}px"></div>` : ''); }
+const gridOn = () => ($('snapOn').checked ? +$('gridSel').value : 0), snapOn = () => $('snapOn').checked;
+$('cv').addEventListener('pointerdown', (e) => {
+  if (playing || D.mode === 'html') return;
+  const h = e.target.dataset && e.target.dataset.h, el = e.target.closest && e.target.closest('.adp');
+  if (!h) {
+    if (!el) { select(''); return; }
+    const id = el.dataset.id; if (e.shiftKey) { select(id, 'toggle'); return; }
+    if (!multi.has(id)) select(id, 'group');
+  }
+  const list = selParts(); if (!list.length || list.every((p) => p.locked)) return;
+  push(); drag = { mode: h || 'move', cx: e.clientX, cy: e.clientY, box: bbox(list) || { x: 0, y: 0, w: 1, h: 1 }, orig: new Map(list.map((p) => [p.id, { x: p.x, y: p.y, w: p.w, h: p.h }])) };
+  $('cv').setPointerCapture(e.pointerId); e.preventDefault();
+});
+$('cv').addEventListener('pointermove', (e) => {
+  if (!drag) return; const o = drag.box, dx = (e.clientX - drag.cx) / scale, dy = (e.clientY - drag.cy) / scale, g = gridOn(); let gx = null, gy = null;
+  const sp = snapPoints(multi), r = (v) => Math.round(v), list = selParts().filter((p) => !p.locked);
+  if (drag.mode === 'move') {
+    let x = o.x + dx, y = o.y + dy;
+    if (snapOn() && !e.altKey) { const sx = nearest([x, x + o.w / 2, x + o.w], sp.xs), sy = nearest([y, y + o.h / 2, y + o.h], sp.ys); if (sx) { x += sx.d; gx = sx.at; } else if (g) x = Math.round(x / g) * g; if (sy) { y += sy.d; gy = sy.at; } else if (g) y = Math.round(y / g) * g; }
+    for (const p of list) { const q = drag.orig.get(p.id); p.x = r(q.x + x - o.x); p.y = r(q.y + y - o.y); }
+  } else {
+    let l = o.x, t = o.y, rr = o.x + o.w, b = o.y + o.h; const k = drag.mode;
+    if (k.includes('w')) l += dx; if (k.includes('e')) rr += dx; if (k.includes('n')) t += dy; if (k.includes('s')) b += dy;
+    if (snapOn() && !e.altKey) {
+      const snapEdge = (v, c, grid) => { const s = nearest([v], c); return s ? [v + s.d, s.at] : [grid ? Math.round(v / grid) * grid : v, null]; };
+      if (k.includes('w')) [l, gx] = snapEdge(l, sp.xs, g); if (k.includes('e')) [rr, gx] = snapEdge(rr, sp.xs, g); if (k.includes('n')) [t, gy] = snapEdge(t, sp.ys, g); if (k.includes('s')) [b, gy] = snapEdge(b, sp.ys, g);
+    }
+    const nx = Math.min(l, rr - 4), ny = Math.min(t, b - 4), nw = Math.max(4, rr - l), nh = Math.max(4, b - t), sx = nw / o.w, sy = nh / o.h;
+    for (const p of list) { const q = drag.orig.get(p.id); p.x = r(nx + (q.x - o.x) * sx); p.y = r(ny + (q.y - o.y) * sy); p.w = Math.max(4, r(q.w * sx)); p.h = Math.max(4, r(q.h * sy)); }
+  }
+  guide(gx, gy); drawCanvas(); dirty = true; $('dirty').textContent = 'unsaved changes'; refreshInsp();
+});
+const endDrag = () => { if (drag) { drag = null; guide(null, null); } };
+$('cv').addEventListener('pointerup', endDrag); $('cv').addEventListener('pointercancel', endDrag);
+addEventListener('keydown', (e) => {
+  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+  const list = selParts(), free = list.filter((p) => !p.locked);
+  if (e.ctrlKey && e.key.toLowerCase() === 'z') { undo(); e.preventDefault(); }
+  else if (e.ctrlKey && e.key.toLowerCase() === 'd' && list.length) { dup(list); e.preventDefault(); }
+  else if (e.ctrlKey && e.key.toLowerCase() === 'g' && list.length) { (e.shiftKey ? ungroup : group)(); e.preventDefault(); }
+  else if (e.key === 'Delete' && list.length) del(list);
+  else if (free.length && e.key.startsWith('Arrow')) { push(); const s = e.shiftKey ? 10 : 1; for (const p of free) { if (e.key === 'ArrowLeft') p.x -= s; if (e.key === 'ArrowRight') p.x += s; if (e.key === 'ArrowUp') p.y -= s; if (e.key === 'ArrowDown') p.y += s; } changed(); refreshInsp(); e.preventDefault(); }
+});
+// new ids for copied parts; parts that shared a group in the original share a new one
+function clones(list) {
+  const gmap = {}, out = JSON.parse(JSON.stringify(list));
+  for (const c of out) { c.id = rid(); if (c.group) c.group = gmap[c.group] = gmap[c.group] || 'g' + Math.random().toString(36).slice(2, 8); }
+  return out;
+}
+function dup(list) { push(); const c = clones(list); for (const p of c) { p.x += 30; p.y += 30; p.name = (p.name || p.type) + ' copy'; } D.parts.push(...c); changed(); pickAll(c); }
+function del(list) { push(); const ids = new Set(list.map((p) => p.id)); D.parts = D.parts.filter((x) => !ids.has(x.id)); changed(); select(''); }
+function group() { if (multi.size < 2) return toast('Pick two or more parts first (Shift + click)', true); push(); const g = 'g' + Math.random().toString(36).slice(2, 8); for (const p of selParts()) p.group = g; changed(); drawInsp(); toast('Grouped: they now move and resize together'); }
+function ungroup() { push(); for (const p of selParts()) p.group = ''; changed(); drawInsp(); }
+// put parts (a shipped widget or one of your templates) in the middle of the frame as a new group
+function insertParts(list) {
+  if (D.parts.length + list.length > M.limits.parts) return toast('At most ' + M.limits.parts + ' parts', true);
+  push(); const c = clones(list), vis = c.filter((p) => p.type !== 'sound'), b = bbox(c) || { x: 0, y: 0, w: 0, h: 0 }, dx = Math.round(960 - (b.x + b.w / 2)), dy = Math.round(540 - (b.y + b.h / 2));
+  if (vis.length > 1 && !vis.some((p) => p.group)) { const g = 'g' + Math.random().toString(36).slice(2, 8); for (const p of vis) p.group = g; }
+  for (const p of vis) { p.x += dx; p.y += dy; }
+  D.parts.push(...c); changed(); pickAll(c);
+}
+
+// ---------- parts palette, stock art, templates and layers
+$('parts').insertAdjacentHTML('beforeend', Object.keys(KINDS).map((k) => `<button class="ghost" data-k="${esc(k)}">+ ${esc(k)}</button>`).join(''));
+$('parts').onclick = (e) => { const k = e.target.dataset.k; if (!k) return; if (D.parts.length >= M.limits.parts) return toast('At most ' + M.limits.parts + ' parts', true); push(); const p = KINDS[k](); D.parts.push(p); changed(); select(p.id, 'one'); };
+function drawStock() {
+  $('stock').innerHTML = M.assets.images.filter((f) => f.startsWith('stock/')).map((f) => `<img src="/assets/${esc(f)}" data-s="${esc(f)}" title="${esc(f.slice(6, -4).replace(/_/g, ' '))}" alt="">`).join('');
+  const cats = [...new Set(WIDGETS.map((w) => w.cat))];
+  $('tpls').innerHTML = cats.map((c) => `<details><summary class="muted" style="cursor:pointer;margin:2px 0">${esc(c)}</summary>${WIDGETS.map((w, i) => (w.cat === c ? `<button class="ghost" data-w="${i}">${esc(w.name)}</button>` : '')).join('')}</details>`).join('') + (M.templates && M.templates.length ? '<div class="muted" style="margin:6px 0 2px">My templates</div>' : '') + (M.templates || []).map((t) => `<div class="row" style="margin:0 0 4px;flex-wrap:nowrap"><button class="ghost" data-t="${esc(t.id)}" style="flex:1;text-align:left">${esc(t.name)}</button><button class="ghost" data-dt="${esc(t.id)}" title="Delete template">&times;</button></div>`).join('');
+}
+$('stock').onclick = (e) => {   // a stock picture goes in at its own size (at most 400 wide)
+  const img = e.target.closest('img'); if (!img) return; if (D.parts.length >= M.limits.parts) return toast('At most ' + M.limits.parts + ' parts', true);
+  const k = Math.min(1, 400 / img.naturalWidth, 400 / img.naturalHeight); push(); const p = KINDS['Image / GIF / WebP'](); p.src = img.dataset.s; p.name = img.title; p.w = Math.round(img.naturalWidth * k); p.h = Math.round(img.naturalHeight * k); p.x = Math.round(960 - p.w / 2); p.y = Math.round(540 - p.h / 2); D.parts.push(p); changed(); select(p.id, 'one');
+};
+$('tpls').onclick = async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.w) insertParts(WIDGETS[+b.dataset.w].parts());
+  else if (b.dataset.t) insertParts((M.templates.find((t) => t.id === b.dataset.t) || { parts: [] }).parts);
+  else if (b.dataset.dt) { await post('/api/alertdesign/template/delete', { id: b.dataset.dt }); await refreshTemplates(); }
+};
+async function refreshTemplates() { M.templates = (await fetch('/api/alertdesigns').then((r) => r.json())).templates; drawStock(); }
+$('tSave').onclick = async () => {   // the selected parts, or the whole layout when nothing is selected
+  const list = selParts(), src = list.length ? list : D.parts;
+  const r = await post('/api/alertdesign/template/save', { name: $('tName').value || D.name, parts: src }); if (r.error) return toast(r.error, true);
+  $('tName').value = ''; await refreshTemplates(); toast('Saved as a template');
+};
+$('lyr').onclick = (e) => {
+  const row = e.target.closest('.layer'); if (!row) return; const p = part(row.dataset.id), a = e.target.dataset.a;
+  if (a === 'lock') { push(); p.locked = !p.locked; changed(); drawInsp(); return; }
+  if (a) { push(); const i = D.parts.indexOf(p), j = a === 'up' ? i + 1 : i - 1; if (j >= 0 && j < D.parts.length) { D.parts.splice(i, 1); D.parts.splice(j, 0, p); } changed(); return; }
+  select(p.id, e.shiftKey ? 'toggle' : 'one');
+};
+
+// ---------- inspector
+const OPT = (list, labels) => list.map((v) => [v, (labels && labels[v]) || v]);
+const ANIM_LABEL = { none: 'None', fade: 'Fade', left: 'Slide from left', right: 'Slide from right', top: 'Slide from top', bottom: 'Slide from bottom', zoom: 'Zoom', spin: 'Spin', flip: 'Flip', wipe: 'Wipe' };
+function fields(p) {
+  const common = [['x', 'X', 'num'], ['y', 'Y', 'num'], ['w', 'Width', 'num'], ['h', 'Height', 'num'], ['rot', 'Rotate', 'num'], ['opacity', 'Opacity', 'range', 0, 1, 0.05]];
+  const T = {
+    text: [['text', 'Text', 'area'], ['font', 'Font', 'sel', [['@heading', 'Theme: heading font'], ['@body', 'Theme: body font']].concat(OPT(M.fonts))], ['size', 'Size', 'num'], ['weight', 'Weight', 'sel', [[300, 'Light'], [400, 'Regular'], [500, 'Medium'], [700, 'Bold'], [900, 'Black']]], ['color', 'Color', 'color'], ['align', 'Align', 'sel', OPT(['left', 'center', 'right'])], ['valign', 'Vertical', 'sel', OPT(['top', 'middle', 'bottom'])], ['spacing', 'Letter space', 'num'], ['lh', 'Line height', 'num'], ['stroke', 'Outline', 'num'], ['strokeColor', 'Outline color', 'color'], ['shadowColor', 'Shadow color', 'color'], ['caps', 'ALL CAPS', 'chk'], ['italic', 'Italic', 'chk'], ['shadow', 'Shadow', 'chk'], ['fit', 'Shrink to fit one line', 'chk', 'shrink', 'wrap']],
+    shape: [['kind', 'Shape', 'sel', OPT(['rect', 'ellipse'], { rect: 'Rectangle', ellipse: 'Ellipse' })], ['fill', 'Fill', 'color'], ['grad', 'Gradient', 'chk'], ['fill2', 'Gradient to', 'color'], ['angle', 'Gradient angle', 'num'], ['border', 'Border', 'num'], ['borderColor', 'Border color', 'color'], ['radius', 'Corner radius', 'num'], ['skew', 'Slant (deg)', 'num'], ['glow', 'Glow', 'num'], ['glowColor', 'Glow color', 'color'], ['drop', 'Drop shadow', 'chk'], ['bevel', 'Light edge', 'chk'], ['sheen', 'Moving shine', 'chk']],
+    image: [['src', 'File', 'asset', 'image'], ['tint', 'Fill a one-color picture', 'tint'], ['fit', 'Fit', 'sel', OPT(['contain', 'cover', 'fill'])], ['radius', 'Corner radius', 'num'], ['pixel', 'Crisp pixels', 'chk']],
+    video: [['src', 'File', 'asset', 'video'], ['fit', 'Fit', 'sel', OPT(['contain', 'cover', 'fill'])], ['radius', 'Corner radius', 'num'], ['loop', 'Loop', 'chk'], ['volume', 'Volume', 'range', 0, 100, 1]],
+    sound: [['src', 'File', 'asset', 'sound'], ['volume', 'Volume', 'range', 0, 100, 1]],
+  }[p.type];
+  const mot = [['in.a', 'Enter', 'sel', OPT(M.anims, ANIM_LABEL)], ['in.ms', 'Enter ms', 'num'], ['in.delay', 'Start after (ms)', 'num'], ['in.ease', 'Enter feel', 'sel', OPT(M.eases)]];
+  const out = [['out.a', 'Exit', 'sel', OPT(M.anims, ANIM_LABEL)], ['out.ms', 'Exit ms', 'num'], ['out.delay', 'Exit delay (ms)', 'num']];
+  const idle = [['idle', 'While showing', 'sel', OPT(M.idles, { none: 'Nothing' })]];
+  const vis = p.type === 'sound' ? [] : common;
+  return [['', 'Part', vis.concat([['name', 'Name', 'txt']]).concat(p.type === 'sound' ? [] : [])], ['', p.type[0].toUpperCase() + p.type.slice(1), T], ['', 'Animation', (p.type === 'sound' ? [['in.delay', 'Play after (ms)', 'num']] : mot.concat(out, idle))]];
+}
+const getv = (p, k) => (k.includes('.') ? k.split('.').reduce((o, x) => o && o[x], p) : k === 'grad' ? !!p.fill2 : p[k]);
+function setv(p, k, v) { if (k.includes('.')) { const [a, b] = k.split('.'); p[a][b] = v; } else if (k === 'grad') p.fill2 = v ? (p.fill2 || '#4FBBBC') : ''; else p[k] = v; }
+const TOK = [['primary', 'Theme: primary'], ['secondary', 'Theme: secondary'], ['accent', 'Theme: accent'], ['text', 'Theme: text'], ['bg', 'Theme: background'], ['muted', 'Theme: muted']];
+const RES = (c) => AlertDesign.col(c, '#000000', D.theme);
+function colorCtl(p, k, label, none) {
+  const cur = String(p[k] || ''), sel = cur[0] === '@' ? cur : none && !cur ? 'none' : 'custom', hex = RES(cur).slice(0, 7);
+  return `<label class="fld">${esc(label)}<div class="row" style="margin:0;flex-wrap:nowrap"><input type="color" data-k="${k}" value="${hex}" style="flex:0 0 44px;${sel === 'none' ? 'display:none' : ''}"><select data-tok="${k}" style="flex:1">${none ? `<option value="none" ${sel === 'none' ? 'selected' : ''}>No tint</option>` : ''}<option value="custom" ${sel === 'custom' ? 'selected' : ''}>Custom color</option>${TOK.map(([t, l]) => `<option value="@${t}" ${sel === '@' + t ? 'selected' : ''}>${l}</option>`).join('')}</select></div></label>`;
+}
+function ctl(p, f) {
+  const [k, label, t, a, b, c] = f, v = getv(p, k), id = 'f-' + k;
+  if (t === 'color') return colorCtl(p, k, label, false); if (t === 'tint') return colorCtl(p, k, label, true);
+  if (t === 'chk') { const on = f[3] ? v === f[3] : !!v; return `<label class="fld chk"><input type="checkbox" data-k="${k}" ${f[3] ? 'data-on="' + f[3] + '" data-off="' + f[4] + '"' : ''} ${on ? 'checked' : ''}> ${esc(label)}</label>`; }
+  let h = '';
+  if (t === 'num') h = `<input type="number" data-k="${k}" value="${v == null ? '' : v}" step="any">`;
+  else if (t === 'txt') h = `<input data-k="${k}" maxlength="30" value="${esc(v)}">`;
+  else if (t === 'area') h = `<textarea data-k="${k}" rows="3" maxlength="${M.limits.text}">${esc(v)}</textarea>`;
+  else if (t === 'color') h = `<input type="color" data-k="${k}" value="${/^#[0-9a-f]{6}/i.test(v) ? v.slice(0, 7) : '#000000'}">`;
+  else if (t === 'range') h = `<input type="range" data-k="${k}" min="${a}" max="${b}" step="${c}" value="${v}">`;
+  else if (t === 'sel') h = `<select data-k="${k}">${a.map(([val, l]) => `<option value="${val}" ${String(v) === String(val) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  else if (t === 'asset') {
+    const list = M.assets[{ image: 'images', video: 'videos', sound: 'sounds' }[a]];
+    h = `<div class="row" style="margin:0"><select data-k="${k}" style="flex:1"><option value="">(none)</option>${list.map((x) => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>${a === 'sound' ? '<button class="ghost" data-play>&#9654;</button>' : ''}<button class="ghost" data-up="${a}">Upload</button></div>`;
+  }
+  return `<label class="fld" ${k === 'fill2' && !p.fill2 ? 'style="display:none"' : ''}>${esc(label)}${h}</label>`;
+}
+const ALIGNS = () => `<div class="row" id="aligns">${[['l', 'Left'], ['c', 'Center'], ['r', 'Right'], ['t', 'Top'], ['m', 'Middle'], ['b', 'Bottom']].map(([k, l]) => `<button class="ghost" data-al="${k}" title="Align to the frame">${l}</button>`).join('')}</div>`;
+function drawInsp() {
+  const el = $('insp'), list = selParts(), p = list.length === 1 ? list[0] : null;
+  if (D.mode === 'html') { el.innerHTML = ''; $('vars').innerHTML = varChips(); return; }
+  if (!list.length) { el.innerHTML = '<p class="muted" style="margin-top:12px">Click a part on the canvas to edit it. Drag to move, drag the squares to resize. Shift + click picks several; Group (Ctrl+G) makes them move and resize together. Arrow keys nudge (Shift = 10 px), Ctrl+D copies, Delete removes, Ctrl+Z undoes. Hold Alt to turn snapping off for a moment.</p>'; $('vars').innerHTML = varChips(); return; }
+  const grouped = list.some((q) => q.group), tools = `<div class="row"><button class="ghost" data-a="group">Group</button>${grouped ? '<button class="ghost" data-a="ungroup">Ungroup</button>' : ''}<button class="ghost" data-a="dup">Copy</button><button class="ghost" data-a="del">Delete</button></div>`;
+  if (!p) { el.innerHTML = `<h2>${list.length} parts${grouped ? ' (grouped)' : ''}</h2>` + ALIGNS() + tools + '<p class="muted">Click a part in the Layers list to change just that one.</p>'; $('vars').innerHTML = varChips(); return; }
+  el.innerHTML = (p.type === 'sound' ? '' : ALIGNS()) + fields(p).map(([, title, fl]) => `<h2>${title}</h2><div class="${title === 'Animation' || title === 'Part' ? 'grid2' : ''}">${fl.map((f) => ctl(p, f)).join('')}</div>`).join('') + tools;
+  $('vars').innerHTML = varChips();
+}
+const refreshInsp = () => { const p = part(sel); if (!p) return; for (const k of ['x', 'y', 'w', 'h']) { const i = document.querySelector(`#insp [data-k="${k}"]`); if (i && document.activeElement !== i) i.value = p[k]; } };
+const varChips = () => ((M.events[sampleEv] || {}).vars || []).map((v) => `<span class="chip" data-v="${v}">{${v}}</span>`).join('') || '<span class="muted">none for this event</span>';
+$('vars').onclick = (e) => { const v = e.target.dataset.v, p = part(sel); if (!v || !p || p.type !== 'text') return toast('Select a text part first', true); push(); p.text += '{' + v + '}'; changed(); drawInsp(); };
+$('insp').addEventListener('focusin', () => push());
+function onInput(e) {
+  const i = e.target, k = i.dataset.k, p = part(sel);
+  if (i.dataset.tok && p) { const t = i.dataset.tok, v = i.value; setv(p, t, v === 'none' ? '' : v === 'custom' ? RES(p[t]) : v); changed(); drawInsp(); return; }   // the theme colour (or custom) chosen for a colour field
+  if (!k || !p) return;
+  if (i.type === 'color' && i.parentNode.querySelector('select')) i.parentNode.querySelector('select').value = 'custom';
+  let v = i.type === 'checkbox' ? (i.dataset.on ? (i.checked ? i.dataset.on : i.dataset.off) : i.checked) : i.type === 'number' || i.type === 'range' ? Number(i.value) : i.value;
+  if (i.tagName === 'SELECT' && ['weight'].includes(k)) v = Number(v);
+  setv(p, k, v); changed(); if (k === 'grad' || k === 'src') drawInsp();
+}
+$('insp').addEventListener('input', onInput); $('insp').addEventListener('change', (e) => { if (e.target.type === 'checkbox' || e.target.tagName === 'SELECT') onInput(e); });
+$('insp').addEventListener('click', (e) => {
+  const p = part(sel), t = e.target;
+  if (t.dataset.al) {   // align what is selected (a group as one block) to the frame
+    const list = selParts().filter((q) => !q.locked), b = bbox(list); if (!b) return; push(); const a = t.dataset.al;
+    const dx = a === 'l' ? -b.x : a === 'c' ? Math.round((1920 - b.w) / 2) - b.x : a === 'r' ? 1920 - b.w - b.x : 0, dy = a === 't' ? -b.y : a === 'm' ? Math.round((1080 - b.h) / 2) - b.y : a === 'b' ? 1080 - b.h - b.y : 0;
+    for (const q of list) { q.x += dx; q.y += dy; } changed(); refreshInsp();
+  }
+  else if (t.dataset.a === 'dup') dup(selParts()); else if (t.dataset.a === 'del') del(selParts()); else if (t.dataset.a === 'group') group(); else if (t.dataset.a === 'ungroup') ungroup();
+  else if (t.dataset.play && p && p.src) { const a = new Audio('/sounds/' + p.src); a.volume = p.volume / 100; a.play(); }
+  else if (t.dataset.up) { upKind = t.dataset.up; $('upIn').accept = { image: '.png,.gif,.webp,.jpg,.jpeg,image/*', video: '.mp4,.webm', sound: '.wav,.mp3,.ogg,audio/*' }[upKind]; $('upIn').click(); }
+});
+let upKind = ''; document.body.insertAdjacentHTML('beforeend', '<input type="file" id="upIn" style="display:none">');
+$('upIn').onchange = async (e) => {
+  const f = e.target.files[0], p = part(sel); e.target.value = ''; if (!f || !p) return;
+  const r = await fetch('/api/alerts/upload?kind=' + upKind + '&name=' + encodeURIComponent(f.name), { method: 'POST', body: f }).then((x) => x.json());
+  if (r.error) return toast(r.error, true);
+  M.assets = (await fetch('/api/alertdesigns').then((x) => x.json())).assets; push(); p.src = r.path; changed(); drawInsp();
+};
+
+// ---------- theme: six colours and two fonts that parts using @colors and @fonts follow
+const PRESETS = [   // name, [primary, secondary, accent, text, background, muted], heading font, body font
+  ['Retro (default)', ['#4FBBBC', '#EC4624', '#F39120', '#E2DAC2', '#222A2A', '#9aa39f'], 'Bahnschrift', 'Bahnschrift'],
+  ['Neon', ['#00F0FF', '#FF2E88', '#FFE600', '#F5F5FF', '#0B0B1A', '#8888aa'], 'Impact', 'Segoe UI'],
+  ['Sunset', ['#FF7A59', '#C9184A', '#FFB703', '#FFF1E6', '#2B1B2E', '#b39ba8'], 'Trebuchet MS', 'Trebuchet MS'],
+  ['Ocean', ['#2EC4B6', '#1B6CA8', '#7BDFF2', '#EAF6FF', '#0B2239', '#8fb0c9'], 'Segoe UI', 'Segoe UI'],
+  ['Forest', ['#6FCF97', '#2D6A4F', '#E9C46A', '#F1F7ED', '#16261C', '#9bb5a3'], 'Georgia', 'Verdana'],
+  ['Candy', ['#FF6FB5', '#8E7CFF', '#FFD166', '#FFFFFF', '#3B2A4A', '#c7b5d9'], 'Comic Sans MS', 'Trebuchet MS'],
+  ['Royal', ['#C9A227', '#7B2CBF', '#E0AAFF', '#F8F4E3', '#1D1230', '#a99bc2'], 'Georgia', 'Georgia'],
+  ['Toxic', ['#9BFF00', '#FF3D00', '#FFD400', '#EFEFEF', '#101410', '#8a9a8a'], 'Arial Black', 'Arial'],
+  ['Mono', ['#FFFFFF', '#BBBBBB', '#888888', '#FFFFFF', '#111111', '#777777'], 'Consolas', 'Consolas'],
+  ['Clean light', ['#2563EB', '#DC2626', '#F59E0B', '#111827', '#F3F4F6', '#6B7280'], 'Segoe UI', 'Segoe UI'],
+];
+const TKEYS = ['primary', 'secondary', 'accent', 'text', 'bg', 'muted'], TLABEL = { primary: 'Primary', secondary: 'Secondary', accent: 'Accent', text: 'Text', bg: 'Background', muted: 'Muted' };
+const presetTheme = (i) => ({ colors: Object.fromEntries(TKEYS.map((k, j) => [k, PRESETS[i][1][j]])), fonts: { heading: PRESETS[i][2], body: PRESETS[i][3] } });
+function drawTheme() {
+  const t = D.theme, saved = M.themes || [];
+  $('thPreset').innerHTML = '<option value="">Choose a theme...</option><optgroup label="Shipped">' + PRESETS.map((p, i) => `<option value="p${i}">${esc(p[0])}</option>`).join('') + '</optgroup>' + (saved.length ? '<optgroup label="Mine">' + saved.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('') + '</optgroup>' : '');
+  $('thColors').innerHTML = TKEYS.map((k) => `<label class="fld">${TLABEL[k]}<input type="color" data-th="${k}" value="${t.colors[k]}"></label>`).join('');
+  const fonts = M.fonts.map((f) => `<option>${esc(f)}</option>`).join(''); $('thHead').innerHTML = $('thBody').innerHTML = fonts; $('thHead').value = t.fonts.heading; $('thBody').value = t.fonts.body;
+}
+const useTheme = (t) => { push(); D.theme = JSON.parse(JSON.stringify(t)); changed(); drawTheme(); drawInsp(); };
+$('thPreset').onchange = () => { const v = $('thPreset').value; if (!v) return; const t = v[0] === 'p' && /^p\d+$/.test(v) ? presetTheme(+v.slice(1)) : (M.themes.find((x) => x.id === v) || null); if (t) { useTheme(t); if (v[0] !== 'p') $('thName').value = (M.themes.find((x) => x.id === v) || {}).name || ''; } };
+$('thColors').addEventListener('focusin', () => push());
+$('thColors').addEventListener('input', (e) => { const k = e.target.dataset.th; if (!k) return; D.theme.colors[k] = e.target.value; changed(); drawInsp(); });
+$('thHead').onchange = () => { push(); D.theme.fonts.heading = $('thHead').value; changed(); }; $('thBody').onchange = () => { push(); D.theme.fonts.body = $('thBody').value; changed(); };
+$('thSave').onclick = async () => {   // keeps the colours and fonts under a name; saving with the name of a saved theme updates it
+  const old = (M.themes || []).find((x) => x.name === $('thName').value);
+  const r = await post('/api/alertdesign/theme/save', Object.assign({ id: old && old.id, name: $('thName').value || 'My theme' }, D.theme)); if (r.error) return toast(r.error, true);
+  M.themes = (await fetch('/api/alertdesigns').then((x) => x.json())).themes; drawTheme(); $('thPreset').value = r.id; toast('Theme saved');
+};
+$('thDel').onclick = async () => { const v = $('thPreset').value; if (!(M.themes || []).some((x) => x.id === v)) return toast('Choose one of your saved themes first', true); await post('/api/alertdesign/theme/delete', { id: v }); M.themes = (await fetch('/api/alertdesigns').then((x) => x.json())).themes; drawTheme(); };
+
+// ---------- design settings, toolbar, designs list
+$('dName').oninput = () => { D.name = $('dName').value; changed(false); };
+$('dSecs').oninput = () => { D.seconds = +$('dSecs').value; changed(false); };
+$('dOut').oninput = () => { D.outMs = +$('dOut').value; changed(false); };
+$('evSel').onchange = () => { sampleEv = $('evSel').value; drawCanvas(); drawInsp(); if (D.mode === 'html') livePreview(); };
+$('bgSel').onchange = () => { $('vp').className = $('bgSel').value; };
+$('bBuilder').onclick = () => { setMode('builder'); drawAll(); }; $('bHtml').onclick = () => { setMode('html'); drawAll(); };
+document.querySelectorAll('#code .t [data-c]').forEach((b) => { b.onclick = () => { codeTab = b.dataset.c; document.querySelectorAll('#code .t [data-c]').forEach((x) => { x.className = x.dataset.c === codeTab ? 'on' : 'ghost'; }); $('ta').value = getCode(); }; });
+const getCode = () => (codeTab === 'fields' ? JSON.stringify(D.fields || {}, null, 2) : D[codeTab] || '');
+$('ta').oninput = () => {
+  if (codeTab !== 'fields') { D[codeTab] = $('ta').value; changed(); return; }
+  try { D.fields = JSON.parse($('ta').value || '{}'); $('cErr').textContent = ''; changed(); } catch (e) { $('cErr').textContent = 'Not valid JSON yet'; }
+};
+$('ta').addEventListener('keydown', (e) => { if (e.key === 'Tab') { e.preventDefault(); const t = e.target, s = t.selectionStart; t.setRangeText('  ', s, t.selectionEnd, 'end'); t.dispatchEvent(new Event('input')); } });
+$('hStart').onclick = () => { if (D.html && !confirm('Replace your HTML, CSS and JavaScript with the starter?')) return; Object.assign(D, HTML_STARTER, { fields: {} }); $('ta').value = D[codeTab]; changed(); };
+$('hFile').onclick = () => $('hFileIn').click();
+$('hFileIn').onchange = async (e) => {   // an .html file fills the HTML box (a <style> block in it moves to CSS), .css and .js fill theirs
+  for (const f of e.target.files) {
+    const t = await f.text(), ext = f.name.split('.').pop().toLowerCase();
+    if (ext === 'css') D.css = t; else if (ext === 'js') D.js = t;
+    else { let css = '', js = ''; const html = t.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (m, c) => { css += c + '\n'; return ''; }).replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, (m, c) => { js += c + '\n'; return ''; }).replace(/<\/?(html|head|body)[^>]*>|<!doctype[^>]*>|<meta[^>]*>|<title>[\s\S]*?<\/title>/gi, '').trim(); D.html = html; if (css) D.css = css.trim(); if (js) D.js = js.trim(); }
+  }
+  e.target.value = ''; $('ta').value = getCode(); changed();
+};
+function drawAll() { $('dName').value = D.name; $('dSecs').value = D.seconds; $('dOut').value = D.outMs; $('ta').value = getCode(); fit(); drawStock(); drawTheme(); drawCanvas(); drawInsp(); }
+
+// previews: "Preview" plays the real entrance and exit; in HTML mode the page is also shown while you type
+function stopPlay() { if (playing) { playing.b.stop(); clearTimeout(playing.t); playing = null; } $('pv').innerHTML = ''; $('pc').style.visibility = ''; $('sel').style.visibility = ''; }
+function run(auto) {
+  stopPlay(); const b = AlertDesign.build(document, D, sampleVars(), { base: ORIGIN, event: sampleEv, muted: auto, vol: 1 }); $('pv').appendChild(b.el);
+  if (D.mode !== 'html') { $('pc').style.visibility = 'hidden'; $('sel').style.visibility = 'hidden'; }
+  b.enter(); playing = { b, t: null };
+  if (!auto) playing.t = setTimeout(() => b.leave(() => stopPlay()), D.seconds * 1000);
+}
+function livePreview() { clearTimeout(livePreview.t); livePreview.t = setTimeout(() => run(true), 500); }
+$('bPlay').onclick = () => run(false);
+$('bSave').onclick = save;
+async function save() {
+  const r = await post('/api/alertdesign/save', D); if (r.error) { toast(r.error, true); return false; }
+  const wasSel = sel; D = r; dirty = false; $('dirty').textContent = ''; await load(r.id); select(wasSel); toast('Saved'); return true;
+}
+$('bTest').onclick = async () => { if ((dirty || !D.id) && !(await save())) return; const r = await post('/api/alertdesign/test', { id: D.id, event: sampleEv }); toast(r.error || 'Sent to your alerts overlay', !!r.error); };
+$('dsel').onchange = () => { if (dirty && !confirm('Leave without saving your changes?')) { $('dsel').value = D.id; return; } const d = M.designs.find((x) => x.id === $('dsel').value); open_(d ? JSON.parse(JSON.stringify(d)) : makeStarter('banner', sampleEv), !d); };
+$('dNew').onclick = () => { $('nEv').innerHTML = Object.entries(M.events).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join(''); $('nEv').value = sampleEv; $('newBox').style.display = $('newBox').style.display === 'none' ? '' : 'none'; };
+const startNew = (d) => { if (dirty && !confirm('Leave without saving your changes?')) return; $('newBox').style.display = 'none'; if (d.parts.length) { sampleEv = $('nEv').value; $('evSel').value = sampleEv; } d.theme = JSON.parse(JSON.stringify(D.theme)); open_(d, true); };   // a new design starts with the theme you are using
+
+$('nGo').onclick = () => startNew(makeStarter($('nStyle').value, $('nEv').value)); $('nBlank').onclick = () => startNew(blank());
+$('dImp').onclick = () => $('impIn').click();
+$('impIn').onchange = async (e) => {   // art or code you own: a .zip or a single file; the report says what came in and what did not
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (dirty && !confirm('Leave without saving your changes?')) return;
+  toast('Importing...'); const r = await fetch('/api/alertdesign/import?name=' + encodeURIComponent(f.name), { method: 'POST', body: f }).then((x) => x.json());
+  const rp = r.report, li = (a, f2) => (a && a.length ? '<ul>' + a.map((x) => '<li>' + f2(x) + '</li>').join('') + '</ul>' : '');
+  $('repBody').innerHTML = `<h2>${r.error && !rp ? 'Could not import' : esc((rp && rp.summary) || 'Import')}</h2>` + (r.error && !rp ? `<p>${esc(r.error)}</p>` : '')
+    + (rp ? '<h2>Imported</h2>' + (li(rp.imported, (x) => esc(x.file) + ' &rarr; ' + esc(x.as)) || '<p class="muted">Nothing</p>') + (rp.skipped.length ? '<h2>Not imported</h2>' + li(rp.skipped, (x) => esc(x.file) + ': ' + esc(x.reason)) : '') + (rp.warnings.length ? '<h2>Good to know</h2>' + li(rp.warnings, esc) : '') : '')
+    + '<div class="row"><button id="repOk">OK</button></div>';
+  $('rep').style.display = 'flex'; $('repOk').onclick = () => { $('rep').style.display = 'none'; };
+  if (r.ok) { await load(r.id); toast('Imported and saved as a design'); }
+};
+$('dDup').onclick = () => { const c = JSON.parse(JSON.stringify(D)); c.id = ''; c.name += ' copy'; open_(c, true); };
+$('dDel').onclick = async () => {
+  const b = $('dDel'); if (!D.id) return open_(makeStarter('banner', sampleEv), true);
+  if (!b.dataset.arm) { b.dataset.arm = 1; b.textContent = 'Sure?'; setTimeout(() => { delete b.dataset.arm; b.textContent = 'Delete'; }, 3000); return; }
+  delete b.dataset.arm; b.textContent = 'Delete'; await post('/api/alertdesign/delete', { id: D.id }); await load('');
+};
+addEventListener('beforeunload', (e) => { if (dirty) e.preventDefault(); });
+load('').then(() => { if (!M.designs.length) toast('Here is a starting point: change it and press Save'); });
+</script></body></html>

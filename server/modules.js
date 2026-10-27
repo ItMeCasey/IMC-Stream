@@ -28,6 +28,7 @@ const BUILTIN = [
   { id: 'site', name: 'Website', icon: '⌂', group: 'Stream', url: '/site', description: 'Pages for your viewers (commands, games, text-to-speech) to put on a free host' },
   { id: 'emotes', name: 'Emote Rewards', icon: '☺', group: 'Automate', url: '/emotes', description: 'Viewers add a 7TV emote to your channel with channel points' },
   { id: 'hooks', name: 'Reward Hooks', icon: '\u2693', group: 'Automate', url: '/hooks', description: 'Channel point rewards that do things' },
+  { id: 'alert-builder', name: 'Alert Builder', icon: '✦', group: 'Overlays', url: '/alert-builder', description: 'Design your own alerts: drag text, shapes, images and sounds, or write your own HTML' },
   { id: 'overlay-editor', name: 'Overlay Editor', icon: '\u270E', group: 'Overlays', url: '/overlay-editor', description: 'Alert and recent events overlay settings' },
   { id: 'subathon', name: 'Subathon', icon: '\u231B', group: 'Stream', url: '/subathon', description: 'Subathon timer: time added per sub, bits, follow, raid; its own OBS overlay' },
   { id: 'countdown', name: 'Start Countdown', icon: '\u23F1', group: 'Overlays', url: '/countdown', description: 'Countdown timer' },

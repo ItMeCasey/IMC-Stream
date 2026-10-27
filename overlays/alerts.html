@@ -3,6 +3,7 @@
 <link rel="stylesheet" href="theme.css">
 <style>
   .vid { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 0; pointer-events: none; }
+  #dstage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; z-index: 1; pointer-events: none; }   /* Alert Builder designs: a 1920x1080 canvas scaled to the source */
   #stage { z-index: 1; position: absolute; left: 0; right: 0; top: 70px; display: flex; justify-content: center; pointer-events: none; }
   .alert { position: relative; width: 980px; height: 230px; display: flex; align-items: stretch; opacity: 0;
     filter: drop-shadow(0 14px 22px rgba(0,0,0,.55)); }
@@ -43,8 +44,10 @@
 </style></head>
 <body>
 <div id="stage"></div>
+<div id="dstage"></div>
 <div id="debug"></div>
 <script src="config.js"></script>
+<script src="alert-design.js"></script>
 <script>
 (function () {
   const C = window.CFG || {};
@@ -57,6 +60,16 @@
   let CFGV = { position: "top", volume: 100 };
   function applyCfg(s) { if (!s || !s.alerts) return; CFGV = s.alerts; const st = stage.style; st.top = st.bottom = "auto"; if (CFGV.position === "bottom") st.bottom = "70px"; else if (CFGV.position === "middle") { st.top = "50%"; st.transform = "translateY(-50%)"; } else st.top = "70px"; if (CFGV.position !== "middle") st.transform = "none"; }
   fetch(BASE + "/api/overlay-settings").then((r) => r.json()).then(applyCfg).catch(() => {});
+  // Alert Builder designs: fitted to the browser source (undoing the overall overlay scale from config.js)
+  const dstage = document.getElementById("dstage"), designs = {};
+  function fitDesign() { const bs = +(Q.get("scale") || C.scale || 1) || 1; dstage.style.transform = "scale(" + Math.min(innerWidth / 1920, innerHeight / 1080) / bs + ")"; }
+  addEventListener("resize", fitDesign); fitDesign();
+  // an alert names its design by id: fetch it once and keep it until the builder saves a change; if it can't be had the normal banner plays
+  function loadDesign(a) {
+    if (!a.design || typeof a.design === "object") return Promise.resolve(a);
+    const id = a.design; if (designs[id]) { a.design = designs[id]; return Promise.resolve(a); }
+    return fetch(BASE + "/api/alertdesign?id=" + encodeURIComponent(id)).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && d.id) designs[id] = d; a.design = d && d.id ? d : null; return a; }).catch(() => { a.design = null; return a; });
+  }
   const queue = []; let busy = false, paused = false, muted = false, cur = null;   // paused / muted / skip come from the dashboard
 
   // ---- speech (text-to-speech clips), one at a time
@@ -89,22 +102,22 @@
   const subName = (m) => { const t = SUB_MONTHS.reduce((r, x) => (m >= x ? x : r), 0); return t ? t + "m" : "base"; };
   function show(a, done) {
     const k = KINDS[a.kind] || KINDS.follow;
+    const D = a.design && window.AlertDesign ? AlertDesign.build(document, a.design, a.vars || {}, { base: BASE, event: a.event, muted, vol: VOL * (CFGV.volume / 100) }) : null;
     const icon = a.bits ? "../assets/bits/bits_" + bitsTier(a.bits) + "_180.png" : a.sub ? "../assets/subs/tier" + a.sub.tier + "/sub_t" + a.sub.tier + "_" + subName(a.sub.months) + "_180.png" : "";   // a rule's own image wins over these
     const base = BASE;
-    const el = document.createElement("div");
-    el.className = "alert " + (a.accent ? "custom" : a.kind);
-    if (a.accent) {   // rule-driven colour; pick readable tag text
+    const el = D ? D.el : document.createElement("div");
+    if (!D) el.className = "alert " + (a.accent ? "custom" : a.kind);
+    if (a.accent && !D) {   // rule-driven colour; pick readable tag text
       const n = parseInt(a.accent.slice(1), 16), lum = (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255;
       el.style.setProperty("--accent", a.accent);
       el.style.setProperty("--tagfg", lum < 0.4 ? "var(--cream)" : "var(--iron)");
     }
-    el.innerHTML =
+    if (!D) el.innerHTML =
       '<div class="badge"><img' + (!a.image && icon ? ' class="px"' : '') + ' src="' + esc(a.image ? base + a.image : icon || "../assets/logo.png") + '" alt=""></div>' +
       '<div class="body"><div class="tag"><span>' + esc(a.tag || k.tag) + '</span></div>' +
       '<div class="name">' + esc(a.name) + '</div>' +
       (a.msg ? '<div class="msg">' + esc(a.msg) + '</div>' : '') + '</div><div class="shine"></div>';
-    stage.appendChild(el);
-    el.classList.add("in");
+    if (D) { dstage.appendChild(el); D.enter(); } else { stage.appendChild(el); el.classList.add("in"); }
     const snd = a.sound !== undefined ? (a.sound ? base + a.sound : "") : "../sounds/" + k.snd;
     let spoke = false;
     const speak = () => { if (!spoke && a.tts && !muted) { spoke = true; enqueueTts(a.tts); } };   // the voice follows the alert sound
@@ -118,18 +131,19 @@
       vid.addEventListener("loadedmetadata", () => { if (cur && cur.el === el && isFinite(vid.duration)) { clearTimeout(cur.timer); cur.timer = setTimeout(finishCur, Math.min(30, Math.max(hold / 1000, vid.duration + 0.5)) * 1000); } });
       vid.play().catch(() => {});
     }
-    cur = { el, done, vid, timer: setTimeout(finishCur, hold) };
+    cur = { el, done, vid, D, timer: setTimeout(finishCur, hold) };
   }
   function finishCur() {
     if (!cur) return; const c = cur; cur = null; clearTimeout(c.timer);
     if (c.vid) { try { c.vid.pause(); } catch (e) {} c.vid.remove(); }
+    if (c.D) { c.D.leave(() => { c.D.stop(); c.el.remove(); c.done(); }); return; }   // a design plays its own exit animations
     c.el.classList.remove("in"); c.el.classList.add("out");
     setTimeout(() => { c.el.remove(); c.done(); }, 650);
   }
   function pump() {
     if (busy || paused || !queue.length) return;
     busy = true;
-    show(queue.shift(), () => { busy = false; setTimeout(pump, 400); });
+    loadDesign(queue.shift()).then((a) => show(a, () => { busy = false; setTimeout(pump, 400); }));
   }
   function push(a) { queue.push(a); pump(); }
   window.pushAlert = push;
@@ -139,6 +153,7 @@
     const note = t => { dbg.style.display = "block"; dbg.textContent = t; setTimeout(() => dbg.style.display = "none", 6000); };
     const es = new EventSource(BASE + "/events");
     es.onmessage = ev => { try { const a = JSON.parse(ev.data); if (KINDS[a.kind]) push(a); } catch (e) {} };
+    es.addEventListener("alertdesign", ev => { try { delete designs[JSON.parse(ev.data).id]; } catch (e) {} });
     es.addEventListener("overlaycfg", ev => { try { applyCfg(JSON.parse(ev.data)); } catch (e) {} });
     es.addEventListener("alertctl", ev => {
       try {

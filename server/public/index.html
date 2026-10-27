@@ -112,6 +112,8 @@
       <label class="fld" id="fMatch">Reward contains<input id="aMatch" placeholder="any reward" style="width:160px"></label>
       <label class="fld" id="fKey">Trigger key<input id="aKey" placeholder="lurk" style="width:130px"></label>
       <div style="flex-basis:100%"></div>
+      <label class="fld">Design (from the Alert Builder)<span class="row" style="margin:0"><select id="aDesign"></select><button type="button" class="ghost" id="aBuilder">Open builder</button></span></label>
+      <div style="flex-basis:100%" class="muted" id="aDesignNote">With a design, its own layout, animation and time on screen replace the default banner. Sound and voice below still play. The tag, title and message are then only used in the alert history.</div>
       <label class="fld">Tag (small badge)<input id="aTag" maxlength="60" style="width:220px"></label>
       <label class="fld">Title (big line)<input id="aTitle" maxlength="80" style="width:260px"></label>
       <label class="fld">Message (sub line)<input id="aMsg" maxlength="140" style="width:320px"></label>
@@ -203,15 +205,19 @@ function drawAlerts() {
     <div class="arow ${r.enabled ? '' : 'off'}" data-id="${r.id}">
       <input type="checkbox" data-a="toggle" ${r.enabled ? 'checked' : ''} title="Enabled">
       <div><div class="an">${esc2(r.name)}</div><div class="ac">${esc2((A.events[r.event] || {}).label || r.event)} &middot; ${esc2(condText(r))}</div></div>
-      <div><span class="tagpv" style="background:${r.color}">${esc2(r.tag || '—')}</span> <span class="ac">${esc2(r.title)} ${r.msg ? '/ ' + esc2(r.msg) : ''} &middot; ${r.sound ? esc2(r.sound) : 'no sound'} &middot; ${r.seconds}s${r.tts && r.tts.on ? ' &middot; 🗣 voice' : ''}</span></div>
+      <div>${r.design ? '<span class="tagpv" style="background:#2f3938;color:var(--cream)">&#10022; ' + esc2((A.designs.find((d) => d.id === r.design) || {}).name || 'design') + '</span> ' : ''}<span class="tagpv" style="background:${r.color}">${esc2(r.tag || '—')}</span> <span class="ac">${esc2(r.title)} ${r.msg ? '/ ' + esc2(r.msg) : ''} &middot; ${r.sound ? esc2(r.sound) : 'no sound'} &middot; ${r.seconds}s${r.tts && r.tts.on ? ' &middot; 🗣 voice' : ''}</span></div>
       <div class="gbtns"><button class="alt" data-a="test">Test</button><button class="ghost" data-a="edit">Edit</button><button class="ghost" data-a="dup">Copy</button><button class="danger ghost" data-a="del">Delete</button></div>
     </div>`).join('') || '<p class="muted">No alerts. Nothing will show on stream. Press “Reset to defaults” to bring the standard set back.</p>';
 }
 const loadAlerts = () => fetch('/api/alerts').then((r) => r.json()).then((j) => {
   A = j;
   if (!$('aEvent').options.length) $('aEvent').innerHTML = Object.entries(j.events).map(([k, v]) => `<option value="${k}">${esc2(v.label)}</option>`).join('');
-  fillAssets(); drawAlerts(); fitPreview();
+  fillDesigns(); fillAssets(); drawAlerts(); fitPreview();
 });
+function fillDesigns(sel) {
+  const s = sel !== undefined ? sel : $('aDesign').value;
+  $('aDesign').innerHTML = '<option value="">Default banner</option>' + (A.designs || []).map((d) => `<option value="${esc2(d.id)}">${esc2(d.name)}</option>`).join(''); $('aDesign').value = s || '';
+}
 function fillAssets(selSound, selImage, selVideo) {
   const sv = selVideo !== undefined ? selVideo : ($('aVideo') ? $('aVideo').value : '');
   $('aVideo').innerHTML = '<option value="">(no video)</option>' + (A.assets.videos || []).map((f) => `<option>${esc2(f)}</option>`).join(''); $('aVideo').value = sv || '';
@@ -233,7 +239,7 @@ function openAlertForm(r) {
   $('aForm').style.display = 'flex'; $('aErr').textContent = '';
   $('aId').value = r.id || ''; $('aEvent').value = r.event; eventUi(); $('aName').value = r.name; $('aMin').value = r.min == null ? '' : r.min; $('aMax').value = r.max == null ? '' : r.max;
   $('aMatch').value = r.match || ''; $('aKey').value = r.key || ''; $('aTag').value = r.tag; $('aTitle').value = r.title; $('aMsg').value = r.msg; setColor(r.color);
-  fillAssets(r.sound, r.image, r.video); $('aVol').value = r.volume; $('aSecs').value = r.seconds; $('aOn').checked = r.enabled;
+  fillDesigns(r.design || ''); fillAssets(r.sound, r.image, r.video); $('aVol').value = r.volume; $('aSecs').value = r.seconds; $('aOn').checked = r.enabled;
   const tt = r.tts || { on: false, text: '{name} says {message}', voice: '' }; $('aTts').checked = tt.on; $('aTtsText').value = tt.text; $('aTtsVoice').value = tt.voice || ''; $('aTag').focus();
 }
 $('aSw').innerHTML = PRESET.map((c) => `<span class="sw" data-c="${c}" style="background:${c}"></span>`).join('');
@@ -242,6 +248,7 @@ $('aEvent').onchange = () => { eventUi(); if (!$('aId').value) { const ev = A.ev
 document.querySelectorAll('#aForm input[type=text], #aForm input:not([type])').forEach((i) => i.addEventListener('focus', () => { lastField = i; }));
 $('aVars').onclick = (e) => { const v = e.target.dataset.v; if (!v) return; const f = lastField && ['aTag', 'aTitle', 'aMsg'].includes(lastField.id) ? lastField : $('aMsg'); f.value += '{' + v + '}'; f.focus(); };
 $('aNew').onclick = () => openAlertForm(null);
+$('aBuilder').onclick = () => { (self !== top ? top : window).location.hash = '#/m/alert-builder'; };
 $('aCancel').onclick = () => { $('aForm').style.display = 'none'; };
 $('aPlay').onclick = () => { if ($('aSound').value) { const a = new Audio('/sounds/' + $('aSound').value); a.volume = $('aVol').value / 100; a.play(); } };
 async function upload(kind, file) {
@@ -256,7 +263,7 @@ $('aForm').onsubmit = async (e) => {
   e.preventDefault();
   const r = await post('/api/alerts/save', { id: $('aId').value || undefined, event: $('aEvent').value, name: $('aName').value, min: $('aMin').value, max: $('aMax').value,
     match: $('aMatch').value, key: $('aKey').value, tag: $('aTag').value, title: $('aTitle').value, msg: $('aMsg').value, color: $('aColor').value,
-    sound: $('aSound').value, image: $('aImage').value, video: $('aVideo').value, volume: $('aVol').value, seconds: $('aSecs').value, enabled: $('aOn').checked, tts: { on: $('aTts').checked, text: $('aTtsText').value, voice: $('aTtsVoice').value } });
+    design: $('aDesign').value, sound: $('aSound').value, image: $('aImage').value, video: $('aVideo').value, volume: $('aVol').value, seconds: $('aSecs').value, enabled: $('aOn').checked, tts: { on: $('aTts').checked, text: $('aTtsText').value, voice: $('aTtsVoice').value } });
   if (r.error) { $('aErr').textContent = r.error; return; }
   $('aForm').style.display = 'none'; await loadAlerts(); post('/api/alerts/test', { id: r.id });
 };
