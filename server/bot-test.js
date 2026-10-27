@@ -43,6 +43,7 @@ const bot = createBot({
     return { ok: true, json: {} };
   },
   fetch: async (url) => ({ text: async () => 'fetched:' + url.split('/').pop() }),
+  lookup: async () => [{ address: '93.184.216.34' }],   // pretend every name is a public address
   clientId: () => 'cid', ID_URL: () => 'x', HELIX: () => 'y',
 });
 
@@ -116,6 +117,7 @@ const MOD = ['moderator'], SUB = ['subscriber'];
 
   // urlfetch + time variables
   assert.strictEqual(await bot.expand('$(urlfetch https://x.test/answer)', { user: { id: 'a', name: 'A' }, args: [] }), 'fetched:answer');
+  for (const bad of ['http://127.0.0.1:8420/api/diagnostics', 'http://192.168.1.1/', 'http://169.254.169.254/latest/meta-data/', 'http://[::1]/']) assert.strictEqual(await bot.expand('$(urlfetch ' + bad + ')', { user: { id: 'a', name: 'A' }, args: [] }), '(fetch failed)', 'urlfetch never reaches ' + bad);
 
   // points: awarded per minute to recent chatters (x2 for subs), only while live
   bot.awardPoints();

@@ -1498,12 +1498,11 @@ function status() {
     totals: state.totals, session: state.session, latest: state.latest,
   };
 }
-// Block cross-site POSTs: allow no Origin (non-browser callers, OBS), localhost, or the same host the page came from.
-function originOk(req) {
-  const o = req.headers.origin;
-  if (!o || o === 'null') return true;
-  try { const U = new URL(o); return U.hostname === 'localhost' || U.hostname === '127.0.0.1' || U.host === req.headers.host; } catch (e) { return false; }
-}
+// Block cross-site POSTs: allowed are this app's own pages and programs that send no Origin (OBS, Stream Deck); "Origin: null" and other sites are refused (see webguard.js).
+const webguard = require('./webguard.js');
+function originOk(req) { return webguard.postAllowed(req.headers); }
+// Routes that can leak logins, run code or change what the PC does: only from this PC, even when a phone is logged in over the LAN.
+const LOCAL_ONLY = /^\/api\/(backup\/create|app\/restart|update\/install|obs\/install|vm\/install|site\/(login|publish)|discord\/settings|hooks\/(save|delete|test|obs\/save))$/;
 // Read a JSON request body, capped in size (default 100 KB); bad JSON becomes {}.
 function readJson(req, limit) {
   return new Promise((resolve) => {
@@ -1513,20 +1512,21 @@ function readJson(req, limit) {
 }
 // Send a JSON response.
 function json(res, code, obj) {
-  res.writeHead(code, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+  res.writeHead(code, Object.assign({ 'Content-Type': 'application/json' }, webguard.cors(res.reqHeaders)));
   res.end(JSON.stringify(obj));
 }
 // Send a file with the right content type; always revalidated so edits show up straight away.
 function serveFile(res, file) {
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404); return res.end('not found'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-cache' });
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', ...webguard.cors(res.reqHeaders), 'Cache-Control': 'no-cache' });
     res.end(buf);
   });
 }
 
 // The one request handler: page and API GETs first, then POST /api/* actions, then static files. Anything not matched ends as a 404.
 async function route(req, res) {
+  res.reqHeaders = req.headers;   // json() and the file senders use it to decide who may read the response (CORS)
   const u = new URL(req.url, 'http://localhost');
   const p = decodeURIComponent(u.pathname);
 
@@ -1534,12 +1534,12 @@ async function route(req, res) {
   if (access.gate(req, res, p)) return;
   if (p === '/api/login' && req.method === 'POST') return access.login(req, res, await readJson(req));
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST', 'Access-Control-Allow-Headers': 'Content-Type' });
+    res.writeHead(204, Object.assign({ 'Access-Control-Allow-Methods': 'GET,POST', 'Access-Control-Allow-Headers': 'Content-Type' }, webguard.cors(req.headers)));
     return res.end();
   }
   // Server-Sent Events stream used by overlays and the dashboard: send the current state of everything on connect, then live updates.
   if (p === '/events') {
-    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'Access-Control-Allow-Origin': '*' });
+    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', ...webguard.cors(res.reqHeaders) });
     res.write('retry: 2000\n\n');
     sseSend(res, 'status', status());
     sseSend(res, 'goals', goalViews());
@@ -1570,7 +1570,7 @@ async function route(req, res) {
   if (p === '/api/commands/export') {
     const ex = bot.exportCommands(), f = u.searchParams.get('format') || 'html';
     const type = f === 'md' ? 'text/markdown; charset=utf-8' : f === 'txt' ? 'text/plain; charset=utf-8' : 'text/html; charset=utf-8';
-    res.writeHead(200, { 'Content-Type': type, 'Access-Control-Allow-Origin': '*', 'Content-Disposition': u.searchParams.get('download') ? 'attachment; filename="chat-commands.' + (f === 'html' ? 'html' : f === 'md' ? 'md' : 'txt') + '"' : 'inline' });
+    res.writeHead(200, { 'Content-Type': type, ...webguard.cors(res.reqHeaders), 'Content-Disposition': u.searchParams.get('download') ? 'attachment; filename="chat-commands.' + (f === 'html' ? 'html' : f === 'md' ? 'md' : 'txt') + '"' : 'inline' });
     return res.end(f === 'md' ? ex.md : f === 'txt' ? ex.text : ex.html);
   }
   if (p === '/api/tts/install' && req.method === 'GET') return json(res, 200, kokoroInstall);
@@ -1630,7 +1630,7 @@ async function route(req, res) {
   if (p === '/subathon' || p === '/subathon/') return serveFile(res, path.join(__dirname, 'public', 'subathon.html'));
   if (p === '/countdown' || p === '/countdown/') return serveFile(res, path.join(__dirname, 'public', 'countdown.html'));
   if (p === '/api/media') return json(res, 200, media.view());
-  if (p === '/media/art') { const a = media.art(); if (!a) { res.writeHead(404); return res.end(); } res.writeHead(200, { 'Content-Type': a.type, 'Cache-Control': 'no-cache', 'Access-Control-Allow-Origin': '*' }); return res.end(a.buf); }
+  if (p === '/media/art') { const a = media.art(); if (!a) { res.writeHead(404); return res.end(); } res.writeHead(200, { 'Content-Type': a.type, 'Cache-Control': 'no-cache', ...webguard.cors(res.reqHeaders) }); return res.end(a.buf); }
   if (p === '/spotify/callback') {
     const q = Object.fromEntries(u.searchParams),
       page = (ok, msg) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -1640,14 +1640,15 @@ async function route(req, res) {
   if (p === '/music' || p === '/music/') return serveFile(res, path.join(__dirname, 'public', 'music.html'));
   if (p === '/api/access') return json(res, 200, access.view());
   if (p === '/api/backup/list') return json(res, 200, backup.list());
-  if (p === '/api/backup/download') {
+  if (p === '/api/backup/download') {   // the whole backup (tokens with ?includeLogins=1): this PC only, and never because another site asked
+    if (!access.isLoopback(req.socket.remoteAddress) || !originOk(req)) return json(res, 403, { error: 'Backups can only be downloaded on the PC itself' });
     const f = backup.create({ out: path.join(os.tmpdir(), 'icm-backup-' + Date.now() + '.zip'), includeLogins: u.searchParams.get('includeLogins') === '1' }).file;
     res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="IMC-Stream-backup-' + new Date().toISOString().slice(0, 10) + '.zip"' });
     const rs = fs.createReadStream(f); rs.on('close', () => { try { fs.unlinkSync(f); } catch (e) { /* gone */ } });
     return rs.pipe(res); }
   if (p === '/api/health') return json(res, 200, health());
   if (p === '/api/config') { const c = loadConfig(); return json(res, 200, { clientId: c.clientId, port: c.port, version: APP_VERSION, dataDir: DATA, rootDir: ROOT }); }
-  if (p === '/api/obs/collection') { res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Disposition': 'attachment; filename="ItMeCasey.json"', 'Access-Control-Allow-Origin': '*' }); return res.end(JSON.stringify(buildCollection({ root: ROOT, dataDir: DATA, port: CFG.port }), null, 4)); }
+  if (p === '/api/obs/collection') { res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Disposition': 'attachment; filename="ItMeCasey.json"', ...webguard.cors(res.reqHeaders) }); return res.end(JSON.stringify(buildCollection({ root: ROOT, dataDir: DATA, port: CFG.port }), null, 4)); }
   if (p === '/api/alerts/history') return json(res, 200, recentAlerts.map((a) => ({ id: a.id, kind: a.kind, event: a.event, tag: a.tag, name: a.name, msg: a.msg, ts: a.ts, tts: !!a.tts })));
   if (p === '/api/tts') { await tts.voices(); return json(res, 200, tts.view()); }
   if (p.startsWith('/tts/')) { const f = tts.clip(p.slice(5)); if (!f) { res.writeHead(404); return res.end(); } return serveFile(res, f); }
@@ -1669,6 +1670,7 @@ async function route(req, res) {
   // ---- POST actions: cross-site origins are rejected, then the big uploads (which stream their own body), then everything else with a small JSON body.
   if (req.method === 'POST' && p.startsWith('/api/')) {
     if (!originOk(req)) return json(res, 403, { error: 'forbidden origin' });
+    if (LOCAL_ONLY.test(p) && !access.isLoopback(req.socket.remoteAddress)) return json(res, 403, { error: 'This can only be done on the PC itself' });
     if (p === '/api/modules/install') {
       if (!access.isLoopback(req.socket.remoteAddress)) return json(res, 403, { error: 'Modules can only be installed on the PC itself' });
       const chunks = []; let size = 0;
