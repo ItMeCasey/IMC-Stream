@@ -15,7 +15,8 @@ export default {
     // PayPal and Ko-fi both want a fast 200, so the real work happens after replying.
     for (const [path, handler] of [['/ipn', handleIpn], ['/kofi', handleKofi]]) {
       if (url.pathname === path && request.method === 'POST') {
-        const raw = await request.text();
+        if (Number(request.headers.get('content-length') || 0) > 20000) return new Response('Too large', { status: 413 });   // real PayPal / Ko-fi notifications are a few KB
+        const raw = await request.text(); if (raw.length > 20000) return new Response('Too large', { status: 413 });
         ctx.waitUntil(handler(raw, env).then((r) => r !== 'ok' && console.warn(path, 'ignored:', r), (e) => console.error(path, 'failed', e)));
         return new Response('OK');
       }
@@ -24,7 +25,7 @@ export default {
     if (url.pathname === '/' && request.method === 'GET') return new Response(page, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 
     if (url.pathname === '/ws') {
-      if (!env.RELAY_TOKEN || url.searchParams.get('token') !== env.RELAY_TOKEN) return new Response('Forbidden', { status: 403 });
+      if (!env.RELAY_TOKEN || !same(String(url.searchParams.get('token') || ''), env.RELAY_TOKEN)) return new Response('Forbidden', { status: 403 });
       return room(env).fetch(new Request('https://room/ws', request));
     }
 
@@ -40,6 +41,7 @@ const forward = async (env, tip) => { await room(env).fetch('https://room/broadc
 // Returns 'ok' when the tip was passed on, otherwise the reason it was ignored.
 export async function handleIpn(raw, env, doFetch = fetch) {
   const p = new URLSearchParams(raw);
+  if (!p.get('txn_id')) return 'not an incoming payment';   // checked before PayPal is asked, so junk posts cost nothing
 
   if (env.DEV_SKIP_VERIFY !== 'true') {
     const res = await doFetch(env.SANDBOX === 'true' ? VERIFY_URL.sandbox : VERIFY_URL.live, {

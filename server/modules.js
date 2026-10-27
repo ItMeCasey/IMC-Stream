@@ -112,6 +112,7 @@ module.exports = function createModules(ctx) {
     const tmp = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'icm-mod-'));
     try {
       const x = spawnSync(TAR, ['-x', '-f', zip, '-C', tmp], { encoding: 'utf8', windowsHide: true }); if (x.status !== 0) throw new Error('Could not unpack the zip');
+      (function noLinks(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (fs.lstatSync(f).isSymbolicLink()) throw new Error('The zip contains a link (' + e.name + ')'); if (e.isDirectory()) noLinks(f); } })(tmp);   // a link could point outside the module folder
       let root = tmp; const top = fs.readdirSync(tmp);
       if (!fs.existsSync(path.join(root, 'module.json')) && top.length === 1 && fs.statSync(path.join(tmp, top[0])).isDirectory()) root = path.join(tmp, top[0]);   // zipped as one folder
       if (!fs.existsSync(path.join(root, 'module.json'))) throw new Error('module.json is missing (see the example on the Modules page)');

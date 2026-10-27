@@ -1533,6 +1533,7 @@ async function route(req, res) {
   // Access control comes first: it can refuse the request (LAN password) before any route runs.
   if (access.gate(req, res, p)) return;
   if (p === '/api/login' && req.method === 'POST') return access.login(req, res, await readJson(req));
+  if (p === '/api/logout' && req.method === 'POST') return access.logout(req, res);   // a phone or tablet can end its own session
   if (req.method === 'OPTIONS') {
     res.writeHead(204, Object.assign({ 'Access-Control-Allow-Methods': 'GET,POST', 'Access-Control-Allow-Headers': 'Content-Type' }, webguard.cors(req.headers)));
     return res.end();
@@ -2116,7 +2117,8 @@ function health() {
 /** plain text for a bug report: versions, connection states and the last log lines, with anything that looks like a secret blanked out */
 function diagnostics() {
   const os = require('node:os'), h = health();
-  const scrub = (t) => String(t).replace(/(access_token|refresh_token|authorization|bearer|api[_-]?key|secret|password|client_secret|code)(["':=\s]+)([A-Za-z0-9._\-]{6,})/gi, '$1$2***').replace(/oauth:[A-Za-z0-9]+/gi, 'oauth:***');
+  // blank anything that looks like a login: "key: value" pairs, "Bearer <token>", oauth: tokens and Stripe keys
+  const scrub = (t) => String(t).replace(/bearer\s+[A-Za-z0-9._~+\/=-]{6,}/gi, 'Bearer ***').replace(/(access_token|refresh_token|authorization|api[_-]?key|secret|password|client_secret|code)(["':=\s]+)([A-Za-z0-9._\-]{6,})/gi, '$1$2***').replace(/oauth:[A-Za-z0-9]+/gi, 'oauth:***').replace(/[rs]k_(live|test)_[A-Za-z0-9]+/g, '***stripe-key***');
   const lines = [
     'IMC-Stream ' + h.version, 'Windows ' + os.release() + ' (' + os.arch() + '), Node ' + process.versions.node + (process.versions.electron ? ', Electron ' + process.versions.electron : ''),
     'Running for ' + h.uptimeSec + ' s, port ' + h.port, 'Twitch: ' + (h.twitch.loggedIn ? 'logged in' : 'not logged in') + ', EventSub ' + h.twitch.eventsub + ', light ' + h.light,

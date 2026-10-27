@@ -139,6 +139,16 @@ const redemption = (over = {}) => Object.assign({ id: 'red1', user_id: 'u9', use
   assert.strictEqual(state.obsCfg.password, 'pw'); await hooks.api('obs/save', { host: '10.0.0.5', port: 4456, password: '__keep__' }); assert.strictEqual(state.obsCfg.password, 'pw');
   assert.ok(!JSON.stringify(hooks.view().obs).includes('pw'), 'the OBS password is never sent back to the page');
   await hooks.api('delete', { id: h3.id }); assert.ok(!state.rewardHooks.some((h) => h.id === h3.id)); assert.ok(persisted > 0);
+  // broadcaster rights: the command name cannot come from viewer text, and chat commands cannot be edited
+  const hcn = await hooks.api('save', { name: 'Name from viewer', match: { rewardId: 'r1' }, actions: [{ type: 'command', text: '{input}', asBroadcaster: true }] });
+  assert.match((await hooks.api('test', { id: hcn.id, input: '!addcom !evil hi' })).results[0].msg, /must be typed out/, 'a viewer cannot pick the command');
+  const hdc = await hooks.api('save', { name: 'Edit commands', match: { rewardId: 'r1' }, actions: [{ type: 'command', text: '!addcom {input}', asBroadcaster: true }] });
+  assert.match((await hooks.api('test', { id: hdc.id, input: '!x hi' })).results[0].msg, /cannot be run with broadcaster rights/, 'no command editing from a reward');
+  // a JSON webhook body gets the viewer's text escaped, so it cannot add fields
+  const hwj = await hooks.api('save', { name: 'JSON hook', match: { rewardId: 'r1' }, actions: [{ type: 'webhook', url: 'https://example.test/json', body: '{"who":"{name}","said":"{input}"}' }] });
+  const trick = 'x","admin":true,"y":"\\';
+  await hooks.api('test', { id: hwj.id, input: trick, user: 'Te"st' }); const sentBody = JSON.parse(fetchCalls.filter((c) => c[0] === 'https://example.test/json').pop()[1].body);
+  assert.deepStrictEqual(Object.keys(sentBody), ['who', 'said'], 'no injected fields'); assert.strictEqual(sentBody.said, trick); assert.strictEqual(sentBody.who, 'Te"st');
   console.log('hooks test passed (' + hooks.view().runs.length + ' recorded runs)');
   process.exit(0);
 })().catch((e) => { console.error('FAILED:', e.message, '\n', (e.stack || '').split('\n').slice(1, 4).join('\n')); process.exit(1); });
