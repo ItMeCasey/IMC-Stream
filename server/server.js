@@ -663,6 +663,11 @@ function chatIn(e) {
   chatBuf.push(m); if (chatBuf.length > 200) chatBuf.shift();
   recap.add(m); chatlog.chat(m);
   broadcast('chat', m);
+  const lk = /^\s*[!?.]link\s+([A-Za-z0-9]{6,12})\s*$/.exec(m.text);
+  if (lk) {   // account linking: tell the bot who typed which code, and take the code out of the public chat
+    bridge.publish('link.attempt', { code: lk[1].toUpperCase(), uid: m.uid, login: m.login, name: m.name });
+    if (tokens && m.id) modAction('delete', { messageId: m.id }).catch(() => {});
+  }
   bridge.publish('chat.message', { id: m.id, uid: m.uid, login: m.login, name: m.name, color: m.color, badges: m.badges.map((b) => b.s), text: m.text, type: m.type, reply: m.reply });
 }
 // Mark chat messages as removed (deleted, user timed out, chat cleared) so overlays can fade them out.
@@ -955,6 +960,7 @@ function handleEventInner(type, e, opts = {}) {
       const name = e.user_name;
       if (live) { state.latest.follower = name; pushRecent(state.recent.followers, name); s.followers++; }
       fire('follow', { name, uid: e.user_id });
+      if (live) bridge.publish('follow', { name, uid: e.user_id, total: state.totals.followers || 0 });
       break;
     }
     case 'channel.subscribe': {
@@ -1009,6 +1015,7 @@ function handleEventInner(type, e, opts = {}) {
         if (!A.biggestRaid || v > Number(A.biggestRaid.split(' - ')[1] || 0)) A.biggestRaid = name + ' - ' + v;
       }
       fire('raid', { name, viewers: v, uid: e.from_broadcaster_user_id }, v);
+      if (live) bridge.publish('raid', { name, viewers: v, uid: e.from_broadcaster_user_id });
       if (live) scenes.fire('raid').catch(() => {});
       break;
     }
@@ -1246,6 +1253,8 @@ let totalsTimer;
 // Follower/sub totals are re-read a few seconds after events, so a burst of events costs one request.
 function scheduleTotals() { clearTimeout(totalsTimer); totalsTimer = setTimeout(refreshTotals, 4000); }
 // Read total followers and subscribers from Twitch.
+// What IMC-Bot may ask about Twitch through the bridge (ban list, one person's follow and sub, the schedule).
+const bridgeTwitch = require('./bridge-twitch.js')({ helix, must, tokens: () => tokens });
 async function refreshTotals() {
   if (!tokens) return;
   try {
@@ -1643,10 +1652,18 @@ async function route(req, res) {
   if (p === '/api/paypal') return json(res, 200, paypal.view());
   if (p === '/panels' || p === '/panels/') return serveFile(res, path.join(__dirname, 'public', 'panels.html'));
   if (p.startsWith('/panel-img/')) return serveFile(res, path.join(DATA, 'panels', path.basename(p)));
-  // The Discord bot (IMC-Bot) asks here what happened; only this PC may.
-  if (p === '/api/bridge/events' || p === '/api/bridge/state' || p === '/api/bridge/info') {
+  // The Discord bot (IMC-Bot) asks here what happened and about Twitch; only this PC may.
+  if (req.method === 'GET' && p.startsWith('/api/bridge/')) {
     if (!access.isLoopback(req.socket.remoteAddress)) return json(res, 403, { error: 'This can only be done on the PC itself' });
-    return json(res, 200, p.endsWith('info') ? bridge.info() : p.endsWith('events') ? bridge.since(u.searchParams.get('since'), u.searchParams.get('chat') === '1') : bridge.snapshot());
+    try {
+      if (p === '/api/bridge/events') return json(res, 200, bridge.since(u.searchParams.get('since'), u.searchParams.get('chat') === '1'));
+      if (p === '/api/bridge/state') return json(res, 200, bridge.snapshot());
+      if (p === '/api/bridge/info') return json(res, 200, bridge.info());
+      if (p === '/api/bridge/bans') return json(res, 200, await bridgeTwitch.bans());
+      if (p === '/api/bridge/user') return json(res, 200, await bridgeTwitch.user(u.searchParams.get('uid')));
+      if (p === '/api/bridge/schedule') return json(res, 200, await bridgeTwitch.schedule());
+    } catch (e) { return json(res, 502, { error: e.message }); }
+    return json(res, 404, { error: 'Unknown bridge route' });
   }
   if (p === '/api/panels') return json(res, 200, { panels: state.panels, login: tokens ? tokens.login : '' });
   if (p === '/tips' || p === '/tips/') return serveFile(res, path.join(__dirname, 'public', 'tips.html'));
