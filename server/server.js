@@ -578,12 +578,12 @@ function chatIn(e) {
     reply: e.reply ? { name: e.reply.parent_user_name, text: oneLine(e.reply.parent_message_body, 100) } : null,
   };
   chatBuf.push(m); if (chatBuf.length > 200) chatBuf.shift();
-  recap.add(m);
+  recap.add(m); chatlog.chat(m);
   broadcast('chat', m);
 }
 function chatMark(match, ev) {
   for (const m of chatBuf) if (match(m)) m.gone = true;
-  recap.moderate(ev);
+  recap.moderate(ev); chatlog.moderate(ev);
   if (ev.type === 'clear') chatBuf.length = 0;
   broadcast('chatmod', ev);
 }
@@ -822,6 +822,7 @@ function recordTip({ name, amount, currency, msg, tag }) {
     state.latest.tip = name + ' - ' + label; sess.tipTotal += amt; sess.tippers[name] = Math.round(((sess.tippers[name] || 0) + amt) * 100) / 100;
     persist();
   }
+  chatlog.tip({ name, amount: label || String(amt), message: oneLine(msg) });
   fire('tip', { name, amount: label, message: oneLine(msg) }, amt);
 }
 
@@ -839,9 +840,11 @@ function handleEvent(type, e, opts = {}) {
   botQuiet = !!opts.test;
   try { return handleEventInner(type, e, opts); } finally { botQuiet = false; }
 }
+const CHATLOG_SKIP = /^(channel\.chat\.|automod\.message\.update|.*\.progress$)/;   // chat and moderation are logged where they are handled; progress ticks are noise
 /** Handle one EventSub notification. opts.test = show the alert only, leave counters/labels alone. */
 function handleEventInner(type, e, opts = {}) {
   const live = !opts.test;
+  if (live && !CHATLOG_SKIP.test(type)) chatlog.event(type, e);   // the full stream log keeps every notification, alert rule or not
   const s = state.session, A = state.allTime;
   switch (type) {
     case 'channel.follow': {
@@ -1504,6 +1507,14 @@ async function route(req, res) {
   if (p === '/welcome' || p === '/welcome/') return serveFile(res, path.join(__dirname, 'public', 'welcome.html'));
   if (req.method === 'GET' && p === '/api/welcome') return json(res, 200, { done: !!state.setup.done || !!tokens });   // anyone already logged in to Twitch has been through setup
   if (req.method === 'GET' && p === '/api/update') return json(res, 200, updateView());
+  if (req.method === 'GET' && p === '/api/chatlog') return json(res, 200, chatlog.view());
+  if (req.method === 'GET' && p === '/api/chatlog/download') {
+    try {
+      const id = u.searchParams.get('id') || '', f = u.searchParams.get('format') === 'json' ? 'json' : 'txt', body = f === 'json' ? chatlog.json(id) : chatlog.text(id);
+      res.writeHead(200, { 'Content-Type': f === 'json' ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8', 'Content-Disposition': 'attachment; filename="Stream chat ' + id.replace(/[^0-9() -]/g, '') + '.' + f + '"' });
+      return res.end(body);
+    } catch (e) { return json(res, 404, { error: e.message }); }
+  }
   if (req.method === 'GET' && p === '/api/diagnostics') return json(res, 200, { text: diagnostics() });
   if (req.method === 'GET' && p === '/api/obs/stats') { try { return json(res, 200, await obsStats()); } catch (e) { return json(res, 200, { error: e.message }); } }
   if (req.method === 'GET' && p === '/api/vm') return json(res, 200, vmix.status());
@@ -1761,6 +1772,12 @@ async function route(req, res) {
         if (op === 'vcam') { const r = await obsClient.raw(async (call) => { await call(body.on ? 'StartVirtualCam' : 'StopVirtualCam'); return true; }); return json(res, 200, { ok: !!r }); }
         throw new Error('unknown avatar action');
       }
+      if (p.startsWith('/api/chatlog/')) {
+        const op = p.slice(13);
+        if (op === 'save') return json(res, 200, chatlog.save(String(body.id || ''), body.format));
+        if (op === 'delete') return json(res, 200, chatlog.remove(String(body.id || '')));
+        throw new Error('unknown chat log action');
+      }
       if (p.startsWith('/api/recap/')) {
         const op = p.slice(11);
         if (op === 'status') return json(res, 200, recap.view());
@@ -1791,6 +1808,12 @@ async function route(req, res) {
       }
       if (p === '/api/welcome/done') { state.setup.done = true; persist(); return json(res, 200, { ok: true }); }
       if (p === '/api/update/check') { await checkUpdate(); return json(res, 200, updateView()); }
+      if (p === '/api/update/install') {
+        if (!CAN_INSTALL) throw new Error('This copy of the app cannot update itself. Download the new version from the release page.');
+        if (!updateInfo.available) await checkUpdate();
+        if (!updateInfo.available) throw new Error('You already have the newest version.');
+        const r = await updater.install(updateInfo); return json(res, 200, Object.assign({ ok: true }, r));
+      }
       if (p === '/api/update/settings') { state.updates.enabled = !!body.enabled; persist(); return json(res, 200, updateView()); }
       if (p === '/api/vm/download') return json(res, 200, await vmix.download(body.kind));
       if (p === '/api/vm/install') return json(res, 200, vmix.install(body.kind));
@@ -1929,6 +1952,7 @@ const media = createMedia({ DATA, state, persist, log, broadcast, port: () => CF
 const tts = createTts({ DATA, state, persist, broadcast, log, sfxDir: path.join(ROOT, 'sounds', 'tts'), blockWords: () => (bot.view().filters.blacklist.on ? bot.view().filters.blacklist.words : []) });
 const recap = createRecap({ file: path.join(DATA, 'recap.json'), log, dir: () => path.join(process.env.ICM_DOCS || path.join(os.homedir(), 'Documents', 'ItMeCasey Stream'), 'recaps'), hideBots: ['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'sery_bot'],
   discordPost: (title, text) => discord.postRecap(title, text) });   // chat summaries made with the Claude command line tool
+const chatlog = require('./chatlog.js')({ dir: path.join(DATA, 'chatlogs'), log, exportDir: () => path.join(process.env.ICM_DOCS || path.join(os.homedir(), 'Documents', 'ItMeCasey Stream'), 'chat logs') });   // every chat message and event of a stream, saved as it happens
 const avatar = require('./avatar.js')({ file: path.join(DATA, 'avatar.json'), log, broadcast });   // the pixel avatar (camera + microphone -> overlay)
 const bot = createBot({
   get recap() { return recap; },
@@ -2015,21 +2039,23 @@ function diagnostics() {
   return lines.map(scrub).join('\n');
 }
 
-// ------------------------------------------------------------------ update check (GitHub releases): tells you when a newer installer exists, never installs anything itself
+// ------------------------------------------------------------------ update check (GitHub releases): tells you when a newer installer exists; installing only happens when you press the button (see updater.js)
+const createUpdater = require('./updater.js'), updater = createUpdater({ dir: path.join(DATA, 'updates'), log });
+const CAN_INSTALL = process.platform === 'win32' && !!process.env.ICM_INSTALLED && !process.env.ICM_PACKAGED;   // only the installed desktop app (not a Microsoft Store copy or a source checkout) can replace itself
 const UPDATE_REPO = 'ItMeCasey/IMC-Stream';
-let updateInfo = { checkedAt: 0, latest: '', url: '', available: false, error: '' };
+let updateInfo = { checkedAt: 0, latest: '', url: '', available: false, error: '', asset: null };
 const verParts = (v) => String(v).replace(/^v/, '').split('.').map((x) => parseInt(x, 10) || 0);
 const isNewer = (a, b) => { const x = verParts(a), y = verParts(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
 async function checkUpdate() {
   try {
     const ac = new AbortController(), t = setTimeout(() => ac.abort(), 8000), r = await fetch('https://api.github.com/repos/' + UPDATE_REPO + '/releases/latest', { headers: { 'User-Agent': 'IMC-Stream', Accept: 'application/vnd.github+json' }, signal: ac.signal }); clearTimeout(t);
-    if (r.status === 404) { updateInfo = { checkedAt: Date.now(), latest: '', url: '', available: false, error: 'No public release to compare with yet' }; return updateInfo; }
+    if (r.status === 404) { updateInfo = { checkedAt: Date.now(), latest: '', url: '', available: false, error: 'No public release to compare with yet', asset: null }; return updateInfo; }
     if (!r.ok) throw new Error('GitHub answered ' + r.status); const j = await r.json(), latest = String(j.tag_name || '').replace(/^v/, '');
-    updateInfo = { checkedAt: Date.now(), latest, url: String(j.html_url || ''), available: !!latest && isNewer(latest, APP_VERSION), error: '' };
+    updateInfo = { checkedAt: Date.now(), latest, url: String(j.html_url || ''), available: !!latest && isNewer(latest, APP_VERSION), error: '', asset: createUpdater.pickAssets(j) };
   } catch (e) { updateInfo = Object.assign({}, updateInfo, { checkedAt: Date.now(), error: 'Could not check: ' + e.message }); }
   return updateInfo;
 }
-const updateView = () => Object.assign({ version: APP_VERSION, enabled: state.updates.enabled !== false }, updateInfo);
+const updateView = () => { const v = Object.assign({ version: APP_VERSION, enabled: state.updates.enabled !== false, canInstall: false, install: updater.status() }, updateInfo); v.canInstall = CAN_INSTALL && !!(v.asset && v.asset.url && v.asset.sumsUrl); delete v.asset; return v; };
 setTimeout(() => { if (state.updates.enabled !== false) checkUpdate(); }, 30000).unref(); setInterval(() => { if (state.updates.enabled !== false) checkUpdate(); }, 12 * 3600e3).unref();
 
 function statsView() {
