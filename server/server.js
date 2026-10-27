@@ -1647,14 +1647,14 @@ async function route(req, res) {
   if (p === '/api/paypal') return json(res, 200, paypal.view());
   if (p === '/panels' || p === '/panels/') return serveFile(res, path.join(__dirname, 'public', 'panels.html'));
   if (p.startsWith('/panel-img/')) return serveFile(res, path.join(DATA, 'panels', path.basename(p)));
-  // The Discord bot (IMC-Bot) asks here what happened and about Twitch; only this PC may.
+  // The Discord bot (IMC-Bot) asks here what happened and about Twitch. The PC itself is always let in; another computer only after logging in with the remote-access password (see access.js).
   if (req.method === 'GET' && p.startsWith('/api/bridge/')) {
-    if (!access.isLoopback(req.socket.remoteAddress)) return json(res, 403, { error: 'This can only be done on the PC itself' });
     try {
       if (p === '/api/bridge/events') return json(res, 200, bridge.since(u.searchParams.get('since'), u.searchParams.get('chat') === '1'));
       if (p === '/api/bridge/state') return json(res, 200, bridge.snapshot());
       if (p === '/api/bridge/info') return json(res, 200, bridge.info());
       if (p === '/api/bridge/schedule') return json(res, 200, await bridgeTwitch.schedule());
+      if (p === '/api/bridge/avatars') return json(res, 200, await bridgeTwitch.avatars(String(u.searchParams.get('ids') || '').split(',')));
     } catch (e) { return json(res, 502, { error: e.message }); }
     return json(res, 404, { error: 'Unknown bridge route' });
   }
