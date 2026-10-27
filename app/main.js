@@ -77,8 +77,8 @@ function openWindow(pathName) {
     win.on('close', (e) => { if (!quitting && settings.closeToTray) { e.preventDefault(); win.hide(); } });
     win.on('closed', () => { win = null; });
     // local pages stay in the app, every other link opens in the real browser (same for navigation below)
-    win.webContents.setWindowOpenHandler(({ url: u }) => { if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(u)) return { action: 'allow' }; shell.openExternal(u); return { action: 'deny' }; });
-    win.webContents.on('will-navigate', (e, u) => { if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(u) && !u.startsWith('data:')) { e.preventDefault(); shell.openExternal(u); } });
+    win.webContents.setWindowOpenHandler(({ url: u }) => { if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(u)) return { action: 'allow' }; if (/^https:\/\//i.test(u)) shell.openExternal(u); return { action: 'deny' }; })   // only https links go to the real browser: never file:, ms-*: or other schemes;
+    win.webContents.on('will-navigate', (e, u) => { if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(u)) { e.preventDefault(); if (/^https:\/\//i.test(u)) shell.openExternal(u); } });
     win.webContents.on('did-fail-load', (e, code, desc, u) => { if (code !== -3 && !quitting) setTimeout(() => win && win.loadURL(u && u.startsWith('http') ? u : url()).catch(() => {}), 1500); });   // server still starting: try again
     win.loadURL(SPLASH).then(() => waitForServer().then(() => win && win.loadURL(url(pathName)))).catch(() => {});
   } else { if (pathName) win.loadURL(url(pathName)); if (win.isMinimized()) win.restore(); win.show(); win.focus(); }

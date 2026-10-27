@@ -45,12 +45,20 @@ module.exports = function createHooks(ctx) {
       case 'chat': { const t = await ex(a.text); if (!t) throw new Error('Message is empty'); ctx.bot.say(t, undefined, a.announce); return t; }
       case 'command': {
         const t = await ex(a.text); if (!t) throw new Error('Command is empty');
+        // with broadcaster rights the command itself must be fixed text in the template (a viewer's input may only be an argument), and it may not add or change chat commands (a viewer could write their own broadcaster-level command)
+        if (a.asBroadcaster) {
+          const first = String(a.text || '').trim().split(/\s+/)[0] || '';
+          if (/[{$]/.test(first)) throw new Error('With broadcaster rights the command name must be typed out, not filled in from viewer text');
+          if (/^!?(addcom|editcom|delcom|removecom)$/i.test(first)) throw new Error('"' + first + '" cannot be run with broadcaster rights from a reward');
+        }
         await ctx.bot.execute(t, rd.user, a.asBroadcaster ? 4 : 0); return 'ran ' + t;
       }
       // 5 second limit so a dead URL cannot hold up the rest of the hook; JSON bodies are sent as JSON.
       case 'webhook': {
         if (!/^https?:\/\//i.test(a.url || '')) throw new Error('Webhook needs an http(s) address');
-        const body = a.body ? await ex(a.body) : JSON.stringify({ event: 'redemption', user: rd.user.name, input: rd.vars.input, reward: rd.vars.reward, cost: rd.vars.cost });
+        // a JSON body gets the viewer's text escaped, so quotes in it cannot add or change fields
+        const jx = (v) => JSON.stringify(String(v == null ? '' : v)).slice(1, -1), jvars = Object.fromEntries(Object.entries(rd.vars || {}).map(([k, v]) => [k, typeof v === 'string' ? jx(v) : v]));
+        const body = a.body ? (/^\s*[{[]/.test(a.body) ? await ctx.bot.expandFor(a.body, Object.assign({}, rd.user, { name: jx(rd.user.name), login: jx(rd.user.login) }), jvars, (rd.args || []).map(jx)) : await ex(a.body)) : JSON.stringify({ event: 'redemption', user: rd.user.name, input: rd.vars.input, reward: rd.vars.reward, cost: rd.vars.cost });
         const ac = new AbortController(), t = setTimeout(() => ac.abort(), 5000);
         try {
           const r = await (ctx.fetch || fetch)(a.url, { method: 'POST', signal: ac.signal, headers: { 'Content-Type': /^\s*[{[]/.test(body) ? 'application/json' : 'text/plain' }, body });

@@ -48,15 +48,16 @@ module.exports = function createAccess(ctx) {
   }
   // password check: at most 5 wrong tries a minute per address, and timingSafeEqual so timing does not reveal how close a guess was
   function login(req, res, body) {
+    for (const [k, v] of fails) if (!v.some((t) => Date.now() - t < 60000)) fails.delete(k);   // forget addresses with no recent failures, so the map cannot grow without end
     const ip = (req.socket && req.socket.remoteAddress) || '', now = Date.now(), list = (fails.get(ip) || []).filter((t) => now - t < 60000);
     const json = (code, o, h) => { res.writeHead(code, Object.assign({ 'Content-Type': 'application/json' }, h)); res.end(JSON.stringify(o)); };
     if (list.length >= 5) return json(429, { error: 'Too many tries: wait a minute' });
     const a = A(); let ok = false;
     if (a.hash) { try { ok = crypto.timingSafeEqual(Buffer.from(hash(body.password || '', a.salt), 'hex'), Buffer.from(a.hash, 'hex')); } catch (e) { ok = false; } }
     if (!ok) { list.push(now); fails.set(ip, list); return json(401, { error: 'Wrong password' }); }
-    // session lasts 30 days; HttpOnly + SameSite=Strict keep page scripts and other sites from using the cookie
-    const t = crypto.randomBytes(32).toString('hex'); sessions.set(t, now + 30 * 86400e3);
-    return json(200, { ok: true }, { 'Set-Cookie': 'icm_session=' + t + '; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000' });
+    // session lasts 24 hours; HttpOnly + SameSite=Strict keep page scripts and other sites from using the cookie
+    const t = crypto.randomBytes(32).toString('hex'); sessions.set(t, now + 86400e3);
+    return json(200, { ok: true }, { 'Set-Cookie': 'icm_session=' + t + '; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400' });
   }
   /** only the PC itself may change these */
   function setSettings(b) {
@@ -69,5 +70,10 @@ module.exports = function createAccess(ctx) {
   // what the Setup page may see: never the hash or the salt
   const view = () => ({ lan: !!A().lan, hasPassword: !!A().hash, addresses: A().lan ? lanIps().map((i) => 'http://' + i + ':' + ctx.port()) : [] });
   // bindHost: only listen on the network when remote access is on and a password exists
-  return { gate, login, setSettings, view, hostAllowed, isLoopback, bindHost: () => (A().lan && A().hash ? '0.0.0.0' : '127.0.0.1'), _sessions: sessions };
+  // end this device's session: forget the token and clear the cookie
+  function logout(req, res) {
+    const t = cookieToken(req); if (t) sessions.delete(t);
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Set-Cookie': 'icm_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' }); res.end('{"ok":true}');
+  }
+  return { gate, login, logout, setSettings, view, hostAllowed, isLoopback, bindHost: () => (A().lan && A().hash ? '0.0.0.0' : '127.0.0.1'), _sessions: sessions };
 };

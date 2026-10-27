@@ -39,4 +39,7 @@ assert.strictEqual(await handleKofi(kofi({ type: 'Subscription' }), kenv), 'not 
 assert.strictEqual(await handleKofi(kofi({ amount: '0' }), kenv), 'not an incoming payment');
 assert.strictEqual(await handleKofi('data=nope', kenv), 'not Ko-fi data');
 const k2 = sent.length; assert.strictEqual(await handleIpn(ipn(), kenv, paypal), 'wrong receiver', 'PayPal is off when no email is set'); assert.strictEqual(sent.length, k2);
+// junk posts without a payment id are dropped before PayPal is asked, so they cost nothing
+let asks = 0; const counting = async (...x) => { asks++; return paypal(...x); };
+assert.strictEqual(await handleIpn('payment_status=Completed&mc_gross=5', env, counting), 'not an incoming payment'); assert.strictEqual(asks, 0, 'PayPal is not contacted for a post with no txn_id');
 console.log('relay test passed');

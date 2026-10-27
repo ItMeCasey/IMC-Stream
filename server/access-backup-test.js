@@ -34,6 +34,12 @@ let res = mkRes(); acc.login(mkReq(ipx, hostx), res, { password: 'nope' }); asse
 res = mkRes(); acc.login(mkReq(ipx, hostx), res, { password: 'correct horse battery' }); assert.strictEqual(res.code, 200);
 const cookie = /icm_session=([a-f0-9]{64})/.exec(res.headers['Set-Cookie']); assert.ok(cookie && /HttpOnly/.test(res.headers['Set-Cookie']) && /SameSite=Strict/.test(res.headers['Set-Cookie']));
 assert.strictEqual(ask(mkReq(ipx, hostx, 'icm_session=' + cookie[1]), '/api/status').handled, false, 'logged-in device is let in');
+assert.match(res.headers['Set-Cookie'], /Max-Age=86400/, 'a login lasts one day, not a month');
+// logging out ends that session (and only that one)
+res = mkRes(); acc.login(mkReq(ipx, hostx), res, { password: 'correct horse battery' }); const cookie2 = /icm_session=([a-f0-9]{64})/.exec(res.headers['Set-Cookie']);
+res = mkRes(); acc.logout(mkReq(ipx, hostx, 'icm_session=' + cookie2[1]), res); assert.strictEqual(res.code, 200); assert.match(res.headers['Set-Cookie'], /Max-Age=0/);
+assert.strictEqual(ask(mkReq(ipx, hostx, 'icm_session=' + cookie2[1]), '/api/status').res.code, 401, 'a logged-out cookie no longer works');
+assert.strictEqual(ask(mkReq(ipx, hostx, 'icm_session=' + cookie[1]), '/api/status').handled, false, 'the other device stays logged in');
 assert.strictEqual(ask(mkReq(ipx, hostx, 'icm_session=' + 'a'.repeat(64)), '/api/status').res.code, 401, 'a made-up cookie is useless');
 // brute force is throttled
 for (let i = 0; i < 6; i++) { res = mkRes(); acc.login(mkReq('10.9.9.9', hostx), res, { password: 'x' + i }); }
@@ -67,6 +73,24 @@ acc.setSettings({ clearPassword: true }); assert.deepStrictEqual([acc.view().lan
   bk.auto(); assert.ok(bk.list().some((f) => f.name.startsWith('auto-' + new Date().toISOString().slice(0, 10)))); const n = bk.list().length; bk.auto(); assert.strictEqual(bk.list().length, n, 'only one automatic backup per day');
   for (let i = 1; i <= 9; i++) fs.writeFileSync(path.join(bk.dir, 'auto-2020-01-0' + i + '.zip'), 'x'); bk.auto();
   assert.strictEqual(bk.list().filter((f) => f.name.startsWith('auto-')).length, 7, 'old automatic backups are pruned');
+  // backups made without logins carry no passwords or keys; a restore keeps the ones this PC already has
+  const D2 = fs.mkdtempSync(path.join(os.tmpdir(), 'icm-bk2-')), bk2 = createBackup({ DATA: D2, log: () => {} });
+  fs.writeFileSync(path.join(D2, 'state.json'), JSON.stringify({ keep: 1, obsCfg: { host: 'h', password: 'OBS-SECRET' }, access: { lan: true, salt: 'SALT-SECRET', hash: 'HASH-SECRET' } }));
+  fs.writeFileSync(path.join(D2, 'config.json'), JSON.stringify({ port: 8420, stripe: { apiKey: 'sk_live_SECRET', pollSeconds: 20 } }));
+  const plain = bk2.create({ out: path.join(D2, 'plain.zip') }), xdir = path.join(D2, 'x'); fs.mkdirSync(xdir);
+  require('node:child_process').spawnSync(process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\Windows', 'System32', 'tar.exe') : 'tar', ['-x', '-f', plain.file, '-C', xdir]);
+  const packed = fs.readFileSync(path.join(xdir, 'state.json'), 'utf8') + fs.readFileSync(path.join(xdir, 'config.json'), 'utf8');
+  assert.ok(!/SECRET/.test(packed), 'no OBS password, LAN password or Stripe key in a backup made without logins'); assert.strictEqual(JSON.parse(fs.readFileSync(path.join(xdir, 'state.json'), 'utf8')).keep, 1, 'the rest of the settings are there');
+  assert.ok(/OBS-SECRET/.test(fs.readFileSync(path.join(D2, 'state.json'), 'utf8')), 'the real settings file is untouched');
+  bk2.restore(plain.file); const back = JSON.parse(fs.readFileSync(path.join(D2, 'state.json'), 'utf8'));
+  assert.deepStrictEqual([back.obsCfg.password, back.access.hash, back.access.salt, back.access.lan], ['OBS-SECRET', 'HASH-SECRET', 'SALT-SECRET', true], 'restoring keeps the passwords already on this PC');
+  assert.strictEqual(JSON.parse(fs.readFileSync(path.join(D2, 'config.json'), 'utf8')).stripe.apiKey, 'sk_live_SECRET');
+  const full = bk2.create({ includeLogins: true, out: path.join(D2, 'full.zip') }); fs.mkdirSync(path.join(D2, 'y'));
+  require('node:child_process').spawnSync(process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\Windows', 'System32', 'tar.exe') : 'tar', ['-x', '-f', full.file, '-C', path.join(D2, 'y')]);
+  assert.ok(/OBS-SECRET/.test(fs.readFileSync(path.join(D2, 'y', 'state.json'), 'utf8')), 'a backup with logins is complete');
+  // an unpacked folder with a link in it is refused (needs the right to make links, so skipped where Windows says no)
+  const L = path.join(D2, 'linky'); fs.mkdirSync(L); let linked = false; try { fs.symlinkSync(D2, path.join(L, 'out'), 'junction'); linked = true; } catch (e) { /* no permission */ }
+  if (linked) assert.throws(() => bk2.refuseLinks(L), /contains a link/, 'links in a zip are refused'); else assert.doesNotThrow(() => bk2.refuseLinks(L));
   console.log('access + backup test passed');
   process.exit(0);
 })().catch((e) => { console.error('FAILED:', e.message, '\n', (e.stack || '').split('\n').slice(1, 4).join('\n')); process.exit(1); });
