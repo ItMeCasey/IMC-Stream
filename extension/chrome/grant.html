@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>IMC Audio Router: device names</title>
+<style>
+  body { background: #222A2A; color: #E2DAC2; font: 15px/1.5 "Segoe UI", system-ui, sans-serif; max-width: 560px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 15px; letter-spacing: 5px; color: #4FBBBC; } button { font: inherit; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 10px 16px; border: 0; background: #F39120; color: #1A2020; cursor: pointer; }
+  #out { margin-top: 14px; } .ok { color: #4FBBBC; } .bad { color: #EC4624; } code { background: #1A2020; padding: 1px 5px; }
+</style></head>
+<body>
+<h1>DEVICE NAMES</h1>
+<p>Browsers hide the names of your speakers and headphones (so you see "Audio output 1, 2, 3...") until you allow microphone access once. The extension never records anything: it only reads the device names, then lets go of the microphone straight away.</p>
+<p><button id="go">Show device names</button></p>
+<div id="out"></div>
+<script src="grant.js"></script>
+</body></html>

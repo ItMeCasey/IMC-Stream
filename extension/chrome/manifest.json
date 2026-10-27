@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "IMC Audio Router",
+  "version": "1.0.0",
+  "description": "Send one tab's sound to a chosen audio device (for example a Voicemeeter input that is kept out of your stream recording).",
+  "minimum_chrome_version": "116",
+  "permissions": ["tabCapture", "offscreen", "storage", "activeTab"],
+  "action": {
+    "default_title": "Choose where this tab plays its sound",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png" }
+  },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    { "matches": ["<all_urls>"], "js": ["glyph.js", "content.js"], "run_at": "document_idle" }
+  ],
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+}

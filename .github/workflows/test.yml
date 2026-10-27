@@ -37,3 +37,6 @@ jobs:
       - name: Watchdog test
         working-directory: app
         run: node supervisor-test.js
+      - name: Browser extension test
+        working-directory: extension
+        run: node test.js

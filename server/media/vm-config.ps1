@@ -1,5 +1,6 @@
 # Sets up Voicemeeter Banana / Potato through its official Remote API (VoicemeeterRemote64.dll).
 # Usage: powershell -File vm-config.ps1 -Kind banana|potato -Mic "device name" -Out "headphones name" [-HearMic]
+# It also gives the strips and buses plain names (Microphone, Game & Chat, Music, Headphones, Stream (OBS), Music (not in VOD)).
 # Routing it sets: mic -> B1 (stream); Windows default sound (VAIO) -> your headphones + B1 (game, chat, browser); Aux input -> your headphones + B2 (music).
 param([string]$Kind = 'banana', [string]$Mic = '', [string]$Out = '', [switch]$HearMic)
 $ErrorActionPreference = 'Stop'
@@ -35,6 +36,10 @@ try {
   if ($out) { $p.Add("Bus[0].device.wdm=`"$out`";") }
   $p.Add("Strip[$vaio].A1=1;"); $p.Add("Strip[$vaio].B1=1;"); $p.Add("Strip[$vaio].B2=0;")   # game / chat / browser: you hear it, the stream gets it (and the VOD)
   $p.Add("Strip[$aux].A1=1;"); $p.Add("Strip[$aux].B1=0;"); $p.Add("Strip[$aux].B2=1;")      # music: you hear it, it goes only to B2 (kept out of the VOD by OBS)
+  # readable names instead of "Voicemeeter VAIO" / "B1": strips are the inputs, buses the outputs (A = what you hear, B = what OBS records)
+  $b1 = if ($potato) { 5 } else { 3 }; $b2 = $b1 + 1
+  $p.Add('Strip[0].Label="Microphone";'); $p.Add("Strip[$vaio].Label=`"Game & Chat`";"); $p.Add("Strip[$aux].Label=`"Music`";")
+  $p.Add('Bus[0].Label="Headphones";'); $p.Add("Bus[$b1].Label=`"Stream (OBS)`";"); $p.Add("Bus[$b2].Label=`"Music (not in VOD)`";")
   $code = [VMR]::VBVMR_SetParametersW(($p -join "`n"))
   if ($code -ne 0) { throw "Voicemeeter did not accept the settings (code $code)" }
   Start-Sleep -Milliseconds 600
