@@ -5,6 +5,7 @@
  * Reads chat from the server's EventSub feed and replies through Helix (as you, or as an optional bot account).
  */
 const fs = require('node:fs');
+const webguard = require('./webguard.js');
 const path = require('node:path');
 
 // permission levels, lowest to highest; a chatter's rank (0-4) is an index into this list.
@@ -333,7 +334,8 @@ module.exports = function createBot(ctx) {
         const url = rest[0] || ''; if (!/^https?:\/\//i.test(url)) return null;
         try {
           const ac = new AbortController(); const t = setTimeout(() => ac.abort(), 5000);
-          const r = await fetchFn(url, { signal: ac.signal, headers: { 'User-Agent': 'IMC-Stream-Bot' } }); clearTimeout(t);
+          // public addresses only (never this PC, the home network or link-local addresses), so a command cannot be used to read them into chat
+          const r = await webguard.safeFetch(url, { signal: ac.signal, headers: { 'User-Agent': 'IMC-Stream-Bot' } }, fetchFn, ctx.lookup); clearTimeout(t);
           return oneLine(await r.text(), 300);
         } catch (e) { return '(fetch failed)'; }
       }
