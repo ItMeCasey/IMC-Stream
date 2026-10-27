@@ -11,17 +11,21 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+const { svgOk, fontOk } = require('./alertdesign.js');
 
 const TAR = process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
-const KINDS = { image: ['.png', '.gif', '.webp', '.jpg', '.jpeg'], video: ['.webm', '.mp4'], sound: ['.wav', '.mp3', '.ogg'] };
-const DIRS = { image: 'assets', video: 'video', sound: 'sounds' }, URLS = { image: '/assets/', video: '/video/', sound: '/sounds/' };   // folder under custom/ and the URL the server uses for it
-const LIMIT = { image: 15e6, sound: 15e6, video: 80e6, code: 300e3, files: 600, total: 500e6 };
+const KINDS = { image: ['.png', '.gif', '.webp', '.jpg', '.jpeg', '.svg'], video: ['.webm', '.mp4'], sound: ['.wav', '.mp3', '.ogg'], font: ['.ttf', '.otf', '.woff', '.woff2'] };
+const MEDIA_EXT = 'png|gif|webp|jpe?g|svg|webm|mp4|wav|mp3|ogg|ttf|otf|woff2?';
+const DIRS = { image: 'assets', video: 'video', sound: 'sounds', font: 'fonts' }, URLS = { image: '/assets/', video: '/video/', sound: '/sounds/', font: '/fonts/' };   // folder under custom/ and the URL the server uses for it
+const LIMIT = { image: 15e6, sound: 15e6, video: 80e6, font: 5e6, code: 300e3, files: 600, total: 500e6 };
 const kindOf = (ext) => Object.keys(KINDS).find((k) => KINDS[k].includes(ext)) || '';
 const LINE_ZIP = /^[^\s]+\s+\d+\s+\S+\s+\S+\s+(\d+)\s/;   // a line of `tar -tv`: permissions, links, owner, group, SIZE, date, name
 
 // the first bytes must match the file type, so a renamed program or page does not get in as a picture
 function magicOk(kind, ext, b) {
   const s = (from, to) => b.subarray(from, to).toString('latin1');
+  if (kind === 'font') return fontOk(ext, b);
+  if (kind === 'image' && ext === '.svg') return svgOk(b);
   if (kind === 'image') return ext === '.png' ? b[0] === 0x89 && s(1, 4) === 'PNG' : ext === '.gif' ? s(0, 4) === 'GIF8' : ext === '.webp' ? s(0, 4) === 'RIFF' && s(8, 12) === 'WEBP' : b[0] === 0xff && b[1] === 0xd8;
   if (kind === 'video') return ext === '.webm' ? b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 : s(4, 8) === 'ftyp';
   return ext === '.wav' ? s(0, 4) === 'RIFF' && s(8, 12) === 'WAVE' : ext === '.ogg' ? s(0, 4) === 'OggS' : s(0, 3) === 'ID3' || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0);
@@ -29,6 +33,10 @@ function magicOk(kind, ext, b) {
 // picture size from the file header (PNG, GIF, WebP), so imported pictures land at a sensible size
 function dims(ext, b) {
   try {
+    if (ext === '.svg') {   // from the viewBox, or width and height
+      const t = b.toString('utf8', 0, 2000), vb = /viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(t), wh = /<svg[^>]*\swidth\s*=\s*["']([\d.]+)(?:px)?["'][^>]*\sheight\s*=\s*["']([\d.]+)(?:px)?["']/i.exec(t), m = vb || wh;
+      return m && +m[1] > 0 && +m[2] > 0 ? [Math.round(+m[1]), Math.round(+m[2])] : null;
+    }
     if (ext === '.png') return [b.readUInt32BE(16), b.readUInt32BE(20)];
     if (ext === '.gif') return [b.readUInt16LE(6), b.readUInt16LE(8)];
     if (ext === '.webp') {
@@ -75,7 +83,8 @@ function unpack(zip, tmp) {
 }
 
 const SRC_REF = /\b(src|href|poster|data-src)\s*=\s*(["'])(.*?)\2|url\(\s*(["']?)([^"')]+)\4\s*\)/gi;
-const STR_REF = /(["'])([^"'\n\\]*\.(?:png|gif|webp|jpe?g|webm|mp4|wav|mp3|ogg))\1/gi;
+const STR_REF = new RegExp('(["\'])([^"\'\\n\\\\]*\\.(?:' + MEDIA_EXT + '))\\1', 'gi');
+const IS_MEDIA = new RegExp('\\.(' + MEDIA_EXT + ')$', 'i');
 const baseOf = (ref) => { try { return decodeURIComponent(String(ref).split(/[?#]/)[0].split(/[\\/]/).pop()).toLowerCase(); } catch (e) { return String(ref).split(/[\\/]/).pop().toLowerCase(); } };
 const REMOTE = /^(https?:)?\/\//i;
 
@@ -145,11 +154,12 @@ function run(opts) {
       const file = unique(dir, path.basename(m.f.rel), m.ext); fs.writeFileSync(path.join(dir, file), m.b);
       const r = { rel: 'custom/' + file, url: URLS[m.k] + 'custom/' + file }; copied.set(m, r); rep.imported.push({ file: m.f.rel, as: r.rel }); return r;
     };
+    for (const m of media) if (m.k === 'font') bring(m);   // fonts are always added to your fonts, for any text part to use
     const remote = new Set(), missing = new Set();
     const point = (ref, urlMode) => {   // a reference in the code -> the copied file (or the ref unchanged)
       if (REMOTE.test(ref)) { remote.add(ref); return ref; }
       if (/^(data|blob):/i.test(ref)) return ref;
-      const m = byBase.get(baseOf(ref)); if (!m) { if (/\.(png|gif|webp|jpe?g|webm|mp4|wav|mp3|ogg)$/i.test(baseOf(ref))) missing.add(baseOf(ref)); return ref; }
+      const m = byBase.get(baseOf(ref)); if (!m) { if (IS_MEDIA.test(baseOf(ref))) missing.add(baseOf(ref)); return ref; }
       return urlMode ? bring(m).url : bring(m).rel;
     };
     const fix = (s, isJs) => {
@@ -162,12 +172,12 @@ function run(opts) {
       design.html = fix(design.html); design.css = fix(design.css); design.js = fix(design.js, true);
     } else if (found) {
       usedCode = true;
-      for (const k of Object.keys(fields)) if (fields[k] && typeof fields[k] === 'object' && typeof fields[k].value === 'string' && /\.(png|gif|webp|jpe?g|webm|mp4|wav|mp3|ogg)$/i.test(baseOf(fields[k].value))) fields[k].value = point(fields[k].value, true);
+      for (const k of Object.keys(fields)) if (fields[k] && typeof fields[k] === 'object' && typeof fields[k].value === 'string' && IS_MEDIA.test(baseOf(fields[k].value))) fields[k].value = point(fields[k].value, true);
       design = { name: '', mode: 'html', html: fix(html), css: fix(css), js: fix(js, true), fields, parts: [] };
       if (extScript) rep.warnings.push('The page loads a script from the web (blocked: designs have no network). Libraries it needs must be pasted into the JavaScript box.');
-    } else if (media.length) {   // only art: place it as parts, pictures at their own size (shrunk to fit 600 x 400), sounds as sound parts
+    } else if (media.some((m) => m.k !== 'font')) {   // only art: place it as parts, pictures at their own size (shrunk to fit 600 x 400), sounds as sound parts
       design = { name: '', mode: 'builder', parts: [] }; let x = 40, y = 40, rowH = 0;
-      for (const m of media.slice(0, 40)) {
+      for (const m of media.filter((x) => x.k !== 'font').slice(0, 40)) {
         const r = bring(m);
         if (m.k === 'sound') { design.parts.push({ type: 'sound', name: path.basename(m.f.rel), src: r.rel, volume: 60 }); continue; }
         let [w, h] = (m.k === 'image' && dims(m.ext, m.b)) || [640, 360]; const s = Math.min(1, 600 / w, 400 / h); w = Math.max(8, Math.round(w * s)); h = Math.max(8, Math.round(h * s));
@@ -177,12 +187,13 @@ function run(opts) {
       }
       if (media.length > 40) rep.warnings.push('Only the first 40 media files were placed; the rest were not copied.');
     }
-    if (usedCode || design) for (const m of media) if (!copied.has(m) && usedCode) rep.skipped.push({ file: m.f.rel, reason: 'not used by the code, so not copied' });
+    if (usedCode || design) for (const m of media) if (!copied.has(m) && usedCode && m.k !== 'font') rep.skipped.push({ file: m.f.rel, reason: 'not used by the code, so not copied' });
     if (remote.size) rep.warnings.push('Not loaded (designs have no network): ' + Array.from(remote).slice(0, 5).join(', ') + (remote.size > 5 ? ' and ' + (remote.size - 5) + ' more' : '') + '. Download these files and import them too.');
     if (missing.size) rep.warnings.push('Files the code refers to were not in the import: ' + Array.from(missing).slice(0, 8).join(', '));
     if (usedCode || (design && design.mode === 'html')) rep.warnings.push('Imported code runs in the sandbox like your own HTML: it cannot reach the network or this app. Only import code you trust.');
     if (design) { design.name = String(design.name || '').trim() || path.basename(opts.name || 'Imported', path.extname(opts.name || '')).slice(0, 40) || 'Imported'; design.id = ''; design.seconds = design.seconds || opts.seconds || 8; }
-    rep.summary = design ? 'Made the design "' + design.name + '" (' + (design.mode === 'html' ? 'HTML' : design.parts.length + ' parts') + ') from ' + rep.imported.length + ' file(s).' : 'Nothing could be imported.';
+    const fontsAdded = media.filter((m) => m.k === 'font' && copied.has(m)).length;
+    rep.summary = !design && fontsAdded ? 'Added ' + fontsAdded + ' font' + (fontsAdded > 1 ? 's' : '') + ' to your fonts.' : design ? 'Made the design "' + design.name + '" (' + (design.mode === 'html' ? 'HTML' : design.parts.length + ' parts') + ') from ' + rep.imported.length + ' file(s).' : 'Nothing could be imported.';
     return { design, report: rep };
   } finally { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch (e) { /* busy */ } }
 }

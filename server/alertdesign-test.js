@@ -34,6 +34,16 @@ const base = { type: 'text', text: '{name}' };
   assert.deepStrictEqual([th[2].tint, th[3].tint], ['@secondary', ''], 'a tint is a colour or empty');
   const T2 = AD.sanitize({ theme: { colors: { primary: '#112233', accent: 'javascript:1', bogus: '#fff' }, fonts: { heading: 'Impact', body: 'Evil"Font' } } }, A).theme;
   assert.deepStrictEqual([T2.colors.primary, T2.colors.accent, Object.keys(T2.colors).length, T2.fonts.heading, T2.fonts.body], ['#112233', AD.DEFAULT_THEME.colors.accent, 6, 'Impact', 'Bahnschrift'], 'a theme is six colours and two known fonts'); assert.deepStrictEqual(AD.sanitize({}, A).theme, AD.DEFAULT_THEME);
+  // .svg pictures and font files: checked before they are accepted
+  const svg = (s) => AD.svgOk(Buffer.from(s)), GOOD = '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"><defs><linearGradient id="g"/></defs><rect width="40" height="20" fill="url(#g)"/><use href="#g"/></svg>';
+  assert.ok(svg(GOOD), 'a plain svg is fine');
+  for (const bad of ['<svg><script>alert(1)</script></svg>', '<svg onload="x()"></svg>', '<svg><a href="javascript:x()"><rect/></a></svg>', '<svg><foreignObject><div/></foreignObject></svg>', '<svg><image href="https://evil.example/x.png"/></svg>', '<svg><use href="http://evil.example/a.svg#b"/></svg>',
+    '<svg><rect style="fill:url(https://evil.example/x)"/></svg>', '<svg><style>@import "x.css";</style></svg>', '<!DOCTYPE svg [<!ENTITY a "b">]><svg/>', '<html><body/></html>', 'not svg at all']) assert.ok(!svg(bad), 'refused: ' + bad);
+  assert.ok(AD.fontOk('.woff2', Buffer.from('wOF2....')) && AD.fontOk('.woff', Buffer.from('wOFF....')) && AD.fontOk('.otf', Buffer.from('OTTO....')) && AD.fontOk('.ttf', Buffer.from([0, 1, 0, 0, 9])) && !AD.fontOk('.ttf', Buffer.from('MZ not a font')) && !AD.fontOk('.woff', Buffer.from('wOF2....')));
+  const AF = Object.assign({}, A, { fonts: ['custom/my-font.woff2'] });
+  assert.strictEqual(AD.sanitize({ parts: [{ type: 'text', font: 'custom/my-font.woff2' }, { type: 'text', font: 'custom/other.ttf' }] }, AF).parts.map((p) => p.font).join(), 'custom/my-font.woff2,@body', 'only fonts you uploaded can be named');
+  assert.strictEqual(AD.sanitize({ theme: { fonts: { heading: 'custom/my-font.woff2', body: 'custom/nope.ttf' } } }, AF).theme.fonts.heading, 'custom/my-font.woff2'); assert.strictEqual(AD.sanitize({ theme: { fonts: { body: 'custom/nope.ttf' } } }, AF).theme.fonts.body, 'Bahnschrift');
+  assert.strictEqual(LIB.fontCss('custom/my-font.woff2', 'http://x:1'), '@font-face{font-family:"adf-my-font";src:url("http://x:1/fonts/custom/my-font.woff2")}'); assert.strictEqual(LIB.fontCss('custom/../x.ttf', ''), ''); assert.strictEqual(LIB.fontCss('Impact', ''), '');
   assert.deepStrictEqual(AD.vars({ vars: ['name', 'amount'] }, { name: 'Sam', amount: 5, secret: 'x' }), { name: 'Sam', amount: '5' }, 'only the event\'s own variables, as strings');
 }
 
@@ -84,6 +94,17 @@ const done = (code) => { try { srv.kill(); } catch (e) { /* gone */ } setTimeout
   assert.ok(list.assets.images.includes('stock/icon_heart.png') && list.assets.images.includes('stock/frame_rounded.png'), 'the stock art can be used'); assert.deepStrictEqual(list.templates, []);
   const tpl = await api('alertdesign/template/save', { name: 'My bar', parts: [{ type: 'shape', x: 300, y: 200, w: 100, h: 20, group: 'abc123' }, { type: 'shape', x: 350, y: 250, w: 100, h: 20, group: 'abc123' }, { type: 'sound', src: 'nope.wav' }] });
   assert.deepStrictEqual(tpl.parts.map((p) => [p.x, p.y]), [[0, 0], [50, 50]], 'a template is moved to the top left corner; a sound with no file is dropped'); assert.equal((await api('alertdesign/template/save', { parts: [] })).error, 'Nothing to save');
+  // uploads: an .svg is checked and served sandboxed; a font must look like a font and is served to any page (so a design's sandboxed frame can load it)
+  const up = (kind, name, body) => req('POST', '/api/alerts/upload?kind=' + kind + '&name=' + encodeURIComponent(name), {}, body);
+  assert.equal((await up('image', 'bad.svg', '<svg onload="x()"></svg>')).status, 400, 'a script in an svg is refused'); assert.equal((await up('image', 'pic.svg', '<html>x</html>')).status, 400);
+  const sv = await up('image', 'My Logo.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>'); assert.equal(sv.status, 200); assert.equal(JSON.parse(sv.body).path, 'custom/my-logo.svg');
+  const svr = await req('GET', '/assets/custom/my-logo.svg'); assert.equal(svr.status, 200); assert.ok(/sandbox/.test(svr.headers['content-security-policy']) && svr.headers['x-content-type-options'] === 'nosniff' && svr.headers['content-type'] === 'image/svg+xml', 'an svg opened on its own is sandboxed');
+  assert.equal((await up('font', 'bad.ttf', 'MZ not a font')).status, 400); assert.equal((await up('font', 'x.exe', 'MZ')).status, 400);
+  const fo = await up('font', 'My Font.ttf', Buffer.concat([Buffer.from([0, 1, 0, 0]), Buffer.alloc(40)])); assert.equal(fo.status, 200); assert.equal(JSON.parse(fo.body).path, 'custom/my-font.ttf');
+  const fr = await req('GET', '/fonts/custom/my-font.ttf', { Origin: 'null' }); assert.equal(fr.status, 200); assert.equal(fr.headers['access-control-allow-origin'], '*', 'a sandboxed page can load the font'); assert.equal(fr.headers['content-type'], 'font/ttf');
+  assert.equal((await req('GET', '/fonts/custom/..%2Fx.ttf')).status, 404);
+  const after = JSON.parse((await req('GET', '/api/alertdesigns')).body); assert.ok(after.assets.images.includes('custom/my-logo.svg') && after.assets.fonts.includes('custom/my-font.ttf'));
+  const fd = await api('alertdesign/save', { name: 'Fonty', parts: [{ type: 'text', font: 'custom/my-font.ttf' }, { type: 'image', src: 'custom/my-logo.svg', tint: '@accent' }], theme: { fonts: { heading: 'custom/my-font.ttf' } } }); assert.equal(fd.parts[0].font, 'custom/my-font.ttf'); assert.equal(fd.parts[1].src, 'custom/my-logo.svg'); assert.equal(fd.theme.fonts.heading, 'custom/my-font.ttf'); await api('alertdesign/delete', { id: fd.id });
   assert.equal((await req('POST', '/api/alertdesign/template/save', { Origin: 'https://evil.example', 'Content-Type': 'application/json' }, '{}')).status, 403);
   const th1 = await api('alertdesign/theme/save', { name: 'Sea', colors: { primary: '#001122', bogus: 'x' }, fonts: { heading: 'Georgia' } }); assert.ok(/^th-/.test(th1.id) && th1.colors.primary === '#001122' && th1.colors.accent === AD.DEFAULT_THEME.colors.accent && th1.fonts.heading === 'Georgia');
   assert.equal((await api('alertdesign/theme/save', { id: th1.id, name: 'Sea 2' })).id, th1.id, 'the same id updates a theme'); let tl = JSON.parse((await req('GET', '/api/alertdesigns')).body); assert.deepStrictEqual(tl.themes.map((x) => x.name), ['Sea 2']); assert.deepStrictEqual(tl.defaultTheme, AD.DEFAULT_THEME);

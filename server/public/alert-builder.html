@@ -41,8 +41,8 @@
   <div id="hdr" style="margin-bottom:4px"><b style="letter-spacing:4px;font-size:13px">ALERT BUILDER</b></div>
   <h2>Design</h2>
   <select id="dsel"></select>
-  <div class="row"><button id="dNew" class="alt">New</button><button id="dDup" class="ghost">Copy</button><button id="dDel" class="ghost">Delete</button><button id="dImp" class="ghost" title="Art or custom code you own (.zip, .html, .css, .js, .json, pictures, video, sound)">Import</button></div>
-  <input type="file" id="impIn" accept=".zip,.html,.htm,.css,.js,.json,.png,.gif,.webp,.jpg,.jpeg,.webm,.mp4,.wav,.mp3,.ogg" style="display:none">
+  <div class="row"><button id="dNew" class="alt">New</button><button id="dDup" class="ghost">Copy</button><button id="dDel" class="ghost">Delete</button><button id="dImp" class="ghost" title="Art, fonts or custom code you own (.zip, .html, .css, .js, .json, pictures, video, sound, fonts)">Import</button><button id="dExp" class="ghost" title="Save this design as a .json file (pictures and sounds it uses are not inside it)">Export</button></div>
+  <input type="file" id="impIn" accept=".zip,.html,.htm,.css,.js,.json,.png,.gif,.webp,.jpg,.jpeg,.svg,.webm,.mp4,.wav,.mp3,.ogg,.ttf,.otf,.woff,.woff2" style="display:none">
   <div id="newBox" style="display:none"><label class="fld">Start from<select id="nStyle"><option value="banner">Banner</option><option value="lower">Lower third</option><option value="card">Framed card</option><option value="pop">Pop-up with icon</option><option value="ribbon">Ribbon</option><option value="split">Split panel</option><option value="neon">Neon frame</option><option value="minimal">Minimal text</option></select></label><label class="fld">For<select id="nEv"></select></label><div class="row"><button id="nGo">Create</button><button id="nBlank" class="ghost">Blank</button></div></div>
   <div id="parts"><h2>Add a part</h2></div>
   <div id="stockbox"><h2>Stock art <span class="muted">(white ones take any colour)</span></h2><div id="stock"></div></div>
@@ -57,7 +57,7 @@
     <button id="bSave">Save</button><button id="bPlay" class="alt">&#9654; Preview</button><button id="bTest" class="alt">Send to OBS</button>
     <button id="bBuilder" class="on">Builder</button><button id="bHtml" class="ghost">HTML / CSS</button>
     <span class="muted">Sample:</span><select id="evSel"></select>
-    <label class="muted"><input type="checkbox" id="snapOn" checked> Snap</label><select id="gridSel"><option value="0">no grid</option><option value="10">10 px</option><option value="20" selected>20 px</option><option value="40">40 px</option></select>
+    <label class="muted"><input type="checkbox" id="snapOn" checked> Snap</label><label class="muted" title="Resizing keeps the shape (hold Shift to switch it for a moment)"><input type="checkbox" id="lockAR"> Keep proportions</label><select id="gridSel"><option value="0">no grid</option><option value="10">10 px</option><option value="20" selected>20 px</option><option value="40">40 px</option></select>
     <select id="bgSel"><option value="">Checker</option><option value="dark">Dark</option><option value="light">Light</option><option value="green">Green</option></select>
     <span class="muted" id="dirty"></span>
   </div>
@@ -76,6 +76,7 @@
     <label class="fld">Start from<select id="thPreset"></select></label>
     <div class="grid2" id="thColors"></div>
     <div class="grid2"><label class="fld">Heading font<select id="thHead"></select></label><label class="fld">Body font<select id="thBody"></select></label></div>
+    <div class="row"><button id="thUp" class="ghost" title="Upload a font (.ttf .otf .woff .woff2) to use in the theme or on any text">Upload a font</button></div>
     <div class="row" style="flex-wrap:nowrap"><input id="thName" placeholder="Theme name" maxlength="40"><button id="thSave" class="ghost">Save</button><button id="thDel" class="ghost" title="Delete the chosen saved theme">&times;</button></div>
   </details>
   <div id="insp"></div>
@@ -344,7 +345,13 @@ $('cv').addEventListener('pointermove', (e) => {
       const snapEdge = (v, c, grid) => { const s = nearest([v], c); return s ? [v + s.d, s.at] : [grid ? Math.round(v / grid) * grid : v, null]; };
       if (k.includes('w')) [l, gx] = snapEdge(l, sp.xs, g); if (k.includes('e')) [rr, gx] = snapEdge(rr, sp.xs, g); if (k.includes('n')) [t, gy] = snapEdge(t, sp.ys, g); if (k.includes('s')) [b, gy] = snapEdge(b, sp.ys, g);
     }
-    const nx = Math.min(l, rr - 4), ny = Math.min(t, b - 4), nw = Math.max(4, rr - l), nh = Math.max(4, b - t), sx = nw / o.w, sy = nh / o.h;
+    let nx = Math.min(l, rr - 4), ny = Math.min(t, b - 4), nw = Math.max(4, rr - l), nh = Math.max(4, b - t);
+    if ($('lockAR').checked !== e.shiftKey) {   // keep the proportions: the opposite corner (or edge) stays where it is
+      const s = k.length === 2 ? Math.max(nw / o.w, nh / o.h) : (k === 'e' || k === 'w') ? nw / o.w : nh / o.h;
+      nw = Math.max(4, o.w * s); nh = Math.max(4, o.h * s);
+      nx = k.includes('w') ? o.x + o.w - nw : k.includes('e') ? o.x : o.x + (o.w - nw) / 2; ny = k.includes('n') ? o.y + o.h - nh : k.includes('s') ? o.y : o.y + (o.h - nh) / 2;
+    }
+    const sx = nw / o.w, sy = nh / o.h;
     for (const p of list) { const q = drag.orig.get(p.id); p.x = r(nx + (q.x - o.x) * sx); p.y = r(ny + (q.y - o.y) * sy); p.w = Math.max(4, r(q.w * sx)); p.h = Math.max(4, r(q.h * sy)); }
   }
   guide(gx, gy); drawCanvas(); dirty = true; $('dirty').textContent = 'unsaved changes'; refreshInsp();
@@ -416,7 +423,7 @@ const ANIM_LABEL = { none: 'None', fade: 'Fade', left: 'Slide from left', right:
 function fields(p) {
   const common = [['x', 'X', 'num'], ['y', 'Y', 'num'], ['w', 'Width', 'num'], ['h', 'Height', 'num'], ['rot', 'Rotate', 'num'], ['opacity', 'Opacity', 'range', 0, 1, 0.05]];
   const T = {
-    text: [['text', 'Text', 'area'], ['font', 'Font', 'sel', [['@heading', 'Theme: heading font'], ['@body', 'Theme: body font']].concat(OPT(M.fonts))], ['size', 'Size', 'num'], ['weight', 'Weight', 'sel', [[300, 'Light'], [400, 'Regular'], [500, 'Medium'], [700, 'Bold'], [900, 'Black']]], ['color', 'Color', 'color'], ['align', 'Align', 'sel', OPT(['left', 'center', 'right'])], ['valign', 'Vertical', 'sel', OPT(['top', 'middle', 'bottom'])], ['spacing', 'Letter space', 'num'], ['lh', 'Line height', 'num'], ['stroke', 'Outline', 'num'], ['strokeColor', 'Outline color', 'color'], ['shadowColor', 'Shadow color', 'color'], ['caps', 'ALL CAPS', 'chk'], ['italic', 'Italic', 'chk'], ['shadow', 'Shadow', 'chk'], ['fit', 'Shrink to fit one line', 'chk', 'shrink', 'wrap']],
+    text: [['text', 'Text', 'area'], ['font', 'Font', 'font'], ['size', 'Size', 'num'], ['weight', 'Weight', 'sel', [[300, 'Light'], [400, 'Regular'], [500, 'Medium'], [700, 'Bold'], [900, 'Black']]], ['color', 'Color', 'color'], ['align', 'Align', 'sel', OPT(['left', 'center', 'right'])], ['valign', 'Vertical', 'sel', OPT(['top', 'middle', 'bottom'])], ['spacing', 'Letter space', 'num'], ['lh', 'Line height', 'num'], ['stroke', 'Outline', 'num'], ['strokeColor', 'Outline color', 'color'], ['shadowColor', 'Shadow color', 'color'], ['caps', 'ALL CAPS', 'chk'], ['italic', 'Italic', 'chk'], ['shadow', 'Shadow', 'chk'], ['fit', 'Shrink to fit one line', 'chk', 'shrink', 'wrap']],
     shape: [['kind', 'Shape', 'sel', OPT(['rect', 'ellipse'], { rect: 'Rectangle', ellipse: 'Ellipse' })], ['fill', 'Fill', 'color'], ['grad', 'Gradient', 'chk'], ['fill2', 'Gradient to', 'color'], ['angle', 'Gradient angle', 'num'], ['border', 'Border', 'num'], ['borderColor', 'Border color', 'color'], ['radius', 'Corner radius', 'num'], ['skew', 'Slant (deg)', 'num'], ['glow', 'Glow', 'num'], ['glowColor', 'Glow color', 'color'], ['drop', 'Drop shadow', 'chk'], ['bevel', 'Light edge', 'chk'], ['sheen', 'Moving shine', 'chk']],
     image: [['src', 'File', 'asset', 'image'], ['tint', 'Fill a one-color picture', 'tint'], ['fit', 'Fit', 'sel', OPT(['contain', 'cover', 'fill'])], ['radius', 'Corner radius', 'num'], ['pixel', 'Crisp pixels', 'chk']],
     video: [['src', 'File', 'asset', 'video'], ['fit', 'Fit', 'sel', OPT(['contain', 'cover', 'fill'])], ['radius', 'Corner radius', 'num'], ['loop', 'Loop', 'chk'], ['volume', 'Volume', 'range', 0, 100, 1]],
@@ -436,9 +443,14 @@ function colorCtl(p, k, label, none) {
   const cur = String(p[k] || ''), sel = cur[0] === '@' ? cur : none && !cur ? 'none' : 'custom', hex = RES(cur).slice(0, 7);
   return `<label class="fld">${esc(label)}<div class="row" style="margin:0;flex-wrap:nowrap"><input type="color" data-k="${k}" value="${hex}" style="flex:0 0 44px;${sel === 'none' ? 'display:none' : ''}"><select data-tok="${k}" style="flex:1">${none ? `<option value="none" ${sel === 'none' ? 'selected' : ''}>No tint</option>` : ''}<option value="custom" ${sel === 'custom' ? 'selected' : ''}>Custom color</option>${TOK.map(([t, l]) => `<option value="@${t}" ${sel === '@' + t ? 'selected' : ''}>${l}</option>`).join('')}</select></div></label>`;
 }
+const fontName = (f) => (f.startsWith('custom/') ? f.slice(7).replace(/\.[^.]+$/, '') : f);
+function fontCtl(p, k, label) {   // theme fonts, the built-in list, and fonts you uploaded
+  const v = String(p[k] || ''), mine = M.assets.fonts || [], op = (val, l) => `<option value="${esc(val)}" ${v === val ? 'selected' : ''}>${esc(l)}</option>`;
+  return `<label class="fld">${esc(label)}<div class="row" style="margin:0;flex-wrap:nowrap"><select data-k="${k}" style="flex:1">${op('@heading', 'Theme: heading font')}${op('@body', 'Theme: body font')}${M.fonts.map((f) => op(f, f)).join('')}${mine.length ? '<optgroup label="Your fonts">' + mine.map((f) => op(f, fontName(f))).join('') + '</optgroup>' : ''}</select><button class="ghost" data-up="font" title="Upload a font (.ttf .otf .woff .woff2)">Upload</button></div></label>`;
+}
 function ctl(p, f) {
   const [k, label, t, a, b, c] = f, v = getv(p, k), id = 'f-' + k;
-  if (t === 'color') return colorCtl(p, k, label, false); if (t === 'tint') return colorCtl(p, k, label, true);
+  if (t === 'font') return fontCtl(p, k, label); if (t === 'color') return colorCtl(p, k, label, false); if (t === 'tint') return colorCtl(p, k, label, true);
   if (t === 'chk') { const on = f[3] ? v === f[3] : !!v; return `<label class="fld chk"><input type="checkbox" data-k="${k}" ${f[3] ? 'data-on="' + f[3] + '" data-off="' + f[4] + '"' : ''} ${on ? 'checked' : ''}> ${esc(label)}</label>`; }
   let h = '';
   if (t === 'num') h = `<input type="number" data-k="${k}" value="${v == null ? '' : v}" step="any">`;
@@ -453,13 +465,14 @@ function ctl(p, f) {
   }
   return `<label class="fld" ${k === 'fill2' && !p.fill2 ? 'style="display:none"' : ''}>${esc(label)}${h}</label>`;
 }
+const ALIGNS2 = () => `<div class="muted">Line up with each other</div><div class="row">${[['l', 'Left'], ['c', 'Center'], ['r', 'Right'], ['t', 'Top'], ['m', 'Middle'], ['b', 'Bottom']].map(([k, l]) => `<button class="ghost" data-al2="${k}" title="Align the selected parts to each other">${l}</button>`).join('')}</div>`;
 const ALIGNS = () => `<div class="row" id="aligns">${[['l', 'Left'], ['c', 'Center'], ['r', 'Right'], ['t', 'Top'], ['m', 'Middle'], ['b', 'Bottom']].map(([k, l]) => `<button class="ghost" data-al="${k}" title="Align to the frame">${l}</button>`).join('')}</div>`;
 function drawInsp() {
   const el = $('insp'), list = selParts(), p = list.length === 1 ? list[0] : null;
   if (D.mode === 'html') { el.innerHTML = ''; $('vars').innerHTML = varChips(); return; }
   if (!list.length) { el.innerHTML = '<p class="muted" style="margin-top:12px">Click a part on the canvas to edit it. Drag to move, drag the squares to resize. Shift + click picks several; Group (Ctrl+G) makes them move and resize together. Arrow keys nudge (Shift = 10 px), Ctrl+D copies, Delete removes, Ctrl+Z undoes. Hold Alt to turn snapping off for a moment.</p>'; $('vars').innerHTML = varChips(); return; }
   const grouped = list.some((q) => q.group), tools = `<div class="row"><button class="ghost" data-a="group">Group</button>${grouped ? '<button class="ghost" data-a="ungroup">Ungroup</button>' : ''}<button class="ghost" data-a="dup">Copy</button><button class="ghost" data-a="del">Delete</button></div>`;
-  if (!p) { el.innerHTML = `<h2>${list.length} parts${grouped ? ' (grouped)' : ''}</h2>` + ALIGNS() + tools + '<p class="muted">Click a part in the Layers list to change just that one.</p>'; $('vars').innerHTML = varChips(); return; }
+  if (!p) { el.innerHTML = `<h2>${list.length} parts${grouped ? ' (grouped)' : ''}</h2><div class="muted">Line up with the frame</div>` + ALIGNS() + ALIGNS2() + tools + '<p class="muted">Click a part in the Layers list to change just that one.</p>'; $('vars').innerHTML = varChips(); return; }
   el.innerHTML = (p.type === 'sound' ? '' : ALIGNS()) + fields(p).map(([, title, fl]) => `<h2>${title}</h2><div class="${title === 'Animation' || title === 'Part' ? 'grid2' : ''}">${fl.map((f) => ctl(p, f)).join('')}</div>`).join('') + tools;
   $('vars').innerHTML = varChips();
 }
@@ -479,21 +492,28 @@ function onInput(e) {
 $('insp').addEventListener('input', onInput); $('insp').addEventListener('change', (e) => { if (e.target.type === 'checkbox' || e.target.tagName === 'SELECT') onInput(e); });
 $('insp').addEventListener('click', (e) => {
   const p = part(sel), t = e.target;
-  if (t.dataset.al) {   // align what is selected (a group as one block) to the frame
+  if (t.dataset.al2) {   // each selected part lines up with the edge or middle of the selection as a whole
+    const list = selParts().filter((q) => !q.locked && q.type !== 'sound'), b = bbox(list); if (!b || list.length < 2) return; push(); const a = t.dataset.al2;
+    for (const q of list) { if (a === 'l') q.x = b.x; if (a === 'c') q.x = Math.round(b.x + (b.w - q.w) / 2); if (a === 'r') q.x = b.x + b.w - q.w; if (a === 't') q.y = b.y; if (a === 'm') q.y = Math.round(b.y + (b.h - q.h) / 2); if (a === 'b') q.y = b.y + b.h - q.h; }
+    changed(); refreshInsp();
+  }
+  else if (t.dataset.al) {   // align what is selected (a group as one block) to the frame
     const list = selParts().filter((q) => !q.locked), b = bbox(list); if (!b) return; push(); const a = t.dataset.al;
     const dx = a === 'l' ? -b.x : a === 'c' ? Math.round((1920 - b.w) / 2) - b.x : a === 'r' ? 1920 - b.w - b.x : 0, dy = a === 't' ? -b.y : a === 'm' ? Math.round((1080 - b.h) / 2) - b.y : a === 'b' ? 1080 - b.h - b.y : 0;
     for (const q of list) { q.x += dx; q.y += dy; } changed(); refreshInsp();
   }
   else if (t.dataset.a === 'dup') dup(selParts()); else if (t.dataset.a === 'del') del(selParts()); else if (t.dataset.a === 'group') group(); else if (t.dataset.a === 'ungroup') ungroup();
   else if (t.dataset.play && p && p.src) { const a = new Audio('/sounds/' + p.src); a.volume = p.volume / 100; a.play(); }
-  else if (t.dataset.up) { upKind = t.dataset.up; $('upIn').accept = { image: '.png,.gif,.webp,.jpg,.jpeg,image/*', video: '.mp4,.webm', sound: '.wav,.mp3,.ogg,audio/*' }[upKind]; $('upIn').click(); }
+  else if (t.dataset.up) { upKind = t.dataset.up; $('upIn').accept = { font: '.ttf,.otf,.woff,.woff2', image: '.png,.gif,.webp,.jpg,.jpeg,.svg,image/*', video: '.mp4,.webm', sound: '.wav,.mp3,.ogg,audio/*' }[upKind]; $('upIn').click(); }
 });
 let upKind = ''; document.body.insertAdjacentHTML('beforeend', '<input type="file" id="upIn" style="display:none">');
 $('upIn').onchange = async (e) => {
-  const f = e.target.files[0], p = part(sel); e.target.value = ''; if (!f || !p) return;
+  const f = e.target.files[0], p = part(sel); e.target.value = ''; if (!f || (!p && upKind !== 'font')) return;
   const r = await fetch('/api/alerts/upload?kind=' + upKind + '&name=' + encodeURIComponent(f.name), { method: 'POST', body: f }).then((x) => x.json());
   if (r.error) return toast(r.error, true);
-  M.assets = (await fetch('/api/alertdesigns').then((x) => x.json())).assets; push(); p.src = r.path; changed(); drawInsp();
+  M.assets = (await fetch('/api/alertdesigns').then((x) => x.json())).assets;
+  if (upKind === 'font') { if (p && p.type === 'text' && multi.size === 1) { push(); p.font = r.path; changed(); } drawTheme(); drawInsp(); toast('Font added: ' + fontName(r.path)); return; }
+  push(); p.src = r.path; changed(); drawInsp();
 };
 
 // ---------- theme: six colours and two fonts that parts using @colors and @fonts follow
@@ -515,13 +535,14 @@ function drawTheme() {
   const t = D.theme, saved = M.themes || [];
   $('thPreset').innerHTML = '<option value="">Choose a theme...</option><optgroup label="Shipped">' + PRESETS.map((p, i) => `<option value="p${i}">${esc(p[0])}</option>`).join('') + '</optgroup>' + (saved.length ? '<optgroup label="Mine">' + saved.map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('') + '</optgroup>' : '');
   $('thColors').innerHTML = TKEYS.map((k) => `<label class="fld">${TLABEL[k]}<input type="color" data-th="${k}" value="${t.colors[k]}"></label>`).join('');
-  const fonts = M.fonts.map((f) => `<option>${esc(f)}</option>`).join(''); $('thHead').innerHTML = $('thBody').innerHTML = fonts; $('thHead').value = t.fonts.heading; $('thBody').value = t.fonts.body;
+  const fonts = M.fonts.concat(M.assets.fonts || []).map((f) => `<option value="${esc(f)}">${esc(fontName(f))}</option>`).join(''); $('thHead').innerHTML = $('thBody').innerHTML = fonts; $('thHead').value = t.fonts.heading; $('thBody').value = t.fonts.body;
 }
 const useTheme = (t) => { push(); D.theme = JSON.parse(JSON.stringify(t)); changed(); drawTheme(); drawInsp(); };
 $('thPreset').onchange = () => { const v = $('thPreset').value; if (!v) return; const t = v[0] === 'p' && /^p\d+$/.test(v) ? presetTheme(+v.slice(1)) : (M.themes.find((x) => x.id === v) || null); if (t) { useTheme(t); if (v[0] !== 'p') $('thName').value = (M.themes.find((x) => x.id === v) || {}).name || ''; } };
 $('thColors').addEventListener('focusin', () => push());
 $('thColors').addEventListener('input', (e) => { const k = e.target.dataset.th; if (!k) return; D.theme.colors[k] = e.target.value; changed(); drawInsp(); });
 $('thHead').onchange = () => { push(); D.theme.fonts.heading = $('thHead').value; changed(); }; $('thBody').onchange = () => { push(); D.theme.fonts.body = $('thBody').value; changed(); };
+$('thUp').onclick = () => { upKind = 'font'; $('upIn').accept = '.ttf,.otf,.woff,.woff2'; $('upIn').click(); };
 $('thSave').onclick = async () => {   // keeps the colours and fonts under a name; saving with the name of a saved theme updates it
   const old = (M.themes || []).find((x) => x.name === $('thName').value);
   const r = await post('/api/alertdesign/theme/save', Object.assign({ id: old && old.id, name: $('thName').value || 'My theme' }, D.theme)); if (r.error) return toast(r.error, true);
@@ -577,6 +598,10 @@ const startNew = (d) => { if (dirty && !confirm('Leave without saving your chang
 
 $('nGo').onclick = () => startNew(makeStarter($('nStyle').value, $('nEv').value)); $('nBlank').onclick = () => startNew(blank());
 $('dImp').onclick = () => $('impIn').click();
+$('dExp').onclick = () => {   // the design as a .json file (it can be imported again; pictures and sounds it points at stay in your assets)
+  const o = JSON.parse(JSON.stringify(D)); o.id = ''; const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(o, null, 2)], { type: 'application/json' })); a.download = (D.name || 'alert').replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() + '.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
 $('impIn').onchange = async (e) => {   // art or code you own: a .zip or a single file; the report says what came in and what did not
   const f = e.target.files[0]; e.target.value = ''; if (!f) return; if (dirty && !confirm('Leave without saving your changes?')) return;
   toast('Importing...'); const r = await fetch('/api/alertdesign/import?name=' + encodeURIComponent(f.name), { method: 'POST', body: f }).then((x) => x.json());
@@ -585,7 +610,7 @@ $('impIn').onchange = async (e) => {   // art or code you own: a .zip or a singl
     + (rp ? '<h2>Imported</h2>' + (li(rp.imported, (x) => esc(x.file) + ' &rarr; ' + esc(x.as)) || '<p class="muted">Nothing</p>') + (rp.skipped.length ? '<h2>Not imported</h2>' + li(rp.skipped, (x) => esc(x.file) + ': ' + esc(x.reason)) : '') + (rp.warnings.length ? '<h2>Good to know</h2>' + li(rp.warnings, esc) : '') : '')
     + '<div class="row"><button id="repOk">OK</button></div>';
   $('rep').style.display = 'flex'; $('repOk').onclick = () => { $('rep').style.display = 'none'; };
-  if (r.ok) { await load(r.id); toast('Imported and saved as a design'); }
+  if (r.ok) { await load(r.id || undefined); toast(r.id ? 'Imported and saved as a design' : 'Imported'); }
 };
 $('dDup').onclick = () => { const c = JSON.parse(JSON.stringify(D)); c.id = ''; c.name += ' copy'; open_(c, true); };
 $('dDel').onclick = async () => {

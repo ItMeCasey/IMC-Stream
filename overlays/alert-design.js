@@ -20,6 +20,10 @@
     c = String(c || ''); if (c[0] === '@') { const v = ((th && th.colors) || THEME0.colors)[c.slice(1)]; return HEX.test(String(v || '')) ? v : d; }
     return HEX.test(c) ? c : d;
   };
+  // a font you uploaded is written custom/name.woff2; it is loaded with an @font-face the first time it is used
+  const CUSTOM_FONT = /^custom\/[A-Za-z0-9_.-]+\.(ttf|otf|woff2?)$/;
+  const fontSlug = (f) => 'adf-' + String(f).slice(7).replace(/\.[^.]+$/, '').replace(/[^A-Za-z0-9]/g, '-');
+  const fontCss = (f, base) => (CUSTOM_FONT.test(String(f)) && !String(f).includes('..') ? '@font-face{font-family:"' + fontSlug(f) + '";src:url("' + (base || '') + '/fonts/' + f + '")}' : '');
   const fontOf = (f, th) => { f = String(f || ''); if (f[0] === '@') f = ((th && th.fonts) || THEME0.fonts)[f.slice(1)] || 'Bahnschrift'; return f; };
   const n = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
   const FILE = /^[A-Za-z0-9_./-]+$/;   // file names the server already vetted; checked again so a bad value can never become part of a URL
@@ -52,8 +56,18 @@
   const anim = (dir, a, delayShift) => (a && a.a !== 'none' && FROM[a.a] ? 'ad' + dir + '-' + a.a + ' ' + n(a.ms, 500) + 'ms ' + (EASE[a.ease] || EASE['ease-out']) + ' ' + (n(a.delay, 0) + (delayShift || 0)) + 'ms both' : '');
 
   // ---- one part
-  function textStyle(s, p, th) {
-    s.fontFamily = '"' + fontOf(p.font || 'Bahnschrift', th).replace(/[^A-Za-z0-9 ]/g, '') + '", "Segoe UI", sans-serif'; s.fontSize = n(p.size, 64) + 'px'; s.fontWeight = n(p.weight, 700);
+  // the CSS font-family for a font name: a custom font gets its @font-face added to the page
+  function famOf(doc, f, th, base) {
+    const r = fontOf(f || 'Bahnschrift', th);
+    if (CUSTOM_FONT.test(r) && !r.includes('..')) {
+      const id = fontSlug(r); if (!doc.getElementById(id)) { const st = doc.createElement('style'); st.id = id; st.textContent = fontCss(r, base); doc.head.appendChild(st); }
+      return '"' + id + '"';
+    }
+    return '"' + r.replace(/[^A-Za-z0-9 ]/g, '') + '"';
+  }
+  function textStyle(doc, s, p, o) {
+    const th = o.theme;
+    s.fontFamily = famOf(doc, p.font, th, o.base) + ', "Segoe UI", sans-serif'; s.fontSize = n(p.size, 64) + 'px'; s.fontWeight = n(p.weight, 700);
     s.fontStyle = p.italic ? 'italic' : 'normal'; s.textTransform = p.caps ? 'uppercase' : 'none'; s.color = col(p.color, '#E2DAC2', th); s.letterSpacing = n(p.spacing, 0) + 'px'; s.lineHeight = n(p.lh, 1.1);
     s.textAlign = ['left', 'center', 'right'].includes(p.align) ? p.align : 'left';
     s.textShadow = p.shadow ? '0 4px 14px ' + col(p.shadowColor, '#000000', th) + ', 0 0 3px ' + col(p.shadowColor, '#000000', th) : 'none';
@@ -63,7 +77,7 @@
     const c = doc.createElement('div'), s = c.style; s.width = s.height = '100%';
     if (p.type === 'text') {
       s.display = 'flex'; s.alignItems = { top: 'flex-start', middle: 'center', bottom: 'flex-end' }[p.valign] || 'center'; s.justifyContent = { left: 'flex-start', center: 'center', right: 'flex-end' }[p.align] || 'flex-start';
-      const t = doc.createElement('div'); t.textContent = fill(p.text, vars); textStyle(t.style, p, o.theme); t.style.whiteSpace = p.fit === 'shrink' ? 'nowrap' : 'pre-wrap'; t.style.maxWidth = '100%'; t.style.overflowWrap = 'anywhere';
+      const t = doc.createElement('div'); t.textContent = fill(p.text, vars); textStyle(doc, t.style, p, o); t.style.whiteSpace = p.fit === 'shrink' ? 'nowrap' : 'pre-wrap'; t.style.maxWidth = '100%'; t.style.overflowWrap = 'anywhere';
       t.setAttribute('data-fit', p.fit === 'shrink' ? '1' : ''); c.appendChild(t);
     } else if (p.type === 'shape') {
       const b = doc.createElement('div'), bs = b.style; bs.width = bs.height = '100%'; bs.boxSizing = 'border-box';
@@ -131,6 +145,7 @@
   const fieldVals = (d) => { const o = {}; for (const k of Object.keys(d.fields || {})) o[k] = d.fields[k] && d.fields[k].value != null ? d.fields[k].value : ''; return o; };
   const cssSafe = (v) => String(v).replace(/[^\w #%.,()\/:+-]/g, '');   // a field value can be a colour, size or font name, but never break out of a CSS rule
   function htmlDoc(d, vars, o) {
+    const fh = fontOf('@heading', d.theme), fb = fontOf('@body', d.theme), famCss = (f) => (CUSTOM_FONT.test(f) ? '"' + fontSlug(f) + '"' : '"' + f.replace(/[^A-Za-z0-9 ]/g, '') + '"');
     const ev = o.event || 'follow', m = varMap(d, vars, ev), f = fieldVals(d), site = o.base || '';
     const csp = "default-src 'none'; img-src " + site + " data: blob:; media-src " + site + " data: blob:; font-src " + site + " data:; style-src 'unsafe-inline' " + site + "; script-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; form-action 'none'";
     const name = /\{\{\s*(\w+)\s*\}\}|\{(\w+)\}/g;   // {{name}} (StreamElements) or {name}
@@ -144,7 +159,7 @@
     // ALERT is there before your script runs; after it has run, it is told the widget loaded and that this event happened (the StreamElements way); alertleave fires when the alert is about to leave
     const pre = 'window.ALERT=' + jsonForScript({ vars: m, seconds: d.seconds || 8 }) + ';window.addEventListener("message",function(e){if(e.data&&e.data.adLeave){document.dispatchEvent(new Event("alertleave"))}});';
     const go = 'setTimeout(function(){window.dispatchEvent(new CustomEvent("onWidgetLoad",{detail:' + jsonForScript(load) + '}));window.dispatchEvent(new CustomEvent("onEventReceived",{detail:' + jsonForScript(detail) + '}))},0);';
-    return '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp + '"><style>html,body{margin:0;width:' + W + 'px;height:' + H + 'px;overflow:hidden;background:transparent}</style><style>:root{' + Object.keys((d.theme && d.theme.colors) || THEME0.colors).map((k) => '--' + k + ':' + col('@' + k, '#000000', d.theme)).join(';') + ';--font-heading:"' + fontOf('@heading', d.theme) + '";--font-body:"' + fontOf('@body', d.theme) + '"}</style><style>' + css + '</style></head><body>'
+    return '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="' + csp + '"><style>html,body{margin:0;width:' + W + 'px;height:' + H + 'px;overflow:hidden;background:transparent}</style><style>:root{' + Object.keys((d.theme && d.theme.colors) || THEME0.colors).map((k) => '--' + k + ':' + col('@' + k, '#000000', d.theme)).join(';') + ';--font-heading:' + famCss(fh) + ';--font-body:' + famCss(fb) + '}' + fontCss(fh, site) + fontCss(fb, site) + '</style><style>' + css + '</style></head><body>'
       + body + '<script>' + pre + '<\/script><script>' + String(d.js || '').replace(/<\/script/gi, '<\\/script') + '<\/script><script>' + go + '<\/script></body></html>';
   }
 
@@ -193,5 +208,5 @@
     };
   }
 
-  return { W, H, col, fontOf, THEME0, fill, esc, htmlDoc, partEl, fitText, build, ensureStyle, keyframes, ANIMS: Object.keys(FROM), IDLES: Object.keys(IDLE) };
+  return { W, H, col, fontOf, fontCss, fontSlug, THEME0, fill, esc, htmlDoc, partEl, fitText, build, ensureStyle, keyframes, ANIMS: Object.keys(FROM), IDLES: Object.keys(IDLE) };
 });

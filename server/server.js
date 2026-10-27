@@ -559,12 +559,13 @@ const listFiles = (dir, exts, base = dir, depth = 0) => {
   } catch (e) { /* folder missing */ }
   return out.sort();
 };
-const SOUND_EXT = ['.wav', '.mp3', '.ogg'], IMAGE_EXT = ['.png', '.gif', '.webp', '.jpg', '.jpeg'];
+const SOUND_EXT = ['.wav', '.mp3', '.ogg'], IMAGE_EXT = ['.png', '.gif', '.webp', '.jpg', '.jpeg', '.svg'], FONT_EXT = ['.ttf', '.otf', '.woff', '.woff2'];
 const VIDEO_EXT = ['.mp4', '.webm'];
 const alertAssets = () => ({
   sounds: listFiles(path.join(ROOT, 'sounds'), SOUND_EXT).filter((f) => !f.startsWith('custom/')).concat(listFiles(path.join(CUSTOM, 'sounds'), SOUND_EXT).map((x) => 'custom/' + x)),
   images: ['logo.png'].concat(listFiles(path.join(CUSTOM, 'assets'), IMAGE_EXT).map((x) => 'custom/' + x)),
   videos: listFiles(path.join(CUSTOM, 'video'), VIDEO_EXT).map((x) => 'custom/' + x),
+  fonts: listFiles(path.join(CUSTOM, 'fonts'), FONT_EXT).map((x) => 'custom/' + x),
 });
 // Accept a file name only if it is in the known list and has no '..' in it, so a saved rule can never point outside the asset folders.
 const safeRel = (v, list) => (v && !String(v).includes('..') && list.includes(v) ? v : '');
@@ -595,7 +596,7 @@ function saveAlertRule(b) {
 // Images a design may use: the app's own badges and logo plus your uploads.
 const designAssets = () => {
   const A = alertAssets(), own = (d) => listFiles(path.join(ROOT, 'assets', d), ['.png'], path.join(ROOT, 'assets'));
-  return { images: Array.from(new Set(A.images.concat(own('bits'), own('subs'), own('stock')))), sounds: A.sounds, videos: A.videos };
+  return { images: Array.from(new Set(A.images.concat(own('bits'), own('subs'), own('stock')))), sounds: A.sounds, videos: A.videos, fonts: A.fonts };
 };
 // Validate and save a design from the builder; keeps its place in the list when it already exists.
 function saveAlertDesign(b) {
@@ -622,7 +623,7 @@ function saveAlertTemplate(b) {
 }
 // A colour and font set (see alertdesign.js) kept under a name, to start new designs from.
 function saveAlertTheme(b) {
-  const t = Object.assign({ id: /^th-[a-z0-9]{4,8}$/.test(String(b.id || '')) ? b.id : 'th-' + Math.random().toString(36).slice(2, 8), name: oneLine(b.name, alertDesign.LIMITS.name) || 'My theme' }, alertDesign.sanitizeTheme(b)), i = state.alertThemes.findIndex((x) => x.id === t.id);
+  const t = Object.assign({ id: /^th-[a-z0-9]{4,8}$/.test(String(b.id || '')) ? b.id : 'th-' + Math.random().toString(36).slice(2, 8), name: oneLine(b.name, alertDesign.LIMITS.name) || 'My theme' }, alertDesign.sanitizeTheme(b, designAssets())), i = state.alertThemes.findIndex((x) => x.id === t.id);
   if (i < 0 && state.alertThemes.length >= alertDesign.LIMITS.themes) throw new Error('At most ' + alertDesign.LIMITS.themes + ' themes');
   if (i < 0) state.alertThemes.push(t); else state.alertThemes[i] = t;
   persist(); return t;
@@ -630,7 +631,7 @@ function saveAlertTheme(b) {
 // Pull in art and custom code you already own (see alertimport.js); the result is saved as a new design.
 function importAlertFile(file, name) {
   const r = alertImport.run({ file, name, custom: CUSTOM });
-  if (!r.design) return { ok: false, error: r.report.summary, report: r.report };
+  if (!r.design) return { ok: /^Added \d+ font/.test(r.report.summary), id: '', error: r.report.summary, report: r.report };   // fonts alone make no design
   const d = saveAlertDesign(r.design);
   return { ok: true, id: d.id, name: d.name, report: r.report };
 }
@@ -1542,7 +1543,7 @@ function scheduleReconnect() {
 }
 
 // ------------------------------------------------------------------ http server
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg',
+const MIME = { '.ttf': 'font/ttf', '.otf': 'font/otf', '.woff': 'font/woff', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.mp4': 'video/mp4', '.webm': 'video/webm', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.json': 'application/json', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.task': 'application/octet-stream' };
 const STATIC = { overlays: ROOT, assets: ROOT, sounds: ROOT };   // top-level folders that may be served
 // Connection and totals snapshot sent to the dashboard (also pushed over SSE on changes).
@@ -1573,10 +1574,10 @@ function json(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 // Send a file with the right content type; always revalidated so edits show up straight away.
-function serveFile(res, file) {
+function serveFile(res, file, extra) {
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404); return res.end('not found'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', ...webguard.cors(res.reqHeaders), 'Cache-Control': 'no-cache' });
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', ...webguard.cors(res.reqHeaders), 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', ...(path.extname(file).toLowerCase() === '.svg' ? { 'Content-Security-Policy': "sandbox; default-src 'none'; style-src 'unsafe-inline'" } : {}), ...extra });   // an .svg opened on its own page is sandboxed: nothing in it can run
     res.end(buf);
   });
 }
@@ -1751,16 +1752,19 @@ async function route(req, res) {
       try { return json(res, 200, backup.restore(tmp)); } catch (e) { return json(res, 400, { error: e.message }); } finally { try { fs.unlinkSync(tmp); } catch (e) { /* gone */ } }
     }
     if (p === '/api/alerts/upload') {
-      const kind = ['image', 'video'].includes(u.searchParams.get('kind')) ? u.searchParams.get('kind') : 'sound';
+      const kind = ['image', 'video', 'font'].includes(u.searchParams.get('kind')) ? u.searchParams.get('kind') : 'sound';
       const raw = u.searchParams.get('name') || 'upload';
-      const ext = path.extname(raw).toLowerCase(), okExt = kind === 'image' ? IMAGE_EXT : kind === 'video' ? VIDEO_EXT : SOUND_EXT, limit = kind === 'video' ? 80e6 : 15e6;
+      const ext = path.extname(raw).toLowerCase(), okExt = kind === 'image' ? IMAGE_EXT : kind === 'video' ? VIDEO_EXT : kind === 'font' ? FONT_EXT : SOUND_EXT, limit = kind === 'video' ? 80e6 : kind === 'font' ? 5e6 : 15e6;
       if (!okExt.includes(ext)) return json(res, 400, { error: 'Allowed ' + kind + ' files: ' + okExt.join(' ') });
       const chunks = []; let size = 0;
       for await (const c of req) { size += c.length; if (size > limit) return json(res, 413, { error: 'File is over ' + Math.round(limit / 1e6) + ' MB' }); chunks.push(c); }
+      const all = Buffer.concat(chunks);
+      if (ext === '.svg' && !alertDesign.svgOk(all)) return json(res, 400, { error: 'That .svg has something a picture should not (scripts, links or embedded pages): export it again as a plain image' });
+      if (kind === 'font' && !alertDesign.fontOk(ext, all)) return json(res, 400, { error: 'That does not look like a ' + ext + ' font file' });
       const base = path.basename(raw, ext).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'upload';
-      const dir = path.join(CUSTOM, kind === 'image' ? 'assets' : kind === 'video' ? 'video' : 'sounds'); fs.mkdirSync(dir, { recursive: true });
+      const dir = path.join(CUSTOM, kind === 'image' ? 'assets' : kind === 'video' ? 'video' : kind === 'font' ? 'fonts' : 'sounds'); fs.mkdirSync(dir, { recursive: true });
       let file = base + ext, n = 1; while (fs.existsSync(path.join(dir, file))) file = base + '-' + (++n) + ext;
-      fs.writeFileSync(path.join(dir, file), Buffer.concat(chunks));
+      fs.writeFileSync(path.join(dir, file), all);
       return json(res, 200, { ok: true, path: 'custom/' + file });
     }
     if (p === '/api/alertdesign/import') {   // a .zip or file you own: art and custom code become a design (local only, because imported code runs in OBS)
@@ -2085,9 +2089,10 @@ async function route(req, res) {
   if (p === '/api/modules') return json(res, 200, modules.view());
   if (p.startsWith('/widgets/') && !p.includes('..')) return serveFile(res, path.join(__dirname, 'public', p));
   if (p.startsWith('/modules/')) { const mf = modules.file(p); return mf ? serveFile(res, mf) : (res.writeHead(404), res.end('not found')); }
-  const cm = /^\/(sounds|assets)\/custom\/([^/]+)$/.exec(p), vm = /^\/video\/custom\/([^/]+)$/.exec(p);
+  const cm = /^\/(sounds|assets)\/custom\/([^/]+)$/.exec(p), vm = /^\/video\/custom\/([^/]+)$/.exec(p), fm = /^\/fonts\/custom\/([^/]+)$/.exec(p);
   if (cm && !cm[2].includes('..')) return serveFile(res, path.join(CUSTOM, cm[1], cm[2]));
   if (vm && !vm[1].includes('..')) return serveFile(res, path.join(CUSTOM, 'video', vm[1]));
+  if (fm && !fm[1].includes('..')) return serveFile(res, path.join(CUSTOM, 'fonts', fm[1]), { 'Access-Control-Allow-Origin': '*' });   // fonts are harmless to share, and a design's sandboxed frame can only load them this way
   const top1 = p.split('/')[1];
   if (STATIC[top1]) {
     const f = path.resolve(ROOT, '.' + p);

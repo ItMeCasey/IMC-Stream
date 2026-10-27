@@ -66,6 +66,16 @@ C = fresh(); r = IMP.run({ file: put('d.json', JSON.stringify({ name: 'Mine', mo
 C = fresh(); r = IMP.run({ file: put('w.json', JSON.stringify({ HTML: '<p>{name}</p>', CSS: 'p{color:red}', js: '', fields: { a: { type: 'text', value: 'x' } } })), name: 'w.json', custom: C }); assert.strictEqual(r.design.mode, 'html'); assert.strictEqual(r.design.fields.a.value, 'x');
 C = fresh(); r = IMP.run({ file: put('nothing.zip', zip([['a.overlay', '{}'], ['b.exe', 'MZ']])), name: 'nothing.zip', custom: C }); assert.strictEqual(r.design, null); assert.strictEqual(r.report.skipped.length, 2);
 
+// ---- svg pictures and fonts
+const svgGood = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120"><rect width="300" height="120"/></svg>', font = (m) => Buffer.concat([Buffer.from(m), Buffer.alloc(30)]);
+C = fresh(); r = IMP.run({ file: put('svg.zip', zip([['a/logo.svg', svgGood], ['a/evil.svg', '<svg onload="x()"></svg>'], ['a/Cool Font.woff2', font('wOF2')], ['a/fake.ttf', 'not a font']])), name: 'svg.zip', custom: C });
+assert.deepStrictEqual(r.design.parts.map((p) => p.type), ['image'], 'the svg is placed (the font is not a part)'); assert.deepStrictEqual([r.design.parts[0].w, r.design.parts[0].h], [300, 120], 'an svg takes its size from its viewBox');
+assert.ok(fs.existsSync(path.join(C, 'assets', 'logo.svg')) && fs.existsSync(path.join(C, 'fonts', 'cool-font.woff2')), 'svg and fonts are copied'); assert.ok(!fs.existsSync(path.join(C, 'assets', 'evil.svg')) && !fs.existsSync(path.join(C, 'fonts', 'fake.ttf')));
+assert.ok(r.report.skipped.some((x) => /evil\.svg/.test(x.file) && /do not match/.test(x.reason)) && r.report.skipped.some((x) => /fake\.ttf/.test(x.file)), 'an unsafe svg and a fake font are reported');
+C = fresh(); r = IMP.run({ file: put('f.zip', zip([['w/widget.html', '<p class="a">{{name}}</p>'], ['w/widget.css', '@font-face{font-family:Cool;src:url("fonts/Cool Font.woff2")}.a{font-family:Cool}'], ['w/fonts/Cool Font.woff2', font('wOF2')]])), name: 'f.zip', custom: C });
+assert.ok(r.design.css.includes('url("/fonts/custom/cool-font.woff2")'), 'a font the CSS uses is re-pointed at the copy: ' + r.design.css);
+C = fresh(); r = IMP.run({ file: put('only.ttf', font('\0\x01\0\0')), name: 'only.ttf', custom: C }); assert.strictEqual(r.design, null); assert.match(r.report.summary, /^Added 1 font/); assert.ok(fs.existsSync(path.join(C, 'fonts', 'only.ttf')), 'fonts alone are added to your fonts');
+
 // ---- safety
 assert.throws(() => IMP.run({ file: put('slip.zip', zip([['../evil.png', png(1, 1)]])), name: 'slip.zip', custom: fresh() }), /leaves its folder/, 'a path with .. is refused');
 assert.throws(() => IMP.run({ file: put('slip2.zip', zip([['a/..\\..\\evil.png', png(1, 1)]])), name: 'slip2.zip', custom: fresh() }), /leaves its folder/);

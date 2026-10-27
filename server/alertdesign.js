@@ -45,7 +45,7 @@ function sanitizePart(p, A) {
   }, motion(p));
   if (p.type === 'text') {
     Object.assign(o, {
-      text: String(p.text == null ? '' : p.text).slice(0, LIMITS.text), font: pick(p.font, FONTS.concat(['@heading', '@body']), '@body'), size: Math.round(num(p.size, 8, 400, 64)), weight: pick(Number(p.weight), [300, 400, 500, 700, 900], 700),
+      text: String(p.text == null ? '' : p.text).slice(0, LIMITS.text), font: pick(p.font, FONTS.concat(['@heading', '@body'], A.fonts || []), '@body'), size: Math.round(num(p.size, 8, 400, 64)), weight: pick(Number(p.weight), [300, 400, 500, 700, 900], 700),
       italic: !!p.italic, caps: !!p.caps, color: color(p.color, '#E2DAC2'), align: pick(p.align, ['left', 'center', 'right'], 'left'), valign: pick(p.valign, ['top', 'middle', 'bottom'], 'middle'),
       spacing: num(p.spacing, -5, 60, 0), lh: num(p.lh, 0.8, 3, 1.1), shadow: !!p.shadow, shadowColor: color(p.shadowColor, '#000000'),
       stroke: num(p.stroke, 0, 20, 0), strokeColor: color(p.strokeColor, '#000000'), fit: pick(p.fit, ['wrap', 'shrink'], 'wrap'),
@@ -80,11 +80,31 @@ function sanitizeFields(f) {
 const sanitizeParts = (list, A) => (Array.isArray(list) ? list : []).slice(0, LIMITS.parts).map((p) => sanitizePart(p, A)).filter(Boolean);
 
 // the theme: six colours and two fonts that parts using @colors and @fonts follow
-function sanitizeTheme(t) {
+function sanitizeTheme(t, A) {
   t = t && typeof t === 'object' ? t : {}; const out = { colors: {}, fonts: {} };
   for (const k of TOKENS) out.colors[k] = /^#[0-9a-f]{6}$/i.test(String(t.colors && t.colors[k] || '')) ? t.colors[k] : DEFAULT_THEME.colors[k];
-  for (const k of ['heading', 'body']) out.fonts[k] = pick(t.fonts && t.fonts[k], FONTS, DEFAULT_THEME.fonts[k]);
+  for (const k of ['heading', 'body']) out.fonts[k] = pick(t.fonts && t.fonts[k], FONTS.concat((A && A.fonts) || []), DEFAULT_THEME.fonts[k]);
   return out;
+}
+
+/**
+ * An .svg you upload is shown as a picture (scripts do not run there) and served with a sandbox policy, but it is still checked:
+ * no scripts, event handlers, embedded pages, entities, or links/URLs that are not inside the file.
+ */
+function svgOk(buf) {
+  if (buf.length > 2e6) return false;
+  const t = buf.toString('utf8');
+  if (!/^\uFEFF?\s*(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*(<!doctype svg[^>]*>\s*)?<svg[\s>]/i.test(t)) return false;
+  if (/<script|<foreignObject|<iframe|<object|<embed|<link|<meta|<audio|<video|<image[^>]+href|<!ENTITY|<!doctype[^>]*\[|javascript:|@import|\son[a-z]+\s*=/i.test(t)) return false;
+  if (/\b(?:xlink:)?href\s*=\s*["']\s*(?!#)/i.test(t)) return false;   // only links to a part of the same file
+  if (/url\(\s*["']?\s*(?!#)/i.test(t)) return false;
+  return true;
+}
+const FONT_EXT = ['.ttf', '.otf', '.woff', '.woff2'];
+// the first bytes of a font file must look like that kind of font
+function fontOk(ext, b) {
+  const m = b.subarray(0, 4).toString('latin1');
+  return ext === '.woff' ? m === 'wOFF' : ext === '.woff2' ? m === 'wOF2' : ext === '.otf' ? m === 'OTTO' : (b[0] === 0 && b[1] === 1 && b[2] === 0 && b[3] === 0) || m === 'true' || m === 'ttcf';
 }
 
 /** Clean a design from the editor. assets = { images, sounds, videos } (the names the app knows). Throws on something that cannot be saved. */
@@ -97,7 +117,7 @@ function sanitize(b, A) {
   if (js.length > LIMITS.js) throw new Error('The JavaScript is over ' + LIMITS.js / 1000 + ' KB');
   const parts = sanitizeParts(b.parts, A);
   const seen = new Set(); for (const p of parts) { while (seen.has(p.id)) p.id = id('', 'p'); seen.add(p.id); }   // part ids must be unique
-  return { id: id(b.id, 'd-'), name: oneLine(b.name, LIMITS.name) || 'My alert', mode, w: W, h: H, seconds: Math.round(num(b.seconds, 2, 30, 8)), parts, html, css, js, fields: sanitizeFields(b.fields), theme: sanitizeTheme(b.theme), outMs: Math.round(num(b.outMs, 0, 5000, 500)) };
+  return { id: id(b.id, 'd-'), name: oneLine(b.name, LIMITS.name) || 'My alert', mode, w: W, h: H, seconds: Math.round(num(b.seconds, 2, 30, 8)), parts, html, css, js, fields: sanitizeFields(b.fields), theme: sanitizeTheme(b.theme, A), outMs: Math.round(num(b.outMs, 0, 5000, 500)) };
 }
 
 /** The values a design may use as {name}, {amount}, ...: only the variables of that event, as short plain strings. */
@@ -107,4 +127,4 @@ function vars(ev, v) {
   return o;
 }
 
-module.exports = { sanitize, sanitizeParts, sanitizeFields, sanitizeTheme, TOKENS, DEFAULT_THEME, vars, FIELD_TYPES, LIMITS, FONTS, ANIM_IN, ANIM_IDLE, EASES, TYPES, W, H };
+module.exports = { svgOk, fontOk, FONT_EXT, sanitize, sanitizeParts, sanitizeFields, sanitizeTheme, TOKENS, DEFAULT_THEME, vars, FIELD_TYPES, LIMITS, FONTS, ANIM_IN, ANIM_IDLE, EASES, TYPES, W, H };
