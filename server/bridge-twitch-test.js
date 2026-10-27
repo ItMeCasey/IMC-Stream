@@ -11,7 +11,10 @@ const must = (r, what) => { if (!r.ok) throw new Error(what + ': ' + ((r.json &&
   // schedule
   handler = () => ({ ok: true, status: 200, json: { data: { segments: [{ start_time: 's1', end_time: 'e1', title: 'Chill', category: { name: 'Tetris' }, canceled_until: null }, { start_time: 's2', title: '', category: null, canceled_until: 'x' }] } } });
   assert.deepEqual((await B.schedule()).segments, [{ start: 's1', end: 'e1', title: 'Chill', category: 'Tetris', canceled: false }, { start: 's2', end: '', title: '', category: '', canceled: true }]);
-  handler = () => ({ ok: false, status: 404, json: {} }); assert.deepEqual(await B.schedule(), { segments: [] }, 'no schedule is an empty list');
+  t += 61000; handler = () => ({ ok: false, status: 404, json: {} }); assert.deepEqual(await B.schedule(), { segments: [] }, 'no schedule is an empty list');
+  // the schedule is cached for a minute
+  calls.length = 0; handler = () => ({ ok: true, status: 200, json: { data: { segments: [{ start_time: 'c1', title: 'Cached' }] } } }); t += 61000;
+  const first = await B.schedule(); await B.schedule(); await B.schedule(); assert.equal(calls.length, 1, 'three asks, one request to Twitch'); t += 61000; await B.schedule(); assert.equal(calls.length, 2, 'asked again after a minute'); assert.equal(first.segments[0].title, 'Cached');
   // profile pictures: one request for the ids not known yet, cached, bad ids dropped
   calls.length = 0; handler = (p) => ({ ok: true, status: 200, json: { data: [{ id: '1', profile_image_url: 'https://cdn/a.png' }, { id: '2', profile_image_url: 'http://insecure/b.png' }] } });
   assert.deepEqual(await B.avatars(['1', '2', '3', 'x', '', '1']), { 1: 'https://cdn/a.png' }, 'only https pictures, only known users'); assert.equal(calls.length, 1); assert.equal(calls[0], '/users?id=1&id=2&id=3');

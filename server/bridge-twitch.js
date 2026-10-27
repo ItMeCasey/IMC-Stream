@@ -8,8 +8,13 @@ module.exports = function createBridgeTwitch(ctx) {
   const must = ctx.must, now = ctx.now || Date.now;
   const me = () => { const t = ctx.tokens(); if (!t) throw new Error('Not connected to Twitch'); return t.user_id; };
   /** the next streams: [{ start, end, title, category, canceled }] */
+  let sched = null;   // the schedule changes rarely, so it is asked from Twitch at most once a minute (Discord users can ask for it often)
   async function schedule() {
-    const id = me(), r = await ctx.helix('GET', '/schedule?broadcaster_id=' + id + '&first=7');
+    const id = me(); if (sched && now() - sched.at < 60000) return sched.out;
+    const out = await scheduleNow(id); sched = { at: now(), out }; return out;
+  }
+  async function scheduleNow(id) {
+    const r = await ctx.helix('GET', '/schedule?broadcaster_id=' + id + '&first=7');
     if (r.status === 404) return { segments: [] };   // no schedule set up
     must(r, 'Schedule');
     const segs = ((r.json && r.json.data && r.json.data.segments) || []).map((x) => ({ start: x.start_time, end: x.end_time || '', title: x.title || '', category: (x.category && x.category.name) || '', canceled: !!x.canceled_until }));
