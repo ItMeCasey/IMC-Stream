@@ -50,6 +50,14 @@
     <div id="catchOut" class="recap" style="display:none"></div>
   </section>
 
+  <section class="r">
+    <h2>SAVE CHAT</h2>
+    <p class="muted">Every chat message and every event of a stream (follows, subs, gifts, cheers, raids, channel point redemptions, polls, hype trains, ads, tips, deleted messages) is written to this PC as it happens, and a new log starts when you go live. Nothing is sent anywhere. Save one as a readable text file, or as a complete JSON file.</p>
+    <div id="logCur" class="muted" style="margin-top:8px"></div>
+    <div id="logs" style="margin-top:10px"></div>
+    <p class="muted" id="logFolder" style="margin-top:8px"></p>
+  </section>
+
   <section>
     <h2>PAST RECAPS</h2>
     <div id="list" class="muted">None yet.</div>
@@ -72,5 +80,19 @@ $('check').onclick = async () => { $('checkMsg').textContent = 'Asking Claude...
 $('save').onclick = async () => { draw(await post('settings', { auto: $('auto').checked, discord: $('discord').checked, names: $('names').checked, chat: $('chat').checked, model: $('modelIn').value.trim() || 'haiku' })); toast('Saved'); };
 $('make').onclick = async () => { $('make').disabled = true; toast('Writing the recap...'); const r = await post('make'); $('make').disabled = false; if (r.error) return toast(r.error, true); toast('Recap saved'); load(); };
 $('catchup').onclick = async () => { $('catchup').disabled = true; const r = await post('catchup'); $('catchup').disabled = false; const e = $('catchOut'); e.style.display = 'block'; e.textContent = r.error || r.text; };
+const sz = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+async function loadLogs() {
+  const v = await fetch('/api/chatlog').then((r) => r.json());
+  $('logCur').textContent = v.current ? 'Recording now: ' + v.current.id + ' (' + v.current.entries + ' entries)' : 'Nothing recorded yet. The log starts with the first chat message or event.';
+  $('logs').innerHTML = v.logs.length ? v.logs.map((l) => '<div class="row" data-id="' + esc(l.id) + '"><b style="min-width:150px">' + esc(l.id) + (l.current ? ' <span class="ok">(now)</span>' : '') + '</b><span class="muted" style="min-width:150px">' + l.entries + ' entries, ' + sz(l.bytes) + '</span><button data-a="txt">Save chat (text)</button><button class="ghost" data-a="json">Save as JSON</button><a class="muted" style="color:var(--aqua)" href="/api/chatlog/download?format=txt&id=' + encodeURIComponent(l.id) + '">Download</a><button class="ghost" data-a="del">Delete</button></div>').join('') : '';
+  $('logFolder').innerHTML = 'Saved files go to <code>' + esc(v.folder) + '</code>';
+}
+$('logs').onclick = async (ev) => {
+  const b = ev.target.closest('button'); if (!b) return; const id = b.closest('.row').dataset.id, a = b.dataset.a;
+  const post2 = (op, body) => fetch('/api/chatlog/' + op, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json());
+  if (a === 'del') { if (!confirm('Delete the saved log "' + id + '" from this PC? Files you already saved stay.')) return; await post2('delete', { id }); return loadLogs(); }
+  const r = await post2('save', { id, format: a }); toast(r.error || 'Saved: ' + r.file, !!r.error);
+};
+loadLogs(); setInterval(loadLogs, 15000);
 load(); setInterval(load, 8000);
 </script></body></html>

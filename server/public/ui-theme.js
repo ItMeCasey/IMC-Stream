@@ -70,7 +70,39 @@
     'html[data-density="slim"] .m{padding-top:1px!important;padding-bottom:1px!important}'
   ].join('\n');
   var st = document.createElement('style'); st.id = 'icm-ui-css'; st.textContent = css; (document.head || document.documentElement).appendChild(st);
-  function apply() { var h = document.documentElement; h.setAttribute('data-theme', get(KT, 'dark')); h.setAttribute('data-density', get(KD, 'normal')); }
+  /* "Make your own theme": the colour tokens every page uses. A custom theme is a dark or light base plus the colours the user changed. */
+  var KC = 'icm.custom', KB = 'icm.customBase', HEX = /^#[0-9a-f]{6}$/i;
+  var TOKENS = [
+    { key: 'iron', label: 'Background', hint: 'page background' },
+    { key: 'iron-d', label: 'Panels', hint: 'cards, header, side menu' },
+    { key: 'cream', label: 'Text', hint: 'main text colour' },
+    { key: 'aqua', label: 'Accent 1', hint: 'links, highlights, checked boxes' },
+    { key: 'heat', label: 'Accent 2', hint: 'buttons, focus rings' },
+    { key: 'rust', label: 'Alert', hint: 'live light, delete, warnings' },
+    { key: 'drust', label: 'Alert (dark)', hint: 'darker alert shade' },
+    { key: 'line', label: 'Borders', hint: 'lines between sections' },
+    { key: 'green', label: 'Success', hint: 'ok messages' }
+  ];
+  var BASES = {
+    dark: { 'iron': '#222A2A', 'iron-d': '#1A2020', 'cream': '#E2DAC2', 'aqua': '#4FBBBC', 'heat': '#F39120', 'rust': '#EC4624', 'drust': '#B13A22', 'line': '#2F3938', 'green': '#7BC47F' },
+    light: { 'iron': '#ECE5CF', 'iron-d': '#FAF6E8', 'cream': '#222A2A', 'aqua': '#2A8F90', 'heat': '#D9780F', 'rust': '#D23C1D', 'drust': '#A8321C', 'line': '#D8CFB2', 'green': '#3F8A44' }
+  };
+  var customBase = function () { return get(KB, 'dark') === 'light' ? 'light' : 'dark'; };
+  function customSaved() { try { var c = JSON.parse(localStorage.getItem(KC) || 'null'); return c && typeof c === 'object' ? c : null; } catch (e) { return null; } }
+  /* every token with a value: the user's own where valid, else the base's */
+  function customTokens() { var b = BASES[customBase()], c = customSaved() || {}, o = {}; TOKENS.forEach(function (t) { o[t.key] = HEX.test(c[t.key] || '') ? c[t.key].toUpperCase() : b[t.key]; }); return o; }
+  function paintCustom(on) {
+    var st = document.getElementById('icm-custom-css');
+    if (!on) { if (st) st.textContent = ''; return; }
+    if (!st) { st = document.createElement('style'); st.id = 'icm-custom-css'; (document.head || document.documentElement).appendChild(st); }
+    var v = customTokens(), n = ''; TOKENS.forEach(function (t) { n += '--' + t.key + ':' + v[t.key] + ';'; });
+    st.textContent = 'html[data-custom][data-theme]{' + n + 'color-scheme:' + customBase() + '}';
+  }
+  function apply() {
+    var h = document.documentElement, t = get(KT, 'dark'), custom = t === 'custom';
+    h.setAttribute('data-theme', custom ? customBase() : t); if (custom) h.setAttribute('data-custom', '1'); else h.removeAttribute('data-custom');
+    paintCustom(custom); h.setAttribute('data-density', get(KD, 'normal'));
+  }
   apply(); window.addEventListener('storage', apply);
 
   /* Folded sections: pages with three or more full-width sections open the first one (or any marked data-open) and fold the rest.
@@ -101,6 +133,16 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', foldSections); else foldSections();
   window.icmUi = {
     theme: function () { return get(KT, 'dark'); }, density: function () { return get(KD, 'normal'); },
-    set: function (k, v) { try { localStorage.setItem(k === 'theme' ? KT : KD, v); } catch (e) { /* storage blocked */ } apply(); }
+    set: function (k, v) { try { localStorage.setItem(k === 'theme' ? KT : KD, v); } catch (e) { /* storage blocked */ } apply(); },
+    tokens: TOKENS, bases: BASES, customBase: customBase, hasCustom: function () { return !!customSaved(); },
+    custom: customTokens,
+    /* name = token key, value = '#RRGGBB'; returns false for anything that is not a full hex colour. Using it switches the app to the custom theme. */
+    setToken: function (name, value) {
+      if (!TOKENS.some(function (t) { return t.key === name; }) || !HEX.test(value)) return false;
+      var c = customSaved() || {}; c[name] = value.toUpperCase();
+      try { localStorage.setItem(KC, JSON.stringify(c)); localStorage.setItem(KT, 'custom'); } catch (e) { /* storage blocked */ } apply(); return true;
+    },
+    setBase: function (b) { try { localStorage.setItem(KB, b === 'light' ? 'light' : 'dark'); if (get(KT, 'dark') === 'custom') apply(); } catch (e) { /* storage blocked */ } },
+    resetCustom: function () { try { localStorage.removeItem(KC); } catch (e) { /* storage blocked */ } apply(); }
   };
 })();

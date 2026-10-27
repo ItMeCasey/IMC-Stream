@@ -36,7 +36,7 @@ const icon = (name) => nativeImage.createFromPath(path.join(BUILD, name));
 function startServer() {
   port = readPort();
   fs.mkdirSync(DATA, { recursive: true });
-  const env = Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1', ICM_DATA: DATA, ICM_ROOT: RES, ICM_PACKAGED: PACKAGED ? '1' : '', ICM_DOCS: DOCS, ICM_KOKORO_DIR: path.join(userData, 'kokoro'), ICM_VERSION: app.getVersion() });
+  const env = Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1', ICM_DATA: DATA, ICM_ROOT: RES, ICM_PACKAGED: PACKAGED ? '1' : '', ICM_INSTALLED: PACKED ? '1' : '', ICM_DOCS: DOCS, ICM_KOKORO_DIR: path.join(userData, 'kokoro'), ICM_VERSION: app.getVersion() });
   delete env.ICM_PORT;
   sup = createSupervisor({
     command: process.execPath, args: [path.join(SERVER_DIR, 'server.js')], cwd: SERVER_DIR, env, port, log,

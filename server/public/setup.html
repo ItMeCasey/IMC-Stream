@@ -104,10 +104,17 @@
     <div class="row"><button id="kInstall" class="alt">Install realistic voices</button><span class="muted" id="kState"></span></div>
     <pre class="muted" id="kLog" style="white-space:pre-wrap;max-height:130px;overflow:auto"></pre>
   </section>
+  <section id="themeSec">
+    <h2>MAKE YOUR OWN THEME</h2>
+    <p class="muted">Pick a colour with the picker or type your own hex value (like <code>#1E90FF</code>) for each token. Changes show straight away in the whole app. Overlays in OBS are not affected.</p>
+    <div class="row"><label class="fld">Start from<select id="thBase"><option value="dark">Dark</option><option value="light">Light</option></select></label><button class="ghost" id="thOff">Use the normal theme</button><button class="ghost" id="thReset">Reset my colours</button><button class="ghost" id="thCopy">Copy CSS</button></div>
+    <div id="thRows" style="display:grid;gap:6px;margin-top:8px"></div>
+    <div class="muted" id="thWarn" style="margin-top:8px"></div>
+  </section>
   <section>
     <h2>APP</h2>
     <div class="row"><button class="ghost" id="diag">Copy diagnostics</button><button class="ghost" id="restart">Restart the server</button><span class="muted">Applies LAN/restore changes. The app also restarts it automatically if it ever stops.</span></div>
-    <div class="row"><span id="verLine" class="muted"></span><button class="ghost" id="upCheck">Check for updates</button><label class="fld" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="upAuto" style="width:18px;height:18px">Check automatically (contacts GitHub twice a day)</label></div>
+    <div class="row"><span id="verLine" class="muted"></span><button class="ghost" id="upCheck">Check for updates</button><button id="upInstall" style="display:none">Install update</button><span id="upState" class="muted"></span><label class="fld" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="upAuto" style="width:18px;height:18px">Check automatically (contacts GitHub twice a day)</label></div>
     <div class="muted" id="paths"></div>
   </section>
 </main>
@@ -133,7 +140,38 @@ async function refresh() {
 }
 async function loadBackups() { const l = await fetch('/api/backup/list').then((r) => r.json()); $('bkList').innerHTML = l.length ? 'Saved copies: ' + l.slice(0, 5).map((f) => esc(f.name) + ' (' + Math.round(f.size / 1024) + ' KB)').join(', ') : 'No saved copies yet.'; }
 
-async function loadUpdate(force) { const u = force ? await post('/api/update/check') : await fetch('/api/update').then((x) => x.json()); $('upAuto').checked = u.enabled; $('verLine').innerHTML = 'Version <b>' + esc(u.version) + '</b>' + (u.available ? ' &middot; <a href="' + esc(u.url) + '" target="_blank" style="color:var(--heat)">version ' + esc(u.latest) + ' is available</a>' : u.latest ? ' &middot; up to date' : '') + (u.error && force ? ' &middot; ' + esc(u.error) : ''); }
+async function loadUpdate(force) { const u = force ? await post('/api/update/check') : await fetch('/api/update').then((x) => x.json()); $('upAuto').checked = u.enabled; $('verLine').innerHTML = 'Version <b>' + esc(u.version) + '</b>' + (u.available ? ' &middot; <a href="' + esc(u.url) + '" target="_blank" style="color:var(--heat)">version ' + esc(u.latest) + ' is available</a>' : u.latest ? ' &middot; up to date' : '') + (u.error && force ? ' &middot; ' + esc(u.error) : '');
+  $('upInstall').style.display = u.available && u.canInstall ? '' : 'none'; $('upInstall').textContent = 'Install version ' + u.latest; const s = u.install || {};
+  $('upState').textContent = s.state === 'downloading' ? 'Downloading... ' + s.percent + '%' : s.state === 'verifying' ? 'Checking the download...' : s.state === 'starting' ? 'Installing: the app closes and opens again in a moment' : s.state === 'error' ? s.error : '';
+  return s.state; }
+const TH = window.icmUi;
+function lum(h) { const c = [1, 3, 5].map((i) => parseInt(h.substr(i, 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+function contrast(a, b) { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+function drawTheme(keepRows) {
+  const v = TH.custom(), base = TH.customBase(); $('thBase').value = base;
+  if (!keepRows) $('thRows').innerHTML = TH.tokens.map((t) => '<div class="row" style="margin:0;gap:10px" data-k="' + t.key + '"><input type="color" value="' + v[t.key].toLowerCase() + '" style="width:44px;height:30px;padding:0;border:2px solid #46504f;background:none;cursor:pointer"><input type="text" value="' + v[t.key] + '" maxlength="7" spellcheck="false" style="width:100px;font-family:Consolas,monospace"><code style="min-width:120px">--' + t.key + '</code><span>' + esc(t.label) + ' <span class="muted">&middot; ' + esc(t.hint) + '</span></span></div>').join('');
+  const lo = Math.min(contrast(v.cream, v.iron), contrast(v.cream, v['iron-d']));
+  $('thWarn').innerHTML = lo < 4.5 ? '<span style="color:var(--heat)">Text on background has low contrast (' + lo.toFixed(1) + ':1). It can be hard to read; 4.5:1 or more is comfortable.</span>' : 'Text contrast: ' + lo.toFixed(1) + ':1 (good).';
+}
+$('thRows').addEventListener('input', (e) => {
+  const row = e.target.closest('[data-k]'); if (!row) return; const pick = row.querySelector('input[type=color]'), txt = row.querySelector('input[type=text]');
+  if (e.target === pick) txt.value = pick.value.toUpperCase();
+  else { let h = txt.value.trim().replace('#', ''); if (/^[0-9a-f]{3}$/i.test(h)) h = h.replace(/./g, '$&$&'); h = '#' + h; if (!/^#[0-9a-f]{6}$/i.test(h)) { txt.style.outline = '2px solid var(--rust)'; return; } pick.value = h.toLowerCase(); }
+  txt.style.outline = ''; TH.setToken(row.dataset.k, pick.value); drawTheme(true);
+});
+$('thRows').addEventListener('change', (e) => { const txt = e.target.closest('[data-k] input[type=text]'); if (txt) drawTheme(); });
+$('thBase').onchange = () => { TH.setBase($('thBase').value); if (TH.theme() !== 'custom') TH.set('theme', 'custom'); drawTheme(); };
+$('thOff').onclick = () => { TH.set('theme', TH.customBase()); drawTheme(); };
+$('thReset').onclick = () => { TH.resetCustom(); drawTheme(); };
+$('thCopy').onclick = async () => { const v = TH.custom(), css = ':root {\n' + TH.tokens.map((t) => '  --' + t.key + ': ' + v[t.key] + ';').join('\n') + '\n}'; try { await navigator.clipboard.writeText(css); $('thWarn').textContent = 'CSS copied.'; } catch (e) { $('thWarn').textContent = css; } };
+drawTheme();
+$('upInstall').onclick = async () => {
+  if (!confirm('Install the new version now? The app closes while it installs, so alerts and overlays stop for a minute. Your settings and logins are kept.')) return;
+  $('upInstall').disabled = true; $('upCheck').disabled = true; $('upState').textContent = 'Starting...';
+  const poll = setInterval(async () => { const st = await loadUpdate(); if (st === 'error' || st === 'idle') clearInterval(poll); }, 700);
+  const r = await post('/api/update/install'); clearInterval(poll); $('upInstall').disabled = false; $('upCheck').disabled = false;
+  if (r && r.error) $('upState').textContent = r.error; else $('upState').textContent = 'Installing: the app closes and opens again in a moment';
+};
 $('upCheck').onclick = () => loadUpdate(true); $('upAuto').onchange = async () => { await post('/api/update/settings', { enabled: $('upAuto').checked }); loadUpdate(); }; loadUpdate();
 $('diag').onclick = async () => { const r = await fetch('/api/diagnostics').then((x) => x.json()); try { await navigator.clipboard.writeText(r.text); toast('Copied: paste it into your bug report'); } catch (e) { prompt('Copy this into your bug report:', r.text); } };
 $('bTwitch').onclick = async () => { const r = await post('/api/auth/start'); if (r.error) { $('adv').open = true; return toast(r.error, true); } if (r.verification_uri) window.open(r.verification_uri, '_blank'); $('bTwitchMsg').textContent = 'Waiting for you to press Authorize in the browser…'; };

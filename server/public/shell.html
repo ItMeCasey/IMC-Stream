@@ -234,8 +234,10 @@ paintUpdate(); setInterval(paintUpdate, 15 * 60e3);
 (async () => { try { const w = await fetch('/api/welcome').then((r) => r.json()); if (w.done) return; const o = document.createElement('div'); o.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#222A2A'; o.innerHTML = '<iframe src="/welcome" style="width:100%;height:100%;border:0"></iframe>'; document.body.appendChild(o); window.addEventListener('message', (e) => { if (e.data && e.data.welcome === 'close') o.remove(); }); } catch (e) { /* server not ready */ } })(); setInterval(() => { paintLive(); if (!(LIVE && LIVE.live)) document.title = 'IMC-Stream'; }, 1000);
 async function pulse() { try { const h = await fetch('/api/health').then((r) => r.json()); $('dot').className = h.light; $('dot').title = 'Status: ' + h.light + ' (click for Setup)'; $('relogin').style.display = h.twitch && h.twitch.expired ? '' : 'none'; } catch (e) { $('dot').className = 'red'; } }
 $('dot').onclick = () => { location.hash = '#/m/setup'; };
-function drawUi() { $('tTheme').textContent = icmUi.theme() === 'light' ? 'Dark' : 'Light'; $('tDens').textContent = icmUi.density() === 'slim' ? 'Normal' : 'Slim'; }
-$('tTheme').onclick = () => { icmUi.set('theme', icmUi.theme() === 'light' ? 'dark' : 'light'); drawUi(); };
+const nextTheme = () => { const t = icmUi.theme(); return t === 'dark' ? 'light' : t === 'light' ? (icmUi.hasCustom() ? 'custom' : 'dark') : 'dark'; };
+function drawUi() { $('tTheme').textContent = { dark: 'Dark', light: 'Light', custom: 'Custom' }[nextTheme()]; $('tDens').textContent = icmUi.density() === 'slim' ? 'Normal' : 'Slim'; }
+$('tTheme').onclick = () => { icmUi.set('theme', nextTheme()); drawUi(); };
+window.addEventListener('storage', drawUi);
 $('tDens').onclick = () => { icmUi.set('density', icmUi.density() === 'slim' ? 'normal' : 'slim'); drawUi(); };
 drawUi();
 (async () => { await load(); show(); pulse(); setInterval(pulse, 6000); })();
