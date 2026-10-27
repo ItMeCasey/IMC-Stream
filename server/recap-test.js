@@ -2,7 +2,7 @@
 // The chat recap against a fake "claude" program: nothing leaves this PC. Run: node recap-test.js
 const assert = require('assert'), fs = require('fs'), os = require('os'), path = require('path'), { EventEmitter } = require('events'), { PassThrough } = require('stream'), createRecap = require('./recap');
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'icm-recap-')), calls = [], posts = []; let mode = 'ok', clockNow = Date.UTC(2026, 9, 22, 20, 0, 0);
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'icm-recap-')), calls = [], heard = []; let mode = 'ok', clockNow = Date.UTC(2026, 9, 22, 20, 0, 0);
 function fakeSpawn(cmd, args) {
   const c = new EventEmitter(); c.stdout = new PassThrough(); c.stderr = new PassThrough(); let input = ''; c.kill = () => {};
   c.stdin = new PassThrough(); c.stdin.on('data', (d) => { input += d; });
@@ -14,7 +14,7 @@ function fakeSpawn(cmd, args) {
   }));
   return c;
 }
-const R = createRecap({ file: path.join(tmp, 'recap.json'), dir: () => path.join(tmp, 'recaps'), spawn: fakeSpawn, now: () => clockNow, endDelayMs: 5, hideBots: ['Nightbot'], discordPost: async (t, x) => { posts.push([t, x]); } });
+const R = createRecap({ file: path.join(tmp, 'recap.json'), dir: () => path.join(tmp, 'recaps'), spawn: fakeSpawn, now: () => clockNow, endDelayMs: 5, onRecap: (i) => heard.push(i), hideBots: ['Nightbot'] });
 
 (async () => {
   // what is kept
@@ -30,8 +30,6 @@ const R = createRecap({ file: path.join(tmp, 'recap.json'), dir: () => path.join
   const item = await R.makeRecap(); assert.equal(item.text, 'Chat talked about Tetris.');
   const c = calls[0]; assert.ok(c.cmd.startsWith('claude')); assert.deepEqual(c.args.slice(0, 5), ['-p', '--model', 'haiku', '--tools', '']); assert.ok(c.args.includes('--no-session-persistence')); assert.match(c.input, /CHAT LOG:\n[\s\S]*User0: message number 0|user0: message number 0/i);
   assert.ok(fs.readdirSync(path.join(tmp, 'recaps')).some((f) => /^recap_2026-10-2\d_\d{4}\.md$/.test(f)), 'saved as a file'); assert.equal(R.view().last.length, 1);
-  assert.equal(posts.length, 0, 'not posted to Discord unless switched on');
-  R.configure({ discord: true }); await R.makeRecap(); assert.deepEqual(posts[0], ['Stream recap', 'Chat talked about Tetris.']);
 
   // privacy: names can be replaced
   R.configure({ names: false }); await R.makeRecap(); const last = calls[calls.length - 1].input; assert.ok(/Viewer1: /.test(last) && !/Ann|User0/i.test(last.split('CHAT LOG:')[1]), 'no real names are sent'); R.configure({ names: true });
@@ -45,9 +43,10 @@ const R = createRecap({ file: path.join(tmp, 'recap.json'), dir: () => path.join
   mode = 'login'; await assert.rejects(R.check(), /not logged in on this PC/); mode = 'missing'; await assert.rejects(R.check(), /not installed/); mode = 'ok'; assert.equal((await R.check()).ok, true);
 
   // automatic recap after the stream ends
-  const before = posts.length; R.onStreamEnd(); await new Promise((r) => setTimeout(r, 60)); assert.equal(posts.length, before, 'off by default'); R.configure({ auto: true }); R.onStreamEnd(); await new Promise((r) => setTimeout(r, 80)); assert.equal(posts.length, before + 1);
+  const before = R.view().last.length; R.onStreamEnd(); await new Promise((r) => setTimeout(r, 60)); assert.equal(R.view().last.length, before, 'off by default'); R.configure({ auto: true }); R.onStreamEnd(); await new Promise((r) => setTimeout(r, 80)); assert.equal(R.view().last.length, before + 1);
   R.newStream(); assert.equal(R.view().messages, 0);
   // settings survive a restart
   const R2 = createRecap({ file: path.join(tmp, 'recap.json'), dir: () => tmp, spawn: fakeSpawn }); assert.equal(R2.view().auto, true); assert.ok(R2.view().last.length >= 2);
+  assert.ok(heard.length >= 1 && heard[0].text === 'Chat talked about Tetris.', 'the bridge hook hears each recap');
   console.log('recap test passed');
 })().catch((e) => { console.error('FAILED:', e); process.exit(1); });

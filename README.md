@@ -134,12 +134,6 @@ Replaces Streamlabs/StreamElements: connects to Twitch directly, pushes alerts t
 - **Labels / variables:** `now_playing`, `now_playing_title`, `now_playing_artist`, `now_playing_album`, `now_playing_status`, `now_playing_progress`, `now_playing_link` (also usable as `{now_playing}` etc. in commands).
 - Not covered: Apple Music on a Mac (no Windows media session there) and Apple's own web API. Apple Music for Windows is expected to work through the Windows route but I could only test the Windows route with a browser player and a simulated Apple Music session.
 
-**Discord bot** at http://localhost:8420/discord (left rail: Discord)
-- A bot that runs inside the app (so it works while the app is running). You make it once on discord.com/developers (New Application > Bot > Reset Token) and paste the token on the page; it stays in `data/discord.json` on your PC and is never shown again. The page then gives you an invite link with exactly the permissions it needs (manage roles and channels, post, and what it hands to the Mods role) and no privileged intents.
-- **Server setup:** press **Set up my server** and it adds what is missing, in your style: roles (Mods, Tier 1/2/3 Sub) and the categories INFO (#welcome, #rules, #announcements, #go-live, read-only: only the bot and mods post), COMMUNITY (#general, #clips, #game-chat, #bot-commands), VOICE (Lounge, Gaming 1, Gaming 2) and MODS (#mod-chat, #mod-log, private to Mods), with a welcome message (your Twitch and website links), the rules and a how-to-use message. It only ever **adds**: nothing that exists is changed, moved or deleted, so it is safe on a server you already use. **Show what will be added** lists it first.
-- **Go-live post:** when the stream starts it posts the title, game and your Twitch link in #go-live (ping nobody, @here, @everyone or a role).
-- **Slash commands:** `/commands` (the viewer commands, not the mod ones), `/games`, `/tts` (with the sound effects), `/top` (points leaderboard), `/live` and `/website`, answered from the same lists as the website. Check: `node discord-test.js`.
-
 **Pixel avatar** at http://localhost:8420/avatar (left rail: Avatar)
 - A pixel character that copies you like a VTuber: it blinks when you blink, turns, nods and tilts with your head, raises its eyebrows, smiles and opens its mouth. Add it to OBS as a browser source (the page has an **Add to OBS** button and the address), and use OBS's **Virtual Camera** (button on the page) to show it as a webcam in Discord, Zoom and so on.
 - **Camera:** the face is read on your PC with Google's MediaPipe Face Landmarker (Apache-2.0, bundled in `assets/vendor/mediapipe`; no video leaves the PC). A hidden helper window owns the camera and microphone only while "Run the avatar" is on.
@@ -154,7 +148,7 @@ Replaces Streamlabs/StreamElements: connects to Twitch directly, pushes alerts t
 
 **Chat recap** at http://localhost:8420/recap (left rail: Chat recap)
 - Summaries of your chat written by **Claude**, through the Claude Code program on this PC and your own Claude login (no separate bill), always with the cheapest model (`haiku`, changeable on the page). Needs Claude Code installed and logged in once (`claude`, then `/login`); the page has a **Check Claude** button.
-- **End-of-stream recap:** what chat talked about, funny moments, unanswered questions, regulars. Made on demand or automatically 2 minutes after the stream ends, saved in `Documents\ItMeCasey Stream\recaps`, optionally posted in the Discord #announcements channel.
+- **End-of-stream recap:** what chat talked about, funny moments, unanswered questions, regulars. Made on demand or automatically 2 minutes after the stream ends, saved in `Documents\ItMeCasey Stream\recaps`.
 - **`!recap`** (mods): one line on what chat has been talking about, at most one Claude call every 5 minutes.
 - Privacy: the chat text (deleted messages, commands and bots left out) is sent to Anthropic; "send chatter names" off replaces names with Viewer1, Viewer2... Check: `node recap-test.js`.
 

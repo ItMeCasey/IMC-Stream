@@ -37,7 +37,6 @@
   <section class="r">
     <h2>2. SETTINGS</h2>
     <div class="row"><label class="chk"><input id="auto" type="checkbox"> Make a recap automatically 2 minutes after the stream ends</label></div>
-    <div class="row"><label class="chk"><input id="discord" type="checkbox"> Post the recap in the Discord announcements channel</label></div>
     <div class="row"><label class="chk"><input id="names" type="checkbox"> Send chatter names (off = Viewer1, Viewer2...)</label></div>
     <div class="row"><label class="chk"><input id="chat" type="checkbox"> Let mods use <code>!recap</code> in chat</label></div>
     <div class="row"><label class="fld">Model<input id="modelIn" placeholder="haiku"></label><button id="save">Save</button></div>
@@ -71,13 +70,13 @@ function toast(t, bad) { const e = $('toast'); e.textContent = t; e.className = 
 let filled = false;
 function draw(v) {
   $('model').textContent = v.model;
-  if (!filled) { filled = true; $('auto').checked = v.auto; $('discord').checked = v.discord; $('names').checked = v.names; $('chat').checked = v.chat; $('modelIn').value = v.model; }
+  if (!filled) { filled = true; $('auto').checked = v.auto; $('names').checked = v.names; $('chat').checked = v.chat; $('modelIn').value = v.model; }
   $('count').textContent = v.messages + ' chat messages kept since ' + new Date(v.since).toLocaleTimeString() + (v.busy ? ' (writing a recap...)' : '');
   $('list').innerHTML = v.last.length ? v.last.map((x) => '<div class="recap"><small>' + esc(new Date(x.at).toLocaleString()) + ' &middot; ' + x.messages + ' messages</small>' + esc(x.text) + '</div>').join('') : 'None yet.';
 }
 const load = async () => draw(await post('status'));
 $('check').onclick = async () => { $('checkMsg').textContent = 'Asking Claude...'; $('check').disabled = true; const r = await post('check'); $('check').disabled = false; $('checkMsg').innerHTML = r.error ? '<span class="bad">' + esc(r.error) + '</span>' : '<span class="ok">Claude answered (model ' + esc(r.model) + '). Ready.</span>'; };
-$('save').onclick = async () => { draw(await post('settings', { auto: $('auto').checked, discord: $('discord').checked, names: $('names').checked, chat: $('chat').checked, model: $('modelIn').value.trim() || 'haiku' })); toast('Saved'); };
+$('save').onclick = async () => { draw(await post('settings', { auto: $('auto').checked, names: $('names').checked, chat: $('chat').checked, model: $('modelIn').value.trim() || 'haiku' })); toast('Saved'); };
 $('make').onclick = async () => { $('make').disabled = true; toast('Writing the recap...'); const r = await post('make'); $('make').disabled = false; if (r.error) return toast(r.error, true); toast('Recap saved'); load(); };
 $('catchup').onclick = async () => { $('catchup').disabled = true; const r = await post('catchup'); $('catchup').disabled = false; const e = $('catchOut'); e.style.display = 'block'; e.textContent = r.error || r.text; };
 const sz = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';

@@ -608,6 +608,7 @@ function chatIn(e) {
   chatBuf.push(m); if (chatBuf.length > 200) chatBuf.shift();
   recap.add(m); chatlog.chat(m);
   broadcast('chat', m);
+  bridge.publish('chat.message', { id: m.id, uid: m.uid, login: m.login, name: m.name, color: m.color, badges: m.badges.map((b) => b.s), text: m.text, type: m.type, reply: m.reply });
 }
 // Mark chat messages as removed (deleted, user timed out, chat cleared) so overlays can fade them out.
 function chatMark(match, ev) {
@@ -615,6 +616,7 @@ function chatMark(match, ev) {
   recap.moderate(ev); chatlog.moderate(ev);
   if (ev.type === 'clear') chatBuf.length = 0;
   broadcast('chatmod', ev);
+  bridge.publish('chat.' + ev.type, ev);
 }
 
 // ------------------------------------------------------------------ BTTV / FFZ / 7TV emotes + Twitch badges
@@ -1010,7 +1012,7 @@ function handleEventInner(type, e, opts = {}) {
       break;
     }
     case 'channel.update':
-      if (live) { state.stream.title = e.title || state.stream.title; state.stream.game = e.category_name || state.stream.game; }
+      if (live) { state.stream.title = e.title || state.stream.title; state.stream.game = e.category_name || state.stream.game; bridge.publish('stream.update', { title: state.stream.title, game: state.stream.game }); }
       break;
     case 'channel.chat.message_delete':
       chatMark((m) => m.id === e.target_message_id, { type: 'delete', id: e.target_message_id });
@@ -1063,11 +1065,12 @@ function handleEventInner(type, e, opts = {}) {
     case 'stream.online':
       if (live) { state.stream.live = true; state.stream.startedAt = e.started_at || new Date().toISOString(); if (CFG.resetSessionOnStreamOnline) resetSession(); pollStream(); scenes.fire('online').catch(() => {}); }
       if (live) recap.newStream();
-      if (live) setTimeout(() => discord.announceLive({ title: state.stream.title, game: state.stream.game }).catch((err) => log('discord go-live post failed:', err.message)), 20000);   // a moment later, so the title and game are known
+      if (live) bridge.publish('stream.online', { startedAt: state.stream.startedAt });
       systemLog('Stream went online');
       break;
     case 'stream.offline':
       if (live) recap.onStreamEnd();
+      if (live) bridge.publish('stream.offline', { startedAt: state.stream.startedAt, endedAt: new Date().toISOString(), peakViewers: state.session.peakViewers });
       if (live) { state.stream.live = false; state.stream.viewers = 0; state.stream.startedAt = ''; scenes.fire('offline').catch(() => {}); }
       systemLog('Stream went offline');
       break;
@@ -1502,7 +1505,7 @@ function status() {
 const webguard = require('./webguard.js');
 function originOk(req) { return webguard.postAllowed(req.headers); }
 // Routes that can leak logins, run code or change what the PC does: only from this PC, even when a phone is logged in over the LAN.
-const LOCAL_ONLY = /^\/api\/(backup\/create|app\/restart|update\/install|obs\/install|vm\/install|site\/(login|publish)|discord\/settings|hooks\/(save|delete|test|obs\/save))$/;
+const LOCAL_ONLY = /^\/api\/(backup\/create|app\/restart|update\/install|obs\/install|vm\/install|site\/(login|publish)|hooks\/(save|delete|test|obs\/save))$/;
 // Read a JSON request body, capped in size (default 100 KB); bad JSON becomes {}.
 function readJson(req, limit) {
   return new Promise((resolve) => {
@@ -1584,6 +1587,11 @@ async function route(req, res) {
   if (p === '/api/paypal') return json(res, 200, paypal.view());
   if (p === '/panels' || p === '/panels/') return serveFile(res, path.join(__dirname, 'public', 'panels.html'));
   if (p.startsWith('/panel-img/')) return serveFile(res, path.join(DATA, 'panels', path.basename(p)));
+  // The Discord bot (IMC-Bot) asks here what happened; only this PC may.
+  if (p === '/api/bridge/events' || p === '/api/bridge/state' || p === '/api/bridge/info') {
+    if (!access.isLoopback(req.socket.remoteAddress)) return json(res, 403, { error: 'This can only be done on the PC itself' });
+    return json(res, 200, p.endsWith('info') ? bridge.info() : p.endsWith('events') ? bridge.since(u.searchParams.get('since'), u.searchParams.get('chat') === '1') : bridge.snapshot());
+  }
   if (p === '/api/panels') return json(res, 200, { panels: state.panels, login: tokens ? tokens.login : '' });
   if (p === '/tips' || p === '/tips/') return serveFile(res, path.join(__dirname, 'public', 'tips.html'));
   if (p === '/welcome' || p === '/welcome/') return serveFile(res, path.join(__dirname, 'public', 'welcome.html'));
@@ -1618,7 +1626,6 @@ async function route(req, res) {
   if (p === '/avatar' || p === '/avatar/') return serveFile(res, path.join(__dirname, 'public', 'avatar.html'));
   if (p === '/avatar-tracker') return serveFile(res, path.join(__dirname, 'public', 'avatar-tracker.html'));
   if (p === '/recap' || p === '/recap/') return serveFile(res, path.join(__dirname, 'public', 'recap.html'));
-  if (p === '/discord' || p === '/discord/') return serveFile(res, path.join(__dirname, 'public', 'discord.html'));
   if (p === '/site' || p === '/site/') return serveFile(res, path.join(__dirname, 'public', 'site.html'));
   if (p.startsWith('/site-preview/')) {   // a look at the built website before it is uploaded
     const rel = decodeURIComponent(p.slice(14)) || 'index.html', f = path.resolve(siteDir(), rel);
@@ -1873,16 +1880,6 @@ async function route(req, res) {
         if (op === 'catchup') return json(res, 200, { text: await recap.catchUp() });
         throw new Error('unknown recap action');
       }
-      if (p.startsWith('/api/discord/')) {
-        const op = p.slice(13);
-        if (op === 'status') return json(res, 200, discord.view());
-        if (op === 'settings') { const v = discord.configure(body); if (body.commands !== undefined || body.token || body.clearToken) { discord.stopGateway(); if (v.commands && v.hasToken) discord.startGateway(); } return json(res, 200, v); }
-        if (op === 'connect') return json(res, 200, await discord.connect());
-        if (op === 'plan') return json(res, 200, await discord.plan(body.guildId));
-        if (op === 'setup') { const r = await discord.setup(body.guildId); await discord.registerCommands().catch((e) => log('discord commands:', e.message)); discord.startGateway(); return json(res, 200, r); }
-        if (op === 'test') return json(res, 200, await discord.test());
-        throw new Error('unknown Discord action');
-      }
       if (p === '/api/site/status') { const w = await sitePublisher.whoami(); return json(res, 200, Object.assign({ cloudflare: w }, sitePublisher.view())); }
       if (p === '/api/site/login') return json(res, 200, sitePublisher.login());
       if (p === '/api/site/settings') return json(res, 200, sitePublisher.settings(body));
@@ -2037,8 +2034,15 @@ let mediaRenderT = null;
 const media = createMedia({ DATA, state, persist, log, broadcast, port: () => CFG.port,
   onChange: () => { if (!mediaRenderT) mediaRenderT = setTimeout(() => { mediaRenderT = null; renderLabels(); }, 500); } });
 const tts = createTts({ DATA, state, persist, broadcast, log, sfxDir: path.join(ROOT, 'sounds', 'tts'), blockWords: () => (bot.view().filters.blacklist.on ? bot.view().filters.blacklist.words : []) });
-const recap = createRecap({ file: path.join(DATA, 'recap.json'), log, dir: () => path.join(process.env.ICM_DOCS || path.join(os.homedir(), 'Documents', 'ItMeCasey Stream'), 'recaps'), hideBots: ['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'sery_bot'],
-  discordPost: (title, text) => discord.postRecap(title, text) });   // chat summaries made with the Claude command line tool
+const bridge = require('./bridge.js')({ snapshot: () => ({ live: !!state.stream.live, title: state.stream.title || '', game: state.stream.game || '', viewers: state.stream.viewers || 0, startedAt: state.stream.startedAt || '', peakViewers: state.session.peakViewers || 0, login: tokens ? tokens.login : '', name: state.channel.name || '', website: (state.site && state.site.lastUrl) || '' }),
+  // what the viewer slash commands of IMC-Bot answer from (the same lists as the viewers' website)
+  info: () => {
+    const g = bot.view().games, P = g.prefix || '!', c = tts.cfg();
+    return { commands: bot.exportCommands(), top: (bot.view().top || []).slice(0, 10).map((p) => ({ name: p.name, pts: p.pts })),
+      games: g.builtin.filter((x) => x.on).map((x) => ({ name: x.name, how: String(x.how).replace(/!(?=[a-z0-9])/gi, P) })).concat(g.custom.filter((x) => x.enabled).map((x) => ({ name: x.name, how: P + x.command }))),
+      tts: { reward: true, command: !!(c.command && c.command.on), prefix: P, sfx: tts.view().sfx.map((x) => x.name) } };
+  } });   // what IMC-Bot reads
+const recap = createRecap({ file: path.join(DATA, 'recap.json'), log, dir: () => path.join(process.env.ICM_DOCS || path.join(os.homedir(), 'Documents', 'ItMeCasey Stream'), 'recaps'), onRecap: (item) => bridge.publish('recap', { id: item.id, text: item.text, messages: item.messages }), hideBots: ['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot', 'sery_bot'] });   // chat summaries made with the Claude command line tool
 const chatlog = require('./chatlog.js')({ dir: path.join(DATA, 'chatlogs'), log, exportDir: () => path.join(process.env.ICM_DOCS || path.join(os.homedir(), 'Documents', 'ItMeCasey Stream'), 'chat logs') });   // every chat message and event of a stream, saved as it happens
 const avatar = require('./avatar.js')({ file: path.join(DATA, 'avatar.json'), log, broadcast });   // the pixel avatar (camera + microphone -> overlay)
 const bot = createBot({
@@ -2078,10 +2082,6 @@ const vmix = require('./voicemeeter.js')({ DATA, obs: obsClient, log });
 const site = require('./site')({ bot, tts, hooks: () => state.rewardHooks, channel: () => (tokens ? tokens.login : ''), assetsDir: path.join(ROOT, 'assets'), sfxDir: path.join(ROOT, 'sounds', 'tts') });   // the viewers' website (static pages for a free host)
 const siteDir = () => path.join(process.env.ICM_DOCS || path.join(require('node:os').homedir(), 'Documents', 'ItMeCasey Stream'), 'website');
 const sitePublisher = require('./site-publish')({ state, persist, log, site, tts, siteDir, channel: () => (tokens ? tokens.login : '') });   // puts that website on Cloudflare Pages by itself
-const discord = require('./discord')({ file: path.join(DATA, 'discord.json'), log, channel: () => (tokens ? tokens.login : ''), website: () => (state.site && state.site.lastUrl) || '',
-  data: { commands: () => bot.exportCommands(), top: () => (bot.view().top || []).slice(0, 10), stream: () => state.stream,
-    games: () => { const g = bot.view().games, P = g.prefix || '!'; return g.builtin.filter((x) => x.on).map((x) => ({ name: x.name, how: String(x.how).replace(/!(?=[a-z0-9])/gi, P) })).concat(g.custom.filter((x) => x.enabled).map((x) => ({ name: x.name, how: P + x.command }))); },
-    tts: () => { const c = tts.cfg(), P = (bot.view().games || {}).prefix || '!'; return 'Redeem the text-to-speech reward and type your message' + (c.command && c.command.on ? ', or type `' + P + 'tts your message`' : '') + '. Add sound effects with their name in square brackets, like `good luck [airhorn] you will need it`. ' + tts.view().sfx.map((x) => '`[' + x.name + ']`').join(' '); } } });   // the Discord bot
 const extraBadges = require('./extrabadges')({ log });   // BetterTTV and FrankerFaceZ chat badges
 const seventv = require('./seventv')({ file: path.join(DATA, 'emotes7tv.json'), log, twitchId: () => (tokens ? tokens.user_id : '') });   // viewers add 7TV emotes to the channel with channel points
 const hooks = createHooks({
@@ -2167,7 +2167,7 @@ function main() {
     log('Label files:', LABELS);
     renderLabels();
     media.start();
-    sitePublisher.start(); if (discord.view().hasToken && discord.view().commands) discord.startGateway();
+    sitePublisher.start();
     backup.auto(); const bk = setInterval(() => backup.auto(), 6 * 3600e3); if (bk.unref) bk.unref();
     const e7 = setInterval(() => seventv.expireDue().catch((e) => log('7tv expiry:', e.message)), 30 * 60e3); if (e7.unref) e7.unref(); setTimeout(() => seventv.expireDue().catch(() => {}), 60e3).unref();   // borrowed emotes whose time is up are taken away again
     if (tts.kokoroInstalled() && !state.ttsCfg.voice && !state.ttsCfg.chosen) { state.ttsCfg.voice = 'af_heart'; persist(true); log('Kokoro found: using the realistic voice af_heart by default (change it on the Speech page).'); }

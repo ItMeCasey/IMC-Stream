@@ -16,7 +16,7 @@ const MAX_KEEP = 6000, MAX_PROMPT_CHARS = 60000;
 module.exports = function createRecap(ctx) {
   const now = ctx.now || Date.now, log = ctx.log || (() => {}), spawn = ctx.spawn || nodeSpawn, FILE = ctx.file, win = process.platform === 'win32';
   // S: saved settings and the last recaps (file); buf: this stream's chat; busy: the recap being made; cache: the last catch-up answer
-  let S = { auto: false, discord: false, model: 'haiku', names: true, chat: false, last: [] }, buf = [], startedAt = now(), busy = null, cache = null;
+  let S = { auto: false, model: 'haiku', names: true, chat: false, last: [] }, buf = [], startedAt = now(), busy = null, cache = null;
   try { S = Object.assign(S, JSON.parse(fs.readFileSync(FILE, 'utf8'))); } catch (e) { /* first run */ }
   // write the settings and the list of recaps
   const save = () => { try { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(S, null, 2)); } catch (e) { log('recap save failed:', e.message); } };
@@ -90,7 +90,7 @@ module.exports = function createRecap(ctx) {
       const item = { id: stamp, at: now(), messages: buf.length, text, file: '' };
       try { const dir = ctx.dir(); fs.mkdirSync(dir, { recursive: true }); item.file = path.join(dir, 'recap_' + stamp + '.md'); fs.writeFileSync(item.file, '# Stream recap ' + stamp + '\n\n' + text + '\n'); } catch (e) { log('could not save the recap file:', e.message); item.file = ''; }
       S.last.unshift(item); S.last.length = Math.min(S.last.length, 20); save();
-      if (S.discord && ctx.discordPost) await ctx.discordPost('Stream recap', text).catch((e) => log('recap Discord post failed:', e.message));
+      if (ctx.onRecap) { try { ctx.onRecap(item); } catch (e) { log('recap hook failed:', e.message); } }   // the bridge tells the Discord bot
       return item;
     })();
     busy = job; job.then(() => { busy = null; }, () => { busy = null; }); return job;
@@ -106,13 +106,13 @@ module.exports = function createRecap(ctx) {
   // settings from the Setup page; the model name is checked before it is used
   function configure(b) {
     b = b || {};
-    for (const k of ['auto', 'discord', 'names', 'chat']) if (b[k] !== undefined) S[k] = !!b[k];
+    for (const k of ['auto', 'names', 'chat']) if (b[k] !== undefined) S[k] = !!b[k];
     if (b.model !== undefined) S.model = /^[A-Za-z0-9._-]{2,60}$/.test(String(b.model).trim()) ? String(b.model).trim() : 'haiku';
     save(); return view();
   }
   /** a tiny request to check the tool is installed and logged in */
   async function check() { const t = await runClaude('Reply with the single word: ready'); return { ok: true, reply: t.slice(0, 60), model: model() }; }
   // what the page shows, without the chat itself
-  const view = () => ({ auto: !!S.auto, discord: !!S.discord, names: S.names !== false, chat: !!S.chat, model: model(), messages: buf.length, since: startedAt, busy: !!busy, last: S.last.map((x) => ({ id: x.id, at: x.at, messages: x.messages, text: x.text, file: x.file })) });
+  const view = () => ({ auto: !!S.auto, names: S.names !== false, chat: !!S.chat, model: model(), messages: buf.length, since: startedAt, busy: !!busy, last: S.last.map((x) => ({ id: x.id, at: x.at, messages: x.messages, text: x.text, file: x.file })) });
   return { add, moderate, newStream, makeRecap, catchUp, onStreamEnd, configure, check, view, summarize, transcript, chatOn: () => !!S.chat };
 };
