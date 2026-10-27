@@ -559,7 +559,7 @@ const listFiles = (dir, exts, base = dir, depth = 0) => {
   } catch (e) { /* folder missing */ }
   return out.sort();
 };
-const SOUND_EXT = ['.wav', '.mp3', '.ogg'], IMAGE_EXT = ['.png', '.gif', '.webp', '.jpg', '.jpeg', '.svg'], FONT_EXT = ['.ttf', '.otf', '.woff', '.woff2'];
+const SOUND_EXT = ['.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'], IMAGE_EXT = ['.png', '.gif', '.webp', '.jpg', '.jpeg', '.svg'], FONT_EXT = ['.ttf', '.otf', '.woff', '.woff2'];
 const VIDEO_EXT = ['.mp4', '.webm'];
 const alertAssets = () => ({
   sounds: listFiles(path.join(ROOT, 'sounds'), SOUND_EXT).filter((f) => !f.startsWith('custom/')).concat(listFiles(path.join(CUSTOM, 'sounds'), SOUND_EXT).map((x) => 'custom/' + x)),
@@ -663,11 +663,6 @@ function chatIn(e) {
   chatBuf.push(m); if (chatBuf.length > 200) chatBuf.shift();
   recap.add(m); chatlog.chat(m);
   broadcast('chat', m);
-  const lk = /^\s*[!?.]link\s+([A-Za-z0-9]{6,12})\s*$/.exec(m.text);
-  if (lk) {   // account linking: tell the bot who typed which code, and take the code out of the public chat
-    bridge.publish('link.attempt', { code: lk[1].toUpperCase(), uid: m.uid, login: m.login, name: m.name });
-    if (tokens && m.id) modAction('delete', { messageId: m.id }).catch(() => {});
-  }
   bridge.publish('chat.message', { id: m.id, uid: m.uid, login: m.login, name: m.name, color: m.color, badges: m.badges.map((b) => b.s), text: m.text, type: m.type, reply: m.reply });
 }
 // Mark chat messages as removed (deleted, user timed out, chat cleared) so overlays can fade them out.
@@ -1253,7 +1248,7 @@ let totalsTimer;
 // Follower/sub totals are re-read a few seconds after events, so a burst of events costs one request.
 function scheduleTotals() { clearTimeout(totalsTimer); totalsTimer = setTimeout(refreshTotals, 4000); }
 // Read total followers and subscribers from Twitch.
-// What IMC-Bot may ask about Twitch through the bridge (ban list, one person's follow and sub, the schedule).
+// What IMC-Bot may ask about Twitch through the bridge (the stream schedule).
 const bridgeTwitch = require('./bridge-twitch.js')({ helix, must, tokens: () => tokens });
 async function refreshTotals() {
   if (!tokens) return;
@@ -1552,7 +1547,7 @@ function scheduleReconnect() {
 }
 
 // ------------------------------------------------------------------ http server
-const MIME = { '.ttf': 'font/ttf', '.otf': 'font/otf', '.woff': 'font/woff', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg',
+const MIME = { '.m4a': 'audio/mp4', '.flac': 'audio/flac', '.opus': 'audio/ogg', '.ttf': 'font/ttf', '.otf': 'font/otf', '.woff': 'font/woff', '.woff2': 'font/woff2', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.mp4': 'video/mp4', '.webm': 'video/webm', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.json': 'application/json', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.task': 'application/octet-stream' };
 const STATIC = { overlays: ROOT, assets: ROOT, sounds: ROOT };   // top-level folders that may be served
 // Connection and totals snapshot sent to the dashboard (also pushed over SSE on changes).
@@ -1659,8 +1654,6 @@ async function route(req, res) {
       if (p === '/api/bridge/events') return json(res, 200, bridge.since(u.searchParams.get('since'), u.searchParams.get('chat') === '1'));
       if (p === '/api/bridge/state') return json(res, 200, bridge.snapshot());
       if (p === '/api/bridge/info') return json(res, 200, bridge.info());
-      if (p === '/api/bridge/bans') return json(res, 200, await bridgeTwitch.bans());
-      if (p === '/api/bridge/user') return json(res, 200, await bridgeTwitch.user(u.searchParams.get('uid')));
       if (p === '/api/bridge/schedule') return json(res, 200, await bridgeTwitch.schedule());
     } catch (e) { return json(res, 502, { error: e.message }); }
     return json(res, 404, { error: 'Unknown bridge route' });

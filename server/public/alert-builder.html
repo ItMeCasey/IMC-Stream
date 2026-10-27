@@ -42,7 +42,7 @@
   <h2>Design</h2>
   <select id="dsel"></select>
   <div class="row"><button id="dNew" class="alt">New</button><button id="dDup" class="ghost">Copy</button><button id="dDel" class="ghost">Delete</button><button id="dImp" class="ghost" title="Art, fonts or custom code you own (.zip, .html, .css, .js, .json, pictures, video, sound, fonts)">Import</button><button id="dExp" class="ghost" title="Save this design as a .json file (pictures and sounds it uses are not inside it)">Export</button></div>
-  <input type="file" id="impIn" accept=".zip,.html,.htm,.css,.js,.json,.png,.gif,.webp,.jpg,.jpeg,.svg,.webm,.mp4,.wav,.mp3,.ogg,.ttf,.otf,.woff,.woff2" style="display:none">
+  <input type="file" id="impIn" accept=".zip,.html,.htm,.css,.js,.json,.png,.gif,.webp,.jpg,.jpeg,.svg,.webm,.mp4,.wav,.mp3,.ogg,.m4a,.flac,.opus,.ttf,.otf,.woff,.woff2" style="display:none">
   <div id="newBox" style="display:none"><label class="fld">Start from<select id="nStyle"><option value="banner">Banner</option><option value="lower">Lower third</option><option value="card">Framed card</option><option value="pop">Pop-up with icon</option><option value="ribbon">Ribbon</option><option value="split">Split panel</option><option value="neon">Neon frame</option><option value="minimal">Minimal text</option></select></label><label class="fld">For<select id="nEv"></select></label><div class="row"><button id="nGo">Create</button><button id="nBlank" class="ghost">Blank</button></div></div>
   <div id="parts"><h2>Add a part</h2></div>
   <div id="stockbox"><h2>Stock art <span class="muted">(white ones take any colour)</span></h2><div id="stock"></div></div>
@@ -99,7 +99,7 @@ const MOTION = () => ({ in: { a: 'fade', ms: 500, delay: 0, ease: 'ease-out' }, 
 const BASEP = (o) => Object.assign({ id: rid(), x: 660, y: 440, w: 600, h: 200, rot: 0, opacity: 1, locked: false }, MOTION(), o);
 const SHAPE = (o) => BASEP(Object.assign({ type: 'shape', kind: 'rect', fill: '@bg', fill2: '', angle: 90, border: 0, borderColor: '@primary', radius: 0, skew: 0, glow: 0, glowColor: '@primary' }, o));
 const KINDS = {   // the basic parts that ship with the app
-  'Text': () => BASEP({ type: 'text', name: 'Text', text: '{name}', w: 700, h: 120, font: '@body', size: 80, weight: 700, color: '@text', align: 'center', valign: 'middle', caps: true, italic: false, shadow: true, shadowColor: '#000000', stroke: 0, strokeColor: '#000000', spacing: 2, lh: 1.1, fit: 'shrink' }),
+  'Text': () => BASEP({ type: 'text', name: 'Text', text: '{name}', w: 700, h: 120, font: '@body', size: 80, weight: 700, color: '@text', align: 'center', valign: 'middle', caps: true, italic: false, shadow: true, shadowColor: '#00000080', stroke: 0, strokeColor: '#000000', spacing: 2, lh: 1.1, fit: 'shrink' }),
   'Rectangle': () => SHAPE({ name: 'Rectangle' }),
   'Rounded panel': () => SHAPE({ name: 'Panel', radius: 28, border: 4, h: 260 }),
   'Pill': () => SHAPE({ name: 'Pill', radius: 999, h: 90, fill: '@primary' }),
@@ -391,7 +391,7 @@ function insertParts(list) {
 $('parts').insertAdjacentHTML('beforeend', Object.keys(KINDS).map((k) => `<button class="ghost" data-k="${esc(k)}">+ ${esc(k)}</button>`).join(''));
 $('parts').onclick = (e) => {
   const k = e.target.dataset.k; if (!k) return;
-  if (k === 'Sound from file') { upKind = 'sound'; upNew = true; $('upIn').accept = '.wav,.mp3,.ogg,audio/*'; $('upIn').click(); return; } if (D.parts.length >= M.limits.parts) return toast('At most ' + M.limits.parts + ' parts', true); push(); const p = KINDS[k](); D.parts.push(p); changed(); select(p.id, 'one'); };
+  if (k === 'Sound from file') { upKind = 'sound'; upNew = true; $('upIn').accept = '.wav,.mp3,.ogg,.m4a,.flac,.opus,audio/*'; $('upIn').click(); return; } if (D.parts.length >= M.limits.parts) return toast('At most ' + M.limits.parts + ' parts', true); push(); const p = KINDS[k](); D.parts.push(p); changed(); select(p.id, 'one'); };
 function drawStock() {
   $('stock').innerHTML = M.assets.images.filter((f) => f.startsWith('stock/')).map((f) => `<img src="/assets/${esc(f)}" data-s="${esc(f)}" title="${esc(f.slice(6, -4).replace(/_/g, ' '))}" alt="">`).join('');
   const cats = [...new Set(WIDGETS.map((w) => w.cat))];
@@ -507,7 +507,7 @@ $('insp').addEventListener('click', (e) => {
   }
   else if (t.dataset.a === 'dup') dup(selParts()); else if (t.dataset.a === 'del') del(selParts()); else if (t.dataset.a === 'group') group(); else if (t.dataset.a === 'ungroup') ungroup();
   else if (t.dataset.play && p && p.src) { const a = new Audio('/sounds/' + p.src); a.volume = p.volume / 100; a.play(); }
-  else if (t.dataset.up) { upKind = t.dataset.up; $('upIn').accept = { font: '.ttf,.otf,.woff,.woff2', image: '.png,.gif,.webp,.jpg,.jpeg,.svg,image/*', video: '.mp4,.webm', sound: '.wav,.mp3,.ogg,audio/*' }[upKind]; $('upIn').click(); }
+  else if (t.dataset.up) { upKind = t.dataset.up; $('upIn').accept = { font: '.ttf,.otf,.woff,.woff2', image: '.png,.gif,.webp,.jpg,.jpeg,.svg,image/*', video: '.mp4,.webm', sound: '.wav,.mp3,.ogg,.m4a,.flac,.opus,audio/*' }[upKind]; $('upIn').click(); }
 });
 let upKind = '', upNew = false; document.body.insertAdjacentHTML('beforeend', '<input type="file" id="upIn" style="display:none">');
 $('upIn').onchange = async (e) => {

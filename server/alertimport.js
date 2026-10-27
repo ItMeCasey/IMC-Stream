@@ -14,7 +14,7 @@ const { spawnSync } = require('node:child_process');
 const { svgOk, fontOk } = require('./alertdesign.js');
 
 const TAR = process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
-const KINDS = { image: ['.png', '.gif', '.webp', '.jpg', '.jpeg', '.svg'], video: ['.webm', '.mp4'], sound: ['.wav', '.mp3', '.ogg'], font: ['.ttf', '.otf', '.woff', '.woff2'] };
+const KINDS = { image: ['.png', '.gif', '.webp', '.jpg', '.jpeg', '.svg'], video: ['.webm', '.mp4'], sound: ['.wav', '.mp3', '.ogg', '.m4a', '.flac', '.opus'], font: ['.ttf', '.otf', '.woff', '.woff2'] };
 const MEDIA_EXT = 'png|gif|webp|jpe?g|svg|webm|mp4|wav|mp3|ogg|ttf|otf|woff2?';
 const DIRS = { image: 'assets', video: 'video', sound: 'sounds', font: 'fonts' }, URLS = { image: '/assets/', video: '/video/', sound: '/sounds/', font: '/fonts/' };   // folder under custom/ and the URL the server uses for it
 const LIMIT = { image: 15e6, sound: 15e6, video: 80e6, font: 5e6, code: 300e3, files: 600, total: 500e6 };
@@ -28,7 +28,7 @@ function magicOk(kind, ext, b) {
   if (kind === 'image' && ext === '.svg') return svgOk(b);
   if (kind === 'image') return ext === '.png' ? b[0] === 0x89 && s(1, 4) === 'PNG' : ext === '.gif' ? s(0, 4) === 'GIF8' : ext === '.webp' ? s(0, 4) === 'RIFF' && s(8, 12) === 'WEBP' : b[0] === 0xff && b[1] === 0xd8;
   if (kind === 'video') return ext === '.webm' ? b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 : s(4, 8) === 'ftyp';
-  return ext === '.wav' ? s(0, 4) === 'RIFF' && s(8, 12) === 'WAVE' : ext === '.ogg' ? s(0, 4) === 'OggS' : s(0, 3) === 'ID3' || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0);
+  return ext === '.wav' ? s(0, 4) === 'RIFF' && s(8, 12) === 'WAVE' : ext === '.ogg' || ext === '.opus' ? s(0, 4) === 'OggS' : ext === '.flac' ? s(0, 4) === 'fLaC' : ext === '.m4a' ? s(4, 8) === 'ftyp' : s(0, 3) === 'ID3' || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0);
 }
 // picture size from the file header (PNG, GIF, WebP), so imported pictures land at a sensible size
 function dims(ext, b) {
