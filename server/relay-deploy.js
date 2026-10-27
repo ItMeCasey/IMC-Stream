@@ -7,12 +7,14 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
+// SCRIPT is the worker's name on the streamer's account; MODULES are the files of relay/src that are uploaded as one module worker
 const SCRIPT = 'itmecasey-tip-relay', MODULES = ['index.js', 'page.js', 'room.js'];
 
 module.exports = function createRelayDeploy(ctx) {
   const doFetch = ctx.fetch || fetch, BASE = ctx.baseUrl || process.env.ICM_CLOUDFLARE_URL || 'https://api.cloudflare.com/client/v4';
   const dir = () => path.join(ctx.root, 'relay', 'src');
 
+  // one Cloudflare API call: returns .result, or throws a message the streamer can act on (a refused token gets a hint how to make the right one)
   async function api(token, method, p, body, isForm) {
     const r = await doFetch(BASE + p, { method, headers: Object.assign({ Authorization: 'Bearer ' + token }, body && !isForm ? { 'Content-Type': 'application/json' } : {}), body: body ? (isForm ? body : JSON.stringify(body)) : undefined });
     const j = await r.json().catch(() => ({}));
@@ -23,6 +25,7 @@ module.exports = function createRelayDeploy(ctx) {
     return j.result;
   }
 
+  // the account to deploy to: the one typed in, or the only one the token can see
   async function findAccount(token, wanted) {
     if (wanted) return String(wanted).trim();
     const list = await api(token, 'GET', '/accounts');
@@ -37,6 +40,7 @@ module.exports = function createRelayDeploy(ctx) {
     return (await api(token, 'PUT', '/accounts/' + acct + '/workers/subdomain', { subdomain: 'icm-' + crypto.randomBytes(4).toString('hex') })).subdomain;
   }
 
+  // check the form, upload the worker (making the workers.dev name on first use) and switch its public address on
   async function deploy(b) {
     const token = String(b.token || '').trim(); if (!token) throw new Error('Paste your Cloudflare token first');
     const paypal = String(b.paypalEmail || '').trim(), kofiPage = String(b.kofiPage || '').trim().replace(/^https?:\/\/(www\.)?ko-fi\.com\//i, '').replace(/[/?#].*$/, ''), kofiToken = String(b.kofiToken || '').trim();
@@ -45,9 +49,11 @@ module.exports = function createRelayDeploy(ctx) {
     if (!b.relayKey) throw new Error('No relay key');
 
     const acct = await findAccount(token, b.accountId), sub = await subdomain(token, acct);
+    // does this worker exist already? That decides whether the one-time storage migration is sent
     const exists = await api(token, 'GET', '/accounts/' + acct + '/workers/scripts/' + SCRIPT + '/settings').then(() => true, (e) => { if (e.status === 404) return false; throw e; });
     const vars = { STREAMER_NAME: String(b.streamerName || 'the stream').slice(0, 60), CURRENCY: /^[A-Za-z]{3}$/.test(b.currency || '') ? String(b.currency).toUpperCase() : 'USD', SANDBOX: 'false' };
     if (b.service === 'kofi') { vars.KOFI_PAGE = kofiPage; } else { vars.PAYPAL_EMAIL = paypal; }
+    // the relay key and the Ko-fi token go in as secrets (not readable again later); the other settings are plain variables
     const metadata = {
       main_module: 'index.js', compatibility_date: '2025-01-01',
       bindings: [{ type: 'durable_object_namespace', name: 'ROOM', class_name: 'Room' }, { type: 'secret_text', name: 'RELAY_TOKEN', text: b.relayKey }]
@@ -56,6 +62,7 @@ module.exports = function createRelayDeploy(ctx) {
     };
     if (!exists) metadata.migrations = { new_tag: 'v1', new_sqlite_classes: ['Room'] };   // the storage class is created once; later deploys only replace the code
 
+    // multipart upload: metadata.json plus the module files
     const form = new FormData(); form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }), 'metadata.json');
     for (const m of MODULES) form.append(m, new Blob([fs.readFileSync(path.join(dir(), m))], { type: 'application/javascript+module' }), m);
     await api(token, 'PUT', '/accounts/' + acct + '/workers/scripts/' + SCRIPT, form, true);

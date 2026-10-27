@@ -144,15 +144,19 @@ async function loadUpdate(force) { const u = force ? await post('/api/update/che
   $('upInstall').style.display = u.available && u.canInstall ? '' : 'none'; $('upInstall').textContent = 'Install version ' + u.latest; const s = u.install || {};
   $('upState').textContent = s.state === 'downloading' ? 'Downloading... ' + s.percent + '%' : s.state === 'verifying' ? 'Checking the download...' : s.state === 'starting' ? 'Installing: the app closes and opens again in a moment' : s.state === 'error' ? s.error : '';
   return s.state; }
+// --- custom theme editor: the tokens come from ui-theme.js, which stores and applies them
 const TH = window.icmUi;
+// WCAG relative luminance and contrast ratio, to warn when the text colour is hard to read on the background
 function lum(h) { const c = [1, 3, 5].map((i) => parseInt(h.substr(i, 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
 function contrast(a, b) { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+// keepRows: redraw only the base and the warning, so the field being typed in keeps focus
 function drawTheme(keepRows) {
   const v = TH.custom(), base = TH.customBase(); $('thBase').value = base;
   if (!keepRows) $('thRows').innerHTML = TH.tokens.map((t) => '<div class="row" style="margin:0;gap:10px" data-k="' + t.key + '"><input type="color" value="' + v[t.key].toLowerCase() + '" style="width:44px;height:30px;padding:0;border:2px solid #46504f;background:none;cursor:pointer"><input type="text" value="' + v[t.key] + '" maxlength="7" spellcheck="false" style="width:100px;font-family:Consolas,monospace"><code style="min-width:120px">--' + t.key + '</code><span>' + esc(t.label) + ' <span class="muted">&middot; ' + esc(t.hint) + '</span></span></div>').join('');
   const lo = Math.min(contrast(v.cream, v.iron), contrast(v.cream, v['iron-d']));
   $('thWarn').innerHTML = lo < 4.5 ? '<span style="color:var(--heat)">Text on background has low contrast (' + lo.toFixed(1) + ':1). It can be hard to read; 4.5:1 or more is comfortable.</span>' : 'Text contrast: ' + lo.toFixed(1) + ':1 (good).';
 }
+// one handler for every row: the picker and the hex box stay in sync; a half-typed hex is flagged and not applied (3-digit hex like #0af is expanded)
 $('thRows').addEventListener('input', (e) => {
   const row = e.target.closest('[data-k]'); if (!row) return; const pick = row.querySelector('input[type=color]'), txt = row.querySelector('input[type=text]');
   if (e.target === pick) txt.value = pick.value.toUpperCase();

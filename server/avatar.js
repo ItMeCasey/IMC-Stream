@@ -6,22 +6,31 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// hex colour check (#rrggbb)
 const HEX = /^#[0-9a-fA-F]{6}$/;
+// factory settings; also the fallback for anything missing in avatar.json
 const DEFAULTS = {
   on: false, mode: 'auto', mouthSrc: 'mic', mirror: true, smooth: 0.5, sens: 1, micSens: 1, invertYaw: false, invertPitch: false, invertRoll: false, idleMove: true, fps: 30,
   camId: '', micId: '', neutral: null,
   style: { skin: '#E8B88F', hair: '#3b2a22', hairStyle: 'short', eyes: '#2e86c1', shirt: '#4FBBBC', outfit: 'hoodie', gender: 'neutral', facialHair: 'none', lips: '#b9575c', glasses: false, headphones: false, blush: true, bg: 'transparent', room: 'room', blur: 4, rgb: 'rainbow', neon: '', zoom: 1.4, petFreq: 'normal', pets: [] },
 };
+// which colours each pet type may have
 const PET_COLORS = { cat: ['orange', 'black', 'gray', 'white', 'tuxedo'], dog: ['brown', 'golden', 'black', 'white'], bunny: ['white', 'gray', 'brown'], parrot: ['green', 'red', 'blue'] };
+// allowed values for the choice settings (ENUM) and for the look settings (STYLE_ENUM)
 const ENUM = { mode: ['auto', 'camera', 'mic', 'idle'], mouthSrc: ['mic', 'cam', 'both'] }, STYLE_ENUM = { hairStyle: ['short', 'long', 'bun', 'none', 'spiky', 'bob', 'ponytail', 'buzz', 'afro', 'mohawk'], outfit: ['hoodie', 'tee', 'collared', 'tank', 'turtleneck'], room: ['room', 'cozy', 'cyber', 'space', 'library', 'arcade', 'beach', 'none'], petFreq: ['rare', 'normal', 'often'], gender: ['neutral', 'feminine', 'masculine'], facialHair: ['none', 'stubble', 'mustache', 'goatee', 'beard'] };
 
 module.exports = function createAvatar(ctx) {
+  // S = settings, devices = cameras/mics the tracker reported, tracker = its last status, lastPose = when the last pose arrived
   const log = ctx.log || (() => {}), broadcast = ctx.broadcast || (() => {}), FILE = ctx.file;
   let S = JSON.parse(JSON.stringify(DEFAULTS)), devices = { cams: [], mics: [] }, tracker = { running: false, cam: false, mic: false, fps: 0, error: '', at: 0 }, lastPose = 0;
+  // load saved settings over the defaults; style is merged one level deep so new style keys keep their defaults
   try { const j = JSON.parse(fs.readFileSync(FILE, 'utf8')); S = Object.assign(S, j, { style: Object.assign({}, S.style, j.style) }); } catch (e) { /* first run */ }
+  // write avatar.json; a failure is logged but never stops the app
   const save = () => { try { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(S, null, 2)); } catch (e) { log('avatar save failed:', e.message); } };
+  // clamp to a..b, or fall back to d when the value is not a number
   const num = (v, a, b, d) => (Number.isFinite(+v) ? Math.max(a, Math.min(b, +v)) : d);
 
+  // apply a settings update from the page: every value is checked or clamped, anything invalid is ignored, then it is saved and sent to the overlays
   function configure(b) {
     b = b || {};
     for (const k of ['on', 'mirror', 'invertYaw', 'invertPitch', 'invertRoll', 'idleMove']) if (b[k] !== undefined) S[k] = !!b[k];
@@ -42,15 +51,18 @@ module.exports = function createAvatar(ctx) {
     }
     save(); broadcast('avatarcfg', cfg()); return view();
   }
+  // a copy of the settings, so callers cannot change S directly
   const cfg = () => Object.assign({}, S);
   /** one pose from the tracker, passed on at once (kept tiny: this happens 30 times a second) */
   function pose(p) { if (!p || typeof p !== 'object') return; lastPose = Date.now(); broadcast('avatar', p); }
+  // the tracker page says which cameras/mics exist and how it is doing (lists and text are capped)
   function report(b) {
     b = b || {}; if (Array.isArray(b.cams)) devices.cams = b.cams.slice(0, 20).map((d) => ({ id: String(d.id || '').slice(0, 300), label: String(d.label || 'Camera').slice(0, 100) }));
     if (Array.isArray(b.mics)) devices.mics = b.mics.slice(0, 20).map((d) => ({ id: String(d.id || '').slice(0, 300), label: String(d.label || 'Microphone').slice(0, 100) }));
     if (b.status) tracker = { running: !!b.status.running, cam: !!b.status.cam, mic: !!b.status.mic, fps: num(b.status.fps, 0, 240, 0), error: String(b.status.error || '').slice(0, 200), at: Date.now() };
     return view();
   }
+  // what the page gets: settings, devices and tracker status; 'alive' needs both a status and a pose within the last 6 seconds
   const view = () => Object.assign(cfg(), { devices, tracker: Object.assign({}, tracker, { alive: Date.now() - tracker.at < 6000 && Date.now() - lastPose < 6000 }) });
   return { view, configure, pose, report, cfg, DEFAULTS };
 };

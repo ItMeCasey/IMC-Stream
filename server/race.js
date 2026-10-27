@@ -6,11 +6,14 @@
  *   run()    -> locks bets, picks the winner (random, or the streamer's choice), plays the race, resolves the prediction
  */
 module.exports = function createRace(ctx) {
+  // rng, timers and clock can be swapped out (the tests do this); cfg() reads the live settings; emit() sends an event to the overlay
   const rng = ctx.rng || Math.random, setT = ctx.setTimeout || setTimeout, clearT = ctx.clearTimeout || clearTimeout, now = ctx.now || (() => Date.now());
   const cfg = () => ctx.cfg(), emit = (type, d) => ctx.broadcast('arena', Object.assign({ type }, d || {}));
+  // default horse names, used when the settings do not list at least 2 of their own
   const NAMES = ['Thunder Biscuit', 'Neon Gallop', 'Sir Hoofs-a-Lot', 'Disco Stu', 'Mane Event', 'Turbo Pony', 'Glue Factory', 'Hay Fever', 'Saddle Sore', 'Photo Finish', 'Ctrl Alt Defeat', 'Retro Rocket', 'Lucky Clover', 'Dark Horse', 'Rusty Spur', 'Pixel Pegasus'];
   let r = null;   // { phase: 'betting' | 'racing', horses: [{name, outcomeId}], predId, ends, timer }
 
+  // choose and shuffle (Fisher-Yates) the horses: trimmed, no duplicates, 2 to 10 of them
   const pickNames = (want, n) => {
     const pool = (want && want.length ? want : (cfg().names && cfg().names.length >= 2 ? cfg().names : NAMES)).map((x) => String(x).trim().slice(0, 25)).filter(Boolean);
     const uniq = [...new Set(pool)]; if (uniq.length < 2) throw new Error('A race needs at least 2 horses');
@@ -18,6 +21,7 @@ module.exports = function createRace(ctx) {
     return a.slice(0, Math.max(2, Math.min(10, n || cfg().count, a.length)));
   };
 
+  // open betting: create the Twitch prediction, tell the overlay and chat, and run the race by itself when the betting time is up
   async function start(opts) {
     opts = opts || {};
     if (r) return { error: 'A race is already running.' };
@@ -28,6 +32,7 @@ module.exports = function createRace(ctx) {
     r.predId = pred && pred.id; r.phase = 'betting'; r.ends = now() + secs * 1000;
     emit('race:open', { horses: horses.map((h) => h.name), seconds: secs });
     ctx.say('🏇 THE RACE IS ON! Bet your channel points on a horse (the Predictions box): ' + horses.map((h) => h.name).join(', ') + '. Betting closes in ' + (secs >= 60 ? Math.round(secs / 60) + ' min' : secs + 's') + '!');
+    // 'mine' stops the timer of a cancelled race from running the next race
     const mine = r; r.timer = setT(() => { if (r === mine) run(); }, secs * 1000);
     return { ok: true, horses: horses.map((h) => h.name), seconds: secs };
   }
@@ -55,11 +60,13 @@ module.exports = function createRace(ctx) {
     return { ok: true, winner: g.horses[wi].name };
   }
 
+  // abort the race: cancelling the prediction refunds the bets, then the overlay is cleared and chat told
   async function cancel() {
     if (!r) return { error: 'No race running.' }; const g = r; r = null; if (g.timer) clearT(g.timer);
     try { if (g.predId) await ctx.predict.cancel(g.predId); } catch (e) { /* ignore */ }
     emit('stop'); ctx.say('The race was cancelled and bets are refunded.'); return { ok: true };
   }
 
+  // view() is the small status shown on the page
   return { start, run, cancel, active: () => !!r, view: () => (r ? { phase: r.phase, horses: r.horses.map((h) => h.name), secondsLeft: Math.max(0, Math.round((r.ends - now()) / 1000)) } : { phase: '' }) };
 };

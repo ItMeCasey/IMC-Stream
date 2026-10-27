@@ -52,7 +52,7 @@
 
   <section class="r">
     <h2>SAVE CHAT</h2>
-    <p class="muted">Every chat message and every event of a stream (follows, subs, gifts, cheers, raids, channel point redemptions, polls, hype trains, ads, tips, deleted messages) is written to this PC as it happens, and a new log starts when you go live. Nothing is sent anywhere. Save one as a readable text file, or as a complete JSON file.</p>
+    <p class="muted">Every chat message and every event of a stream (follows, subs, gifts, cheers, raids, channel point redemptions, polls, hype trains, ads, tips, deleted messages) is written to this PC as it happens, and a new log starts when you go live. Nothing is sent anywhere. Save one as a zipped readable text file, or a zipped complete JSON file.</p>
     <div id="logCur" class="muted" style="margin-top:8px"></div>
     <div id="logs" style="margin-top:10px"></div>
     <p class="muted" id="logFolder" style="margin-top:8px"></p>
@@ -84,7 +84,7 @@ const sz = (b) => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, M
 async function loadLogs() {
   const v = await fetch('/api/chatlog').then((r) => r.json());
   $('logCur').textContent = v.current ? 'Recording now: ' + v.current.id + ' (' + v.current.entries + ' entries)' : 'Nothing recorded yet. The log starts with the first chat message or event.';
-  $('logs').innerHTML = v.logs.length ? v.logs.map((l) => '<div class="row" data-id="' + esc(l.id) + '"><b style="min-width:150px">' + esc(l.id) + (l.current ? ' <span class="ok">(now)</span>' : '') + '</b><span class="muted" style="min-width:150px">' + l.entries + ' entries, ' + sz(l.bytes) + '</span><button data-a="txt">Save chat (text)</button><button class="ghost" data-a="json">Save as JSON</button><a class="muted" style="color:var(--aqua)" href="/api/chatlog/download?format=txt&id=' + encodeURIComponent(l.id) + '">Download</a><button class="ghost" data-a="del">Delete</button></div>').join('') : '';
+  $('logs').innerHTML = v.logs.length ? v.logs.map((l) => '<div class="row" data-id="' + esc(l.id) + '"><b style="min-width:150px">' + esc(l.id) + (l.current ? ' <span class="ok">(now)</span>' : '') + '</b><span class="muted" style="min-width:150px">' + l.entries + ' entries, ' + sz(l.bytes) + '</span><button data-a="txt">Save chat (zip)</button><button class="ghost" data-a="json">Save as JSON (zip)</button><a class="muted" style="color:var(--aqua)" href="/api/chatlog/download?format=txt&id=' + encodeURIComponent(l.id) + '">Download</a><button class="ghost" data-a="del">Delete</button></div>').join('') : '';
   $('logFolder').innerHTML = 'Saved files go to <code>' + esc(v.folder) + '</code>';
 }
 $('logs').onclick = async (ev) => {

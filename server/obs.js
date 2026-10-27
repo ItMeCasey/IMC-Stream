@@ -1,6 +1,7 @@
 'use strict';
 /** Minimal OBS WebSocket (v5, built into OBS 28+) client. Opens a short-lived connection per action. */
 const crypto = require('node:crypto');
+// OBS password login: base64(sha256(base64(sha256(password + salt)) + challenge))
 const sha = (s) => crypto.createHash('sha256').update(s).digest('base64');
 
 module.exports = function createObs(getCfg, opts = {}) {
@@ -8,6 +9,7 @@ module.exports = function createObs(getCfg, opts = {}) {
   const log = opts.log || (() => {});
   let lastOk = 0;   // when OBS last answered, so the Setup page can say whether it is really connected
 
+  // open a connection, log in, run fn(call) and always close again; every failure becomes a readable error
   async function session(fn) {
     const cfg = getCfg() || {}, url = 'ws://' + (cfg.host || '127.0.0.1') + ':' + (+cfg.port || 4455);
     let ws; try { ws = new WS(url); } catch (e) { throw new Error('Could not open ' + url); }
@@ -38,13 +40,16 @@ module.exports = function createObs(getCfg, opts = {}) {
       const call = (type, data) => new Promise((res, rej) => {
         const id = String(++seq); pending.set(id, { res, rej });
         ws.send(JSON.stringify({ op: 6, d: { requestType: type, requestId: id, requestData: data || {} } }));
+        // give up on one request after 6 s (unref so it never keeps the app alive)
         const t = setTimeout(() => { if (pending.delete(id)) rej(new Error('OBS did not answer ' + type)); }, 6000); if (t.unref) t.unref();
       });
       return await fn(call);
     } finally { clearTimeout(timer); try { ws.close(); } catch (e) { /* already closed */ } }
   }
 
+  // name of the scene on air (the field name differs between OBS versions)
   const currentScene = async (call) => { const r = await call('GetCurrentProgramScene'); return r.sceneName || r.currentProgramSceneName; };
+  // turn a source on or off inside a scene (blank scene = current one)
   async function setSource(scene, source, enabled) {
     return session(async (call) => {
       const sc = scene || await currentScene(call);
@@ -54,19 +59,25 @@ module.exports = function createObs(getCfg, opts = {}) {
     });
   }
   return {
+    // when OBS last answered (ms timestamp)
     lastOk: () => lastOk,
     /** OBS's own performance numbers: CPU, memory, FPS, frame times, skipped frames, disk, and the stream's bytes/congestion */
     statsRaw: () => session(async (call) => { const s = await call('GetStats'), st = await call('GetStreamStatus').catch(() => ({})); return { s, st }; }),
     raw: (fn) => session(fn),   // several requests in one connection (used by the Voicemeeter setup)
+    // quick connection check; returns the OBS and WebSocket versions
     test: () => session(async (call) => { const v = await call('GetVersion'); return { obsVersion: v.obsVersion, websocketVersion: v.obsWebSocketVersion }; }),
+    // name of the scene on air
     current: () => session(currentScene),
     /** is OBS streaming / recording right now? */
     status: () => session(async (call) => { const s = await call('GetStreamStatus'), r = await call('GetRecordStatus'); return { streaming: !!s.outputActive, reconnecting: !!s.outputReconnecting, seconds: Math.floor((s.outputDuration || 0) / 1000), recording: !!r.outputActive, paused: !!r.outputPaused, recordSeconds: Math.floor((r.outputDuration || 0) / 1000) }; }),
     /** op: start | stop | toggle. Uses the stream key already saved in OBS (Settings > Stream). */
     stream: (op) => session(async (call) => { const on = (await call('GetStreamStatus')).outputActive; if (op === 'start' ? !on : op === 'stop' ? on : true) await call(on ? 'StopStream' : 'StartStream'); return { streaming: op === 'start' ? true : op === 'stop' ? false : !on }; }),
     record: (op) => session(async (call) => { const on = (await call('GetRecordStatus')).outputActive; if (op === 'start' ? !on : op === 'stop' ? on : true) await call(on ? 'StopRecord' : 'StartRecord'); return { recording: op === 'start' ? true : op === 'stop' ? false : !on }; }),
+    // scene names; OBS lists them bottom-up, so reverse to match the OBS panel
     scenes: () => session(async (call) => (await call('GetSceneList')).scenes.map((s) => s.sceneName).reverse()),
+    // names of the sources in a scene (blank = current scene)
     sources: (scene) => session(async (call) => { const sc = scene || await currentScene(call); return (await call('GetSceneItemList', { sceneName: sc })).sceneItems.map((i) => i.sourceName); }),
+    // switch the program scene
     setScene: (name) => session((call) => call('SetCurrentProgramScene', { sceneName: name })),
     /** Show a source in a scene (blank scene = current), then hide it again after `seconds` (0 = leave it on). */
     async showSource({ scene, source, seconds }) {
@@ -74,6 +85,7 @@ module.exports = function createObs(getCfg, opts = {}) {
       if (seconds > 0) { const t = setTimeout(() => setSource(r.scene, source, false).catch((e) => log('OBS hide failed:', e.message)), seconds * 1000); if (t.unref) t.unref(); }
       return r;
     },
+    // hide a source right away
     hideSource: ({ scene, source }) => setSource(scene, source, false),
   };
 };

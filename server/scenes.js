@@ -16,16 +16,23 @@ const TRIGGERS = {
   brb:       { label: 'Chat command !brb', hint: 'mods + you only' },
   back:      { label: 'Chat command !back', hint: 'mods + you only' },
 };
+// temporary triggers -> the 'end' key that says where to go when they are over.
 const TEMP = { raid: 'raidEnd', adStart: 'adEnd', hypeStart: 'hypeEnd' };
 
 module.exports = function createScenes(ctx) {
+  // ctx supplies the saved state, the OBS client (ctx.obs), the hooks runner and persist().
   const state = ctx.state, log = ctx.log || (() => {});
   const S = () => state.autoScenes;
+  // number clamp with a fallback for junk input.
   const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
+  // plain one-line text, trimmed and length-limited.
   const str = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+  // prev = the scene to return to after a temporary switch; lastLog = the last few switches for the dashboard.
   let prev = null, raidTimer = null, lastLog = [];
+  // remember a result for the dashboard (newest first, max 15); only failures go to the server log.
   const note = (text, ok = true) => { lastLog.unshift({ ts: Date.now(), text, ok }); lastLog.length = Math.min(lastLog.length, 15); if (!ok) log('auto scene:', text); };
 
+  // switch OBS scene; never throws, returns whether it worked.
   async function go(scene, why) {
     try { await ctx.obs.setScene(scene); note(why + ' -> ' + scene); return true; } catch (e) { note(why + ': ' + e.message, false); return false; }
   }
@@ -35,8 +42,10 @@ module.exports = function createScenes(ctx) {
     const target = s.map[trigger];
     if (TEMP[trigger]) {
       if (!target) return false;
+      // only remember the scene once, so a raid during an ad still returns to the original scene.
       if (prev == null) { try { prev = await ctx.obs.current(); } catch (e) { prev = null; } }
       const ok = await go(target, TRIGGERS[trigger].label);
+      // the raid scene lasts a set time, then we go back on our own.
       if (trigger === 'raid') { clearTimeout(raidTimer); raidTimer = setTimeout(() => back('raid timer', s.map.raidEnd), num(s.raidSeconds, 30, 1, 600) * 1000); if (raidTimer.unref) raidTimer.unref(); }
       return ok;
     }
@@ -49,6 +58,7 @@ module.exports = function createScenes(ctx) {
     prev = null;
     return go(target, TRIGGERS[trigger].label);
   }
+  // return to the end scene if one is set, otherwise to the scene we left; also stops a pending raid timer.
   async function back(why, endScene) {
     clearTimeout(raidTimer);
     const to = endScene || prev; prev = null;
@@ -57,12 +67,14 @@ module.exports = function createScenes(ctx) {
   }
 
   // ---------------------------------------------------------------- board buttons
+  // tidy a board button from the dashboard: short label, known colour, safe action list (old single 'action' still accepted).
   const clean = (b) => {
     const label = str(b.label, 24) || 'Button';
     const a = Object.assign({}, b.action || {});
     return { label, color: ['orange', 'teal', 'rust', 'olive', 'cream'].includes(b.color) ? b.color : 'teal', confirm: !!b.confirm, actions: ctx.hooks.clean({ name: label, actions: Array.isArray(b.actions) ? b.actions : [a] }).actions };
   };
 
+  // run a board button's actions as the broadcaster; the first failure is reported to the dashboard.
   async function press(id) {
     const b = state.board.find((x) => x.id === id); if (!b) throw new Error('No such button');
     const results = await ctx.hooks.runActions(b.label, b.actions);
@@ -70,10 +82,12 @@ module.exports = function createScenes(ctx) {
     return { ok: true, msg: results.map((r) => r.msg).filter(Boolean).join(', ') };
   }
 
+  // everything the Scenes page needs.
   function view() {
     const s = S();
     return { enabled: !!s.enabled, map: s.map, raidSeconds: s.raidSeconds, triggers: TRIGGERS, board: state.board, log: lastLog };
   }
+  // dashboard requests for scene settings and board buttons.
   async function api(action, b) {
     const s = S();
     switch (action) {
@@ -82,8 +96,10 @@ module.exports = function createScenes(ctx) {
         for (const k of [...Object.keys(TRIGGERS), 'raidEnd']) if (b.map && b.map[k] !== undefined) s.map[k] = str(b.map[k], 100);
         ctx.persist(); return view();
       }
+      // pretend the trigger happened even when auto switching is off, then restore the setting.
       case 'test': { if (!TRIGGERS[b.trigger]) throw new Error('Unknown trigger'); const was = S().enabled; s.enabled = true; try { const ok = await fire(b.trigger); return { ok, log: lastLog[0] }; } finally { s.enabled = was; } }
       case 'back': { const ok = await back('manual', ''); return { ok }; }
+      // update an existing button or add a new one (max 40).
       case 'button/save': {
         const c = clean(b); let t = b.id && state.board.find((x) => x.id === b.id);
         if (!t) { if (state.board.length >= 40) throw new Error('That is plenty of buttons (40)'); t = { id: 'b-' + Math.random().toString(36).slice(2, 7) }; state.board.push(t); }

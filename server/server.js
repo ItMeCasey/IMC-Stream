@@ -40,6 +40,7 @@ const SCOPES = [
 const DEFAULTS = { clientId: '', port: 8420, resetSessionOnStreamOnline: true, recentCount: 5,
   stripe: { apiKey: '', paymentLinkId: '', pollSeconds: 20 },
   ignoreChatters: ['nightbot', 'streamelements', 'streamlabs', 'moobot', 'fossabot', 'wizebot'] };
+// Settings come in layers, later ones win: built-in client id, server/config.json, data/config.json (saved from the app), then env vars.
 function loadConfig() {
   let c = {};
   try { c.clientId = JSON.parse(fs.readFileSync(path.join(__dirname, 'default-client.json'), 'utf8')).clientId || ''; } catch (e) { /* none built in */ }   // the app's own Twitch app: users just log in
@@ -114,6 +115,7 @@ const defaultState = () => ({
   alertRules: [], alertsSeeded: false,
   customGoals: [],   // user-made goals shown as progress bars
 });
+// Overlay saved state on the defaults so a state.json from an older version still gets any newly added keys (arrays and scalars are taken from the saved copy as-is).
 const mergeDefaults = (def, saved) => {
   if (Array.isArray(def) || typeof def !== 'object' || def === null) return saved === undefined ? def : saved;
   const out = {};
@@ -127,15 +129,18 @@ try { state = mergeDefaults(defaultState(), JSON.parse(fs.readFileSync(STATE_FIL
 
 const labelCache = {};
 const labelDocs = {};
+// Write one label file, skipping the disk when the text has not changed (OBS polls these files).
 function writeLabel(name, text) {
   text = String(text == null ? '' : text);
   if (labelCache[name] === text) return;
   labelCache[name] = text;
   try { fs.writeFileSync(path.join(LABELS, name + '.txt'), text, 'utf8'); } catch (e) { log('label write failed', name, e.message); }
 }
+// Leaderboard helpers: turn a {name: score} map into 'name - score' text.
 const topN = (obj, n) => Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, n);
 const topLine = (obj) => { const e = topN(obj, 1)[0]; return e ? e[0] + ' - ' + e[1] : ''; };
 const topList = (obj, n = 5) => topN(obj, n).map(([k, v], i) => (i + 1) + '. ' + k + ' - ' + v).join('\n');
+// Time formatters: hms gives H:MM:SS, ms gives M:SS.
 const hms = (sec) => {
   sec = Math.max(0, Math.floor(sec));
   const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
@@ -165,7 +170,9 @@ const GOAL_METRICS = {
   manual: ['Manual (you +/- it)', null],
 };
 const GOAL_COLORS = ['rainbow', 'aqua', 'heat', 'rust', 'cream'];
+// Current value of a custom goal: typed in by hand, or read live from state through its metric.
 const goalValue = (g) => (g.metric === 'manual' ? Number(g.manual) || 0 : GOAL_METRICS[g.metric] ? GOAL_METRICS[g.metric][1](state) : 0);
+// What overlays and the dashboard see for a goal; percent is clamped to 0-100 with one decimal.
 function goalView(g) {
   const value = goalValue(g), span = Math.max(1e-9, g.target - g.start);
   const pct = Math.max(0, Math.min(100, Math.round(((value - g.start) / span) * 1000) / 10));
@@ -174,6 +181,7 @@ function goalView(g) {
 }
 const goalViews = () => state.customGoals.map(goalView);
 let lastGoalJson = '';
+// Called on every label render: fire the goal alert once when a goal first reaches its target (it re-arms if the value drops back), and push changes to overlays.
 function goalsTick() {
   for (const g of state.customGoals) {
     const v = goalView(g);
@@ -185,6 +193,7 @@ function goalsTick() {
   const js = JSON.stringify(goalViews());
   if (js !== lastGoalJson) { lastGoalJson = js; broadcast('goals', JSON.parse(js)); }
 }
+// Validate and create or update a custom goal from the dashboard form.
 function saveGoal(b) {
   const metric = GOAL_METRICS[b.metric] ? b.metric : 'manual';
   const target = Number(b.target), start = Number(b.start) || 0;
@@ -206,6 +215,7 @@ function saveGoal(b) {
 
 // ------------------------------------------------------------------ poll / prediction overlay feed
 let demoPolls = null, demoTimer = null, lastPollsJson = '';
+// Poll/prediction data for the overlay; a running Test demo replaces the real data.
 function pollOverlayView() {
   const d = demoPolls || state, p = d.poll, q = d.prediction;
   return {
@@ -214,6 +224,7 @@ function pollOverlayView() {
     prediction: q && q.status ? { id: q.id, title: q.title, status: q.status, outcomes: q.outcomes, winner: q.winnerId, startedAt: q.startedAt, locksAt: q.locksAt, endedAt: q.endedAt } : null,
   };
 }
+// Push to overlays only when the poll or prediction actually changed.
 function pollsTick() {
   const v = pollOverlayView(), js = JSON.stringify({ p: v.poll, q: v.prediction });
   if (js !== lastPollsJson) { lastPollsJson = js; broadcast('polls', v); }
@@ -255,6 +266,7 @@ async function syncPolls() {   // after login/restart: pick up a poll or predict
   } catch (e) { /* not affiliate / scopes missing: overlays stay idle */ }
 }
 
+// Rebuild every label (value + description) from state and write only the files that changed. Runs on every state change.
 function renderLabels() {
   const s = state.session, l = state.latest, r = state.recent, A = state.allTime, st = state.stream, h = state.hype,
     g = state.goal, p = state.poll, pr = state.prediction, ad = state.ads, ch = state.charity;
@@ -388,6 +400,7 @@ function renderLabels() {
   } catch (e) { /* ignore */ }
 }
 let saveTimer, renderTimer;
+// Re-render labels and save state.json. soon=true batches the render (250 ms); the disk write is always debounced (500 ms) so bursts of events save once.
 function persist(soon) {
   if (soon) { if (!renderTimer) renderTimer = setTimeout(() => { renderTimer = null; renderLabels(); }, 250); }
   else renderLabels();
@@ -396,6 +409,7 @@ function persist(soon) {
     try { fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf8'); } catch (e) { log('state save failed', e.message); }
   }, 500);
 }
+// Start a fresh stream session (counters back to zero); keeps the peak-viewers figure honest if we are already live.
 function resetSession() {
   state.session = freshSession();
   state.stream.live && (state.session.peakViewers = state.stream.viewers);
@@ -408,11 +422,14 @@ const oneLine = (t, n = 140) => String(t == null ? '' : t).replace(/\s+/g, ' ').
 // ------------------------------------------------------------------ alerts + SSE
 const clients = new Set();
 const recentAlerts = [];
+// Server-Sent Events: write one named event to a single client.
 function sseSend(res, event, data) {
   res.write((event ? 'event: ' + event + '\n' : '') + 'data: ' + JSON.stringify(data) + '\n\n');
 }
+// Send an event to every connected overlay and dashboard; drop clients whose connection has died.
 function broadcast(event, data) { for (const c of clients) { try { sseSend(c, event, data); } catch (e) { clients.delete(c); } } }
 let alertSeq = 0;
+// Show an alert: remember it for the history list, log it to disk, and send it to overlays plus the dashboard log.
 function emitAlert(a) {
   a.ts = Date.now(); a.id = ++alertSeq;
   recentAlerts.unshift(a); recentAlerts.length = Math.min(recentAlerts.length, 40);
@@ -429,10 +446,12 @@ function alertControl(action) {
   else if (action !== 'skip' && action !== 'clear') throw new Error('unknown alert action');
   broadcast('alertctl', Object.assign({ action }, alertCtl)); return Object.assign({ ok: true }, alertCtl);
 }
+// Re-send an alert from the history (marked as a replay).
 function replayAlert(id) {
   const a = recentAlerts.find((x) => x.id === Number(id)); if (!a) throw new Error('That alert is no longer in the history');
   const copy = Object.assign({}, a); delete copy.id; delete copy.ts; copy.replay = true; emitAlert(copy); return { ok: true };
 }
+// A plain line in the dashboard's event log (not an alert).
 function systemLog(text) { broadcast('log', { kind: 'system', name: text, ts: Date.now() }); }
 
 
@@ -484,8 +503,10 @@ function defaultRules() {
 }
 if (!state.alertsSeeded) { state.alertRules = defaultRules(); state.alertsSeeded = true; }
 
+// Fill in {vars} in a template, then tidy up: empty variables can leave dangling '//' separators and double spaces.
 const tpl = (t, vars) => String(t || '').replace(/\{(\w+)\}/g, (m, k) => (vars[k] == null ? '' : String(vars[k])))
   .replace(/(\s*\/\/\s*)+$/, '').replace(/^(\s*\/\/\s*)+/, '').replace(/\s{2,}/g, ' ').trim();
+// Choose the most specific enabled rule for an event: a reward-name match beats a number range, a higher minimum beats a lower one. Custom alerts also need the matching trigger key.
 function pickRule(event, num, vars, key) {
   const c = state.alertRules.filter((r) => r.enabled && r.event === event
     && (r.min == null || num >= r.min) && (r.max == null || num <= r.max)
@@ -495,12 +516,14 @@ function pickRule(event, num, vars, key) {
   c.sort((a, b) => spec(b) - spec(a));
   return c[0] || null;
 }
+// Turn a rule plus the event's variables into the alert object the overlay plays (text, sound, image, video, sub tier, etc.).
 function buildAlert(rule, vars) {
   return { kind: ALERT_EVENTS[rule.event].kind, event: rule.event, ruleId: rule.id, tag: tpl(rule.tag, vars), name: tpl(rule.title, vars), msg: tpl(rule.msg, vars),
     bits: rule.event === 'bits' ? Math.floor(Number(vars.amount) || 0) : 0, sub: ['sub', 'resub', 'giftsub'].includes(rule.event) ? { tier: ({ 2000: 2, 3000: 3 })[Number(vars.tierId)] || 1, months: rule.event === 'resub' ? Math.max(0, Math.floor(Number(vars.months) || 0)) : 0 } : null, accent: rule.color, sound: rule.sound ? '/sounds/' + rule.sound : '', volume: rule.volume, seconds: rule.seconds, image: rule.image ? '/assets/' + rule.image : '', video: rule.video ? '/video/' + rule.video : '' };
 }
 /** Fire an alert for an event: the best-matching enabled rule decides what it looks and sounds like (no rule = no alert). */
 const EXPLODE_ON = { goal: 'goal', raid: 'raid', hype_start: 'hype', sub: 'sub', resub: 'sub', giftsub: 'giftsub', bits: 'bits' };
+// Confetti-style 'explosion' on the overlay. Only fires when that reason is switched on in the settings, unless forced (Test button).
 function explode(reason, vars, force) {
   const X = state.overlayCfg.explosion; if (!X) return; if (!force && !(reason && X[reason])) return;
   const names = { goal: 'Goal reached!', raid: 'Raid!', hype: 'Hype train!', sub: 'New sub!', giftsub: 'Gift subs!', bits: 'Bits!' };
@@ -522,6 +545,7 @@ function fire(event, vars, num = 0, key = '') {
   else emitAlert(alert);
   return true;
 }
+// List files with the given extensions under a folder (two levels deep), as sorted forward-slash paths relative to base.
 const listFiles = (dir, exts, base = dir, depth = 0) => {
   let out = [];
   try {
@@ -539,7 +563,9 @@ const alertAssets = () => ({
   images: ['logo.png'].concat(listFiles(path.join(CUSTOM, 'assets'), IMAGE_EXT).map((x) => 'custom/' + x)),
   videos: listFiles(path.join(CUSTOM, 'video'), VIDEO_EXT).map((x) => 'custom/' + x),
 });
+// Accept a file name only if it is in the known list and has no '..' in it, so a saved rule can never point outside the asset folders.
 const safeRel = (v, list) => (v && !String(v).includes('..') && list.includes(v) ? v : '');
+// Validate and save an alert rule coming from the dashboard editor; every field is clamped or whitelisted.
 function saveAlertRule(b) {
   const ev = ALERT_EVENTS[b.event]; if (!ev) throw new Error('Unknown event');
   const A = alertAssets();
@@ -563,10 +589,12 @@ function saveAlertRule(b) {
 
 const TIERS = { '1000': 'Tier 1', '2000': 'Tier 2', '3000': 'Tier 3' };
 const tierOf = (t) => TIERS[t] || '';
+// 'name (points)' for the first hype train contributor, or empty.
 const topContributor = (list) => (list && list[0] ? list[0].user_name + ' (' + list[0].total + ')' : '');
 
 // ------------------------------------------------------------------ chat feed for the overlay + mod dock
 const chatBuf = [];
+// Turn a Twitch chat message event into the slimmer shape the overlay and mod dock use, keep it in the buffer and pass it on.
 function chatIn(e) {
   const m = {
     id: e.message_id, uid: e.chatter_user_id, login: e.chatter_user_login, name: e.chatter_user_name || e.chatter_user_login,
@@ -581,6 +609,7 @@ function chatIn(e) {
   recap.add(m); chatlog.chat(m);
   broadcast('chat', m);
 }
+// Mark chat messages as removed (deleted, user timed out, chat cleared) so overlays can fade them out.
 function chatMark(match, ev) {
   for (const m of chatBuf) if (match(m)) m.gone = true;
   recap.moderate(ev); chatlog.moderate(ev);
@@ -592,12 +621,15 @@ function chatMark(match, ev) {
 let emotes = {}, emotesUpdated = 0, badges = {};
 try { const c = JSON.parse(fs.readFileSync(path.join(DATA, 'emotes.json'), 'utf8')); emotes = c.emotes || {}; emotesUpdated = c.updated || 0; } catch (e) { /* no cache yet */ }
 const BTTV_ZERO_WIDTH = new Set(['SoSnowy', 'IceCold', 'SantaHat', 'TopHat', 'ReinDeer', 'CandyCane', 'cvMask', 'cvHazmat']);
+// GET a JSON document from an emote provider; throws on any non-200.
 async function getJson(url) {
   const r = await fetch(url, { headers: { 'User-Agent': 'IMC-Stream' } });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
+// Some providers return protocol-relative URLs ('//cdn...'): make them https.
 const abs = (u) => (u && u.startsWith('//') ? 'https:' + u : u);
+// Build the emote name -> image map from BTTV, FFZ, 7TV and Twitch (global sets plus your channel's) and cache it on disk. One provider failing never stops the others.
 async function loadEmotes() {
   let chan = 0;   // 1 while loading your channel's own sets, so the explosion can prefer them
   const map = {}, add = (name, u, p, z) => { if (name && u) map[name] = { u, p, z: z ? 1 : 0, c: chan }; };
@@ -632,6 +664,7 @@ async function loadEmotes() {
     log('emotes loaded: ' + Object.keys(map).length + ' (' + Object.keys(got).join(', ') + ')');
   }
 }
+// Load Twitch chat badge images (global + your channel) into a 'set/version' -> url map.
 async function loadBadges() {
   if (!tokens) return;
   const map = {};
@@ -651,6 +684,7 @@ async function resolveUser(login) {
   if (!u) throw new Error('No such user: ' + login);
   return u.id;
 }
+// Throw a readable error when a Helix call failed; 401/403 usually means a moderation scope is missing.
 function must(r, what) {
   if (!r.ok) {
     let msg = (r.json && r.json.message) || 'HTTP ' + r.status;
@@ -659,6 +693,7 @@ function must(r, what) {
   }
   return r;
 }
+// Moderation actions from the dashboard and bot (delete, clear, timeout, ban, unban, chat settings, AutoMod allow/deny, send). The broadcaster acts as their own moderator.
 async function modAction(kind, b) {
   if (!tokens) throw new Error('Not connected to Twitch');
   const me = tokens.user_id, q = 'broadcaster_id=' + me + '&moderator_id=' + me;
@@ -690,6 +725,7 @@ async function modAction(kind, b) {
   }
   return { ok: true };
 }
+// Read the current chat mode settings in the shape the dashboard toggles use (0 = off).
 async function chatSettings() {
   if (!tokens) return {};
   const r = await helix('GET', '/chat/settings?broadcaster_id=' + tokens.user_id + '&moderator_id=' + tokens.user_id);
@@ -700,12 +736,14 @@ async function chatSettings() {
 
 // ------------------------------------------------------------------ stream title + category
 const artUrl = (u, w = 144, h = 192) => String(u || '').replace('{width}x{height}', w + 'x' + h).replace(/-\d+x\d+(\.\w+)$/, '-' + w + 'x' + h + '$1');
+// Search Twitch categories/games by name for the title and category picker.
 async function searchCategories(q) {
   q = String(q || '').trim(); if (!q) return [];
   const r = await helix('GET', '/search/categories?first=12&query=' + encodeURIComponent(q));
   if (!r.ok) throw new Error('Category search failed: ' + ((r.json && r.json.message) || r.status));
   return (r.json.data || []).map((c) => ({ id: c.id, name: c.name, art: artUrl(c.box_art_url) }));
 }
+// Current title, category (with box art), language, plus the recent categories and saved presets, for the stream info page.
 async function channelInfo() {
   if (!tokens) throw new Error('Not connected to Twitch');
   const c = await helix('GET', '/channels?broadcaster_id=' + tokens.user_id), d = c.ok && c.json.data && c.json.data[0];
@@ -732,6 +770,7 @@ async function setChannel(b) {
   persist(); broadcast('status', status());
   return { ok: true, title: state.stream.title, game: state.stream.game };
 }
+// Make a clip of the last moments of the stream.
 async function createClip() {
   if (!tokens) throw new Error('Not connected to Twitch');
   const r = await helix('POST', '/clips?broadcaster_id=' + tokens.user_id);
@@ -739,6 +778,7 @@ async function createClip() {
   const c = r.json.data && r.json.data[0]; if (!c) throw new Error('Twitch made no clip');
   return { id: c.id, url: 'https://clips.twitch.tv/' + c.id, editUrl: c.edit_url };
 }
+// Dashboard actions for the stream info page: update title/category, clip, and save or delete presets.
 async function channelAction(action, b) {
   switch (action) {
     case 'update': return setChannel(b);
@@ -759,7 +799,9 @@ const cleanList = (v, min, max, len, what) => {
   if (a.length < min || a.length > max) throw new Error(what + ': give between ' + min + ' and ' + max + ' options (one per line)');
   return a;
 };
+// Round a number into [lo, hi]; falls back to d when it is not a number.
 const clamp = (v, lo, hi, d) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d; };
+// Latest poll and prediction straight from Twitch, plus saved presets. Each part reports its own error (e.g. not an affiliate).
 async function pollsSnapshot() {
   if (!tokens) throw new Error('Not connected to Twitch');
   const me = tokens.user_id, out = { poll: null, prediction: null, pollError: '', predictionError: '' };
@@ -769,11 +811,13 @@ async function pollsSnapshot() {
   out.presets = { polls: state.pollPresets, predictions: state.predictionPresets };
   return out;
 }
+// Run a poll/prediction action, then optionally announce it in chat.
 async function pollAction(action, b) {
   const out = await pollActionInner(action, b);
   if (b && b.say && !action.startsWith('preset')) bot.say(String(b.say).slice(0, 450));   // optional chat announcement
   return out;
 }
+// Create, end, lock, resolve or cancel polls and predictions, and manage presets (presets work even when logged out).
 async function pollActionInner(action, b) {
   if (!tokens && !action.startsWith('preset')) throw new Error('Not connected to Twitch');
   const me = tokens && tokens.user_id;
@@ -828,6 +872,7 @@ function recordTip({ name, amount, currency, msg, tag }) {
 
 let vizBands = [], vizAt = 0, vizWantAt = 0, vizSrc = '';   // live audio spectrum from the desktop app
 let duelFreeAt = 0;   // duels play one after another in the overlay
+// Queue a duel animation behind any one already playing; returns how long until the result may be announced.
 function duelPlay(m) {
   const DUEL_MS = 9800, now = Date.now(), start = Math.max(now, duelFreeAt); duelFreeAt = start + DUEL_MS + 700;
   broadcast('duel', m); return start - now + DUEL_MS;   // how long until the result may be said in chat
@@ -836,10 +881,12 @@ let kokoroInstall = { running: false, ok: null, lines: [] };
 let automodHeld = [];   // messages AutoMod is holding for review (in memory: Twitch drops them after ~3 minutes)
 const automodView = () => { automodHeld = automodHeld.filter((x) => Date.now() - x.at < 180000); return automodHeld; };
 let botQuiet = false;   // test alerts must not make the bot talk in chat
+// Entry point for every event: botQuiet stops test events from making the bot talk in chat.
 function handleEvent(type, e, opts = {}) {
   botQuiet = !!opts.test;
   try { return handleEventInner(type, e, opts); } finally { botQuiet = false; }
 }
+// (chat messages are logged in chatIn, deletions in chatMark, tips in recordTip)
 const CHATLOG_SKIP = /^(channel\.chat\.|automod\.message\.update|.*\.progress$)/;   // chat and moderation are logged where they are handled; progress ticks are noise
 /** Handle one EventSub notification. opts.test = show the alert only, leave counters/labels alone. */
 function handleEventInner(type, e, opts = {}) {
@@ -1050,7 +1097,9 @@ try { tokens = JSON.parse(fs.readFileSync(TOKENS_FILE, 'utf8')); } catch (e) { /
 let authState = { status: tokens ? 'ok' : 'none', message: tokens ? 'Logged in as ' + (tokens.login || '?') : 'Not connected' };
 let deviceFlow = null;
 
+// URL-encode an object as a form body.
 const form = (o) => new URLSearchParams(o).toString();
+// POST to Twitch's login server (id.twitch.tv).
 async function idPost(endpoint, body) {
   const r = await fetch(ID_URL + endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form(body) });
   const j = await r.json().catch(() => ({}));
@@ -1064,6 +1113,7 @@ async function validate(access) {
   const r = await fetch(ID_URL + '/validate', { headers: { Authorization: 'OAuth ' + access } });
   return r.ok ? r.json() : null;
 }
+// Begin the Device Code login: Twitch gives a short code to type on its website while we poll for the result.
 async function startDeviceAuth() {
   CFG = loadConfig();
   if (!CFG.clientId) throw new Error('No Twitch Client ID yet: open Setup and add one under Advanced.');
@@ -1075,6 +1125,7 @@ async function startDeviceAuth() {
   pollDevice(d.device_code, (d.interval || 5) * 1000);
   return deviceFlow;
 }
+// Poll Twitch until the user approves the code, it is denied, or it expires; on success save the tokens and start EventSub.
 async function pollDevice(code, interval) {
   while (deviceFlow && Date.now() < deviceFlow.expires) {
     await new Promise((r) => setTimeout(r, interval));
@@ -1119,6 +1170,7 @@ async function refreshTokenOnce() {
     expires_at: Date.now() + (r.json.expires_in || 14400) * 1000, scopes: r.json.scope || tokens.scopes,
   }));
 }
+// Call the Twitch API. Refreshes the token when it is within 5 minutes of expiring, and retries once if Twitch still answers 401.
 async function helix(method, pathq, body, retry = true) {
   if (!tokens) throw new Error('not logged in');
   if (tokens.expires_at - Date.now() < 5 * 60 * 1000) await refreshToken();
@@ -1133,7 +1185,9 @@ async function helix(method, pathq, body, retry = true) {
 
 // ------------------------------------------------------------------ totals (follower/sub counts)
 let totalsTimer;
+// Follower/sub totals are re-read a few seconds after events, so a burst of events costs one request.
 function scheduleTotals() { clearTimeout(totalsTimer); totalsTimer = setTimeout(refreshTotals, 4000); }
+// Read total followers and subscribers from Twitch.
 async function refreshTotals() {
   if (!tokens) return;
   try {
@@ -1148,7 +1202,9 @@ async function refreshTotals() {
 
 // ------------------------------------------------------------------ pollers (stream info, bits leaderboard, ads) + clock
 let lbTimer, adTimer;
+// Wait a few seconds after a cheer, then re-read the bits leaderboards once.
 function scheduleLeaderboard() { clearTimeout(lbTimer); lbTimer = setTimeout(refreshLeaderboard, 6000); }
+// Top-5 bits leaderboards for every period.
 async function refreshLeaderboard() {
   if (!tokens) return;
   for (const period of ['day', 'week', 'month', 'year', 'all']) {
@@ -1159,6 +1215,7 @@ async function refreshLeaderboard() {
   }
   persist(true);
 }
+// Every 30 s (and on stream.online): live status, viewers, title and category. Also catches a stream that started while the server was off.
 async function pollStream() {
   if (!tokens) return;
   try {
@@ -1181,8 +1238,10 @@ async function pollStream() {
     persist(true);
   } catch (e) { log('stream poll failed:', e.message); }
 }
+// Re-read the ad schedule shortly after an ad starts or ends.
 function scheduleAds() { clearTimeout(adTimer); adTimer = setTimeout(refreshAds, 3000); }
 let adWarned = 0;
+// An ad began (from EventSub or our own Run Ad button): mark it running, switch scenes, post the optional chat message and schedule the end.
 function adStarted(seconds) {
   const a = state.ads; if (a.running && a.endsAt > Date.now() + 1000) return;   // EventSub + our own button both report the same ad
   scenes.fire('adStart').catch(() => {});
@@ -1201,7 +1260,9 @@ function adTicker() {   // optional chat heads-up before the scheduled automatic
   const left = (a.nextAt - Date.now()) / 1000;
   if (left > 0 && left <= S.warnSeconds && adWarned !== a.nextAt) { adWarned = a.nextAt; bot.say(String(S.warnMsg || '').replace(/\{seconds\}/g, Math.round(left)), undefined, S.warnColor); }
 }
+// Ad lengths (seconds) Twitch accepts.
 const AD_LENGTHS = [30, 60, 90, 120, 150, 180];
+// Dashboard ad controls: run an ad, snooze the next one, or save the chat-message settings.
 async function adsAction(action, b) {
   if (!tokens) throw new Error('Not connected to Twitch');
   switch (action) {
@@ -1231,7 +1292,9 @@ async function adsAction(action, b) {
     default: throw new Error('unknown action');
   }
 }
+// Ad state plus the settings, for the ads page.
 const adsView = () => Object.assign({}, state.ads, { now: Date.now(), live: state.stream.live, settings: state.adSettings, lengths: AD_LENGTHS });
+// Read the ad schedule (next ad, snoozes left, pre-roll free time) from Twitch.
 async function refreshAds() {
   if (!tokens) return;
   try {
@@ -1243,6 +1306,7 @@ async function refreshAds() {
     }
   } catch (e) { log('ad schedule failed:', e.message); }
 }
+// Start the repeating jobs once (calling again just refreshes everything right now). Timers are unref'd so they never keep the process alive.
 function startPollers() {
   pollStream(); refreshLeaderboard(); refreshAds(); loadBadges(); loadEmotes(); syncPolls();
   if (startPollers.t) return;
@@ -1254,6 +1318,7 @@ function startPollers() {
 }
 // ------------------------------------------------------------------ Stripe tips (polls Checkout Sessions created by your Payment Link)
 let stripeStatus = { enabled: false, ok: null, error: '', lastPoll: 0, tips: 0 };
+// Pull a value out of a Stripe Checkout custom field by matching words in its key or label.
 function customField(session, needles) {
   for (const f of session.custom_fields || []) {
     const hay = ((f.key || '') + ' ' + ((f.label && f.label.custom) || '')).toLowerCase();
@@ -1262,6 +1327,7 @@ function customField(session, needles) {
   }
   return '';
 }
+// Poll Stripe for completed payments made through your Payment Link and turn each new one into a tip.
 async function pollStripe() {
   const cfg = CFG.stripe;
   stripeStatus.enabled = !!cfg.apiKey;
@@ -1294,6 +1360,7 @@ async function pollStripe() {
   stripeStatus.lastPoll = Date.now();
   broadcast('status', status());
 }
+// Turn the Stripe poller on if an API key is configured.
 function startStripe() {
   CFG = loadConfig();
   stripeStatus.enabled = !!CFG.stripe.apiKey;
@@ -1302,11 +1369,13 @@ function startStripe() {
   pollStripe();
   setInterval(pollStripe, process.env.ICM_STRIPE_POLL_MS ? +process.env.ICM_STRIPE_POLL_MS : Math.max(10, CFG.stripe.pollSeconds || 20) * 1000);
 }
+// Scopes the app wants that the saved login lacks (the dashboard then asks you to press Connect again).
 function missingScopes() { return tokens ? SCOPES.filter((x) => !(tokens.scopes || []).includes(x)) : []; }
 
 // ------------------------------------------------------------------ EventSub websocket
 let esWs = null, esTimer = null, esBackoff = 2000, esStopped = false;
 const seen = new Set();
+// Every EventSub subscription we want: [type, version, condition].
 function subscriptionList(uid) {
   return [
     ['channel.follow', '2', { broadcaster_user_id: uid, moderator_user_id: uid }],
@@ -1346,6 +1415,7 @@ function subscriptionList(uid) {
     ['stream.offline', '1', { broadcaster_user_id: uid }],
   ];
 }
+// Register all subscriptions on this websocket session and report connected / partial / error.
 async function subscribeAll(sessionId) {
   let ok = 0, fail = 0;
   for (const [type, version, condition] of subscriptionList(tokens.user_id)) {
@@ -1359,6 +1429,7 @@ async function subscribeAll(sessionId) {
   broadcast('status', status());
 }
 let esStatus = 'offline';
+// Open the EventSub connection and start the bot and the pollers.
 function startEventSub() {
   esStopped = false;
   bot.start();
@@ -1368,6 +1439,7 @@ function startEventSub() {
   startPollers();
 }
 let esGen = 0;   // only the newest connection may subscribe: two at once made the older one's subscriptions fail ("websocket session has already disconnected")
+// Open the EventSub websocket. A keepalive watchdog closes a silent connection, duplicate notifications are dropped, and Twitch's reconnect request moves us to a new URL before the old one closes.
 function openEventSub(url, isReconnect) {
   const gen = ++esGen; let ws;
   try { ws = new WebSocket(url); } catch (e) { log('websocket error', e.message); return scheduleReconnect(); }
@@ -1404,6 +1476,7 @@ function openEventSub(url, isReconnect) {
   };
   ws.onerror = () => { /* onclose follows */ };
 }
+// Reconnect with a growing delay (2 s up to 60 s).
 function scheduleReconnect() {
   if (esStopped || !tokens) return;
   clearTimeout(esTimer);
@@ -1415,6 +1488,7 @@ function scheduleReconnect() {
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.mp4': 'video/mp4', '.webm': 'video/webm', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.json': 'application/json', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8', '.mjs': 'text/javascript', '.wasm': 'application/wasm', '.task': 'application/octet-stream' };
 const STATIC = { overlays: ROOT, assets: ROOT, sounds: ROOT };   // top-level folders that may be served
+// Connection and totals snapshot sent to the dashboard (also pushed over SSE on changes).
 function status() {
   return {
     auth: authState, eventsub: esStatus, clientId: !!loadConfig().clientId, login: tokens && tokens.login,
@@ -1424,21 +1498,25 @@ function status() {
     totals: state.totals, session: state.session, latest: state.latest,
   };
 }
+// Block cross-site POSTs: allow no Origin (non-browser callers, OBS), localhost, or the same host the page came from.
 function originOk(req) {
   const o = req.headers.origin;
   if (!o || o === 'null') return true;
   try { const U = new URL(o); return U.hostname === 'localhost' || U.hostname === '127.0.0.1' || U.host === req.headers.host; } catch (e) { return false; }
 }
+// Read a JSON request body, capped in size (default 100 KB); bad JSON becomes {}.
 function readJson(req, limit) {
   return new Promise((resolve) => {
     let b = ''; req.on('data', (c) => { b += c; if (b.length > (limit || 1e5)) req.destroy(); });
     req.on('end', () => { try { resolve(JSON.parse(b || '{}')); } catch (e) { resolve({}); } });
   });
 }
+// Send a JSON response.
 function json(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
   res.end(JSON.stringify(obj));
 }
+// Send a file with the right content type; always revalidated so edits show up straight away.
 function serveFile(res, file) {
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404); return res.end('not found'); }
@@ -1447,16 +1525,19 @@ function serveFile(res, file) {
   });
 }
 
+// The one request handler: page and API GETs first, then POST /api/* actions, then static files. Anything not matched ends as a 404.
 async function route(req, res) {
   const u = new URL(req.url, 'http://localhost');
   const p = decodeURIComponent(u.pathname);
 
+  // Access control comes first: it can refuse the request (LAN password) before any route runs.
   if (access.gate(req, res, p)) return;
   if (p === '/api/login' && req.method === 'POST') return access.login(req, res, await readJson(req));
   if (req.method === 'OPTIONS') {
     res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST', 'Access-Control-Allow-Headers': 'Content-Type' });
     return res.end();
   }
+  // Server-Sent Events stream used by overlays and the dashboard: send the current state of everything on connect, then live updates.
   if (p === '/events') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'Access-Control-Allow-Origin': '*' });
     res.write('retry: 2000\n\n');
@@ -1510,8 +1591,8 @@ async function route(req, res) {
   if (req.method === 'GET' && p === '/api/chatlog') return json(res, 200, chatlog.view());
   if (req.method === 'GET' && p === '/api/chatlog/download') {
     try {
-      const id = u.searchParams.get('id') || '', f = u.searchParams.get('format') === 'json' ? 'json' : 'txt', body = f === 'json' ? chatlog.json(id) : chatlog.text(id);
-      res.writeHead(200, { 'Content-Type': f === 'json' ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8', 'Content-Disposition': 'attachment; filename="Stream chat ' + id.replace(/[^0-9() -]/g, '') + '.' + f + '"' });
+      const id = u.searchParams.get('id') || '', f = u.searchParams.get('format') === 'json' ? 'json' : 'txt', body = chatlog.zip(id, f);
+      res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Disposition': 'attachment; filename="Stream chat ' + id.replace(/[^0-9() -]/g, '') + (f === 'json' ? ' (json)' : '') + '.zip"' });
       return res.end(body);
     } catch (e) { return json(res, 404, { error: e.message }); }
   }
@@ -1585,6 +1666,7 @@ async function route(req, res) {
     return json(res, 200, o);
   }
 
+  // ---- POST actions: cross-site origins are rejected, then the big uploads (which stream their own body), then everything else with a small JSON body.
   if (req.method === 'POST' && p.startsWith('/api/')) {
     if (!originOk(req)) return json(res, 403, { error: 'forbidden origin' });
     if (p === '/api/modules/install') {
@@ -1614,6 +1696,7 @@ async function route(req, res) {
       fs.writeFileSync(path.join(dir, file), Buffer.concat(chunks));
       return json(res, 200, { ok: true, path: 'custom/' + file });
     }
+    // panel images are sent as base64 so they get a larger body limit
     const body = await readJson(req, req.url.startsWith('/api/panels/image') ? 1.6e6 : 1e5);
     try {
       if (p === '/api/test') {
@@ -1808,7 +1891,7 @@ async function route(req, res) {
       }
       if (p === '/api/welcome/done') { state.setup.done = true; persist(); return json(res, 200, { ok: true }); }
       if (p === '/api/update/check') { await checkUpdate(); return json(res, 200, updateView()); }
-      if (p === '/api/update/install') {
+      if (p === '/api/update/install') {   // the Install button: check again if needed, then download, verify and start the installer
         if (!CAN_INSTALL) throw new Error('This copy of the app cannot update itself. Download the new version from the release page.');
         if (!updateInfo.available) await checkUpdate();
         if (!updateInfo.available) throw new Error('You already have the newest version.');
@@ -1943,6 +2026,7 @@ async function route(req, res) {
   res.writeHead(404); res.end('not found');
 }
 
+// ---- module wiring: each feature lives in its own file and gets only the pieces of server state it needs.
 const buildCollection = require('./collection.js').build, createBackup = require('./backup.js'), createModules = require('./modules.js'), createAccess = require('./access.js');
 const createMedia = require('./media.js'), createCountdown = require('./countdown.js'), createTts = require('./tts.js');
 const createRecap = require('./recap.js'), createBot = require('./bot.js'), createObs = require('./obs.js'), createHooks = require('./hooks.js'), createScenes = require('./scenes.js'), createAudio = require('./audio.js'), createPaypal = require('./paypal.js'), createRelayDeploy = require('./relay-deploy.js');
@@ -2016,6 +2100,7 @@ const backup = createBackup({ DATA, log });
 const access = createAccess({ state, persist, port: () => CFG.port });
 const modules = createModules({ DATA, state, persist });
 
+// Small status summary for the health page and the app's tray light (green = connected, amber = needs attention, red = EventSub down).
 function health() {
   const bad = logRing.filter((l) => l.bad).slice(-8).map((l) => ({ t: l.t, text: l.text }));
   const e = esStatus, ok = true;
@@ -2058,12 +2143,14 @@ async function checkUpdate() {
 const updateView = () => { const v = Object.assign({ version: APP_VERSION, enabled: state.updates.enabled !== false, canInstall: false, install: updater.status() }, updateInfo); v.canInstall = CAN_INSTALL && !!(v.asset && v.asset.url && v.asset.sumsUrl); delete v.asset; return v; };
 setTimeout(() => { if (state.updates.enabled !== false) checkUpdate(); }, 30000).unref(); setInterval(() => { if (state.updates.enabled !== false) checkUpdate(); }, 12 * 3600e3).unref();
 
+// Compact live stats (viewers, followers, subs) broadcast every 5 s to open widgets.
 function statsView() {
   const st = state.stream, t = state.totals, s = state.session;
   return { live: !!st.live, viewers: st.viewers || 0, startedAt: st.startedAt || '', title: st.title, game: st.game, followers: t.followers, subs: t.subs,
     sessionFollowers: s.followers, sessionSubs: s.subs + s.resubs, now: Date.now() };
 }
 
+// Start the HTTP server, then connect to Twitch if a login is already saved.
 function main() {
   const server = http.createServer((req, res) => route(req, res).catch((e) => { log('request error', e); try { res.writeHead(500); res.end('error'); } catch (x) { /* ignore */ } }));
   server.on('error', (e) => {

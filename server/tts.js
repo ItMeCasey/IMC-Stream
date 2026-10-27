@@ -14,19 +14,24 @@ const wav = require('./wav'), SFX = require('./tts-sfx');
 const KOKORO_VOICE = /^[abefhip][fm]_[a-z]+$/;   // af_heart, am_adam, bf_emma ...
 
 module.exports = function createTts(ctx) {
+  // settings for text-to-speech, kept with the rest of the app state
   const cfg = () => ctx.state.ttsCfg;
   const log = ctx.log || (() => {});
   const spawnFn = ctx.spawn || spawn;
+  // finished clips are cached here as <sha1>.wav
   const DIR = path.join(ctx.DATA, 'tts'); fs.mkdirSync(DIR, { recursive: true });
+  // effect WAVs, the Windows speech script and the Kokoro worker script
   const SFX_DIR = ctx.sfxDir || path.join(__dirname, '..', 'sounds', 'tts');
   const SCRIPT = path.join(__dirname, 'media', 'tts.ps1'), WORKER = path.join(__dirname, 'media', 'kokoro_worker.py');
   const KDIR = ctx.kokoroDir || process.env.ICM_KOKORO_DIR || path.join(__dirname, 'kokoro');
   const KPY = path.join(KDIR, 'venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
   const canWin = () => process.platform === 'win32' || !!ctx.spawn;
+  // voicesCache: voice list; chain: queue so only one clip is made at a time; seq: id for history items
   let voicesCache = null, chain = Promise.resolve(), seq = 0;
   const history = [];
   const PS = (args) => ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT].concat(args);
 
+  // run the PowerShell speech script; resolves with what it printed
   function run(args) {
     return new Promise((resolve, reject) => {
       let out = '', err = '', c;
@@ -42,6 +47,7 @@ module.exports = function createTts(ctx) {
   const kokoroVoicesFile = () => path.join(KDIR, 'models', 'voices-v1.0.bin');
   const kokoroInstalled = () => !!(fs.existsSync(KPY) && kokoroModel() && fs.existsSync(kokoroVoicesFile()));
   let worker = null, workerReady = null, kokoroVoices = [], pend = new Map(), idleT = null, wbuf = '', wseq = 0;
+  // start the Kokoro worker once. It prints JSON lines: {ready}, then one {id, ok} reply per request
   function startWorker() {
     if (workerReady) return workerReady;
     workerReady = new Promise((resolve, reject) => {
@@ -65,7 +71,9 @@ module.exports = function createTts(ctx) {
     });
     return workerReady;
   }
+  // stop the Kokoro worker after 15 idle minutes so its model does not hog memory
   function bumpIdle() { clearTimeout(idleT); idleT = setTimeout(() => { if (worker) { try { worker.kill(); } catch (e) { /* gone */ } } }, 15 * 60000); if (idleT.unref) idleT.unref(); }
+  // ask the worker to write a WAV for this text; resolves when the file is done
   async function kokoroSynth(text, voice, speed, out) {
     await startWorker(); bumpIdle();
     const id = ++wseq;
@@ -78,10 +86,12 @@ module.exports = function createTts(ctx) {
   const stopKokoro = () => { clearTimeout(idleT); if (worker) { try { worker.kill(); } catch (e) { /* gone */ } } };
 
   // ---------------------------------------------------------------- voices
+  // the voices installed in Windows (empty where PowerShell speech is not available)
   async function winVoices() {
     if (!canWin()) return [];
     try { const j = JSON.parse((await run(['-Action', 'voices'])).trim() || '[]'); return (Array.isArray(j) ? j : [j]).map((v) => Object.assign({ engine: 'windows' }, v)); } catch (e) { log('tts: could not list Windows voices:', e.message); return []; }
   }
+  // every voice, Kokoro first; cached until forced
   async function voices(force) {
     if (voicesCache && !force) return voicesCache;
     const w = await winVoices();
@@ -91,6 +101,7 @@ module.exports = function createTts(ctx) {
     }
     return (voicesCache = k.concat(w));
   }
+  // Kokoro only when the voice name looks like a Kokoro one AND Kokoro is installed; otherwise Windows
   const engineFor = (o = {}) => { const v = o.voice !== undefined ? o.voice : cfg().voice; return KOKORO_VOICE.test(String(v || '')) && kokoroInstalled() ? 'kokoro' : 'windows'; };
 
   /** make the text safe and pleasant to read aloud; throws Error('blocked') / Error('Nothing to say') */
@@ -108,6 +119,7 @@ module.exports = function createTts(ctx) {
     return t;
   }
 
+  // make (or reuse) a clip for plain text. Clips are named by a hash of everything that changes the sound, so repeats are free; Kokoro ignores pitch
   function synth(text, o) {
     const c = cfg(), voice0 = o.voice !== undefined ? o.voice : c.voice, rate = o.rate != null ? o.rate : c.rate, pitch = o.pitch != null ? o.pitch : c.pitch;
     const engine = engineFor({ voice: voice0 }), voice = engine === 'kokoro' ? voice0 : (KOKORO_VOICE.test(String(voice0 || '')) ? '' : voice0);   // Kokoro voice but Kokoro missing: use the Windows default
@@ -136,6 +148,7 @@ module.exports = function createTts(ctx) {
 
   // ---------------------------------------------------------------- sound effects inside a message: "nice one [airhorn] well done"
   const SFX_RE = /\[([A-Za-z0-9]{2,12})\]/g, sfxMax = () => Math.max(1, Math.min(6, Math.round(Number(cfg().sfxMax)) || 3));
+  // drop [brackets] so unknown tags are just read as words
   const plain = (x) => String(x).replace(/[\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
   /** the message cut into pieces to speak and effects to play, in order. Effects beyond the limit are dropped; [unknown] tags are read as plain words. */
   function plan(t) {
@@ -176,8 +189,11 @@ module.exports = function createTts(ctx) {
     history.unshift(item); history.length = Math.min(history.length, 30);
     ctx.broadcast('tts', item); return item;
   }
+  // tell the overlay to skip the clip it is playing or clear its queue
   const ctl = (action) => { if (action === 'skip' || action === 'clear') ctx.broadcast('ttsctl', { action }); return { ok: true }; };
+  // only hand out names we made (40 hex + .wav), so a request cannot reach other files
   function clip(name) { return /^[a-f0-9]{40}\.wav$/.test(name) && fs.existsSync(path.join(DIR, name)) ? path.join(DIR, name) : null; }
+  // delete cached clips older than a day
   function cleanup() { try { for (const f of fs.readdirSync(DIR)) { const p = path.join(DIR, f); if (Date.now() - fs.statSync(p).mtimeMs > 24 * 3600e3) fs.unlinkSync(p); } } catch (e) { /* ignore */ } }
   // First run: fill the hidden never-read list with the starter set of slurs, hate phrases, threats and their spaced / leet / sound-alike spellings.
   setImmediate(function seedBlockList() {
@@ -187,6 +203,7 @@ module.exports = function createTts(ctx) {
   });
   cleanup(); const iv = setInterval(cleanup, 3600e3); if (iv.unref) iv.unref();
 
+  // validate and save posted settings (every value is clamped to a safe range), then return the view
   function settings(b) {
     const c = cfg(), n = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d; };
     if (b.on !== undefined) c.on = !!b.on;
@@ -202,6 +219,7 @@ module.exports = function createTts(ctx) {
     if (b.command) { const x = b.command; c.command = { on: !!x.on, level: ['everyone', 'subscriber', 'vip', 'moderator'].includes(x.level) ? x.level : 'subscriber', cost: n(x.cost, 0, 0, 1e7), userCd: n(x.userCd, 60, 0, 3600) }; }
     ctx.persist(); return view();
   }
+  // what the Setup page sees. blockWords is left out on purpose: only its size is shown
   const view = () => { const { blockWords, ...open } = cfg(); return { cfg: Object.assign(open, { blockCount: (blockWords || []).length }), history, sfx: SFX.LIST, voices: voicesCache || [], canSpeak: canWin() || kokoroInstalled(),
     kokoro: { installed: kokoroInstalled(), model: kokoroModel() ? path.basename(kokoroModel()) : '', running: !!worker } }; };
   return { cfg, speak, say, ctl, clip, voices, settings, view, clean, engineFor, stopKokoro, kokoroInstalled };

@@ -9,21 +9,26 @@ const { spawn, execFile } = require('node:child_process');
 module.exports = function createVm(ctx) {
   const log = ctx.log || (() => {}), fetchFn = ctx.fetch || globalThis.fetch, ps = ctx.ps || runPs;
   const DIR = ctx.dir || path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'VB', 'Voicemeeter');
+  // the two editions we support: official page, installer zip name pattern, program files
   const KINDS = {
     banana: { name: 'Voicemeeter Banana', page: 'https://vb-audio.com/Voicemeeter/banana.htm', zip: /VoicemeeterSetup[^"']*\.zip/i, exes: ['voicemeeterpro.exe'] },
     potato: { name: 'Voicemeeter Potato', page: 'https://vb-audio.com/Voicemeeter/potato.htm', zip: /Voicemeeter8Setup[^"']*\.zip/i, exes: ['voicemeeter8x64.exe', 'voicemeeter8.exe'] },
   };
+  // the only host anything is ever downloaded from
   const DOWNLOAD_HOST = 'download.vb-audio.com';
   const st = { banana: { state: 'idle', msg: '' }, potato: { state: 'idle', msg: '' } };   // idle | working | ready | error
   const dl = () => path.join(ctx.DATA, 'downloads');
 
+  // run PowerShell and resolve with its output
   function runPs(args, opts) {
     return new Promise((resolve, reject) => {
       execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass'].concat(args), Object.assign({ windowsHide: true, timeout: 120000, maxBuffer: 4e6 }, opts), (err, out, errOut) => (err ? reject(new Error((errOut || err.message).toString().trim().split('\n')[0])) : resolve(String(out))));
     });
   }
+  // is this edition's program in the Voicemeeter folder?
   const installed = (k) => KINDS[k].exes.some((e) => fs.existsSync(path.join(DIR, e)));
 
+  // what the Setup page shows: Windows or not, the remote DLL, and each edition's install and download state
   function status() {
     return { platform: process.platform, dll: fs.existsSync(path.join(DIR, 'VoicemeeterRemote64.dll')), banana: Object.assign({ installed: installed('banana') }, st.banana), potato: Object.assign({ installed: installed('potato') }, st.potato) };
   }
@@ -36,6 +41,7 @@ module.exports = function createVm(ctx) {
     if (new URL(hit).hostname !== DOWNLOAD_HOST) throw new Error('Unexpected download address'); return hit;
   }
 
+  // download and verify in the background; returns at once and progress shows up in st[kind]
   async function download(kind) {
     if (!KINDS[kind]) throw new Error('Pick Banana or Potato');
     if (st[kind].state === 'working') return st[kind];
@@ -57,6 +63,7 @@ module.exports = function createVm(ctx) {
     })();
     return st[kind];
   }
+  // pick the installer exe inside the unpacked zip
   function findSetup(dir) {
     let best = ''; const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) walk(f); else if (/setup.*\.exe$/i.test(e.name) && (!best || /x64/i.test(e.name))) best = f; } };
     try { walk(dir); } catch (e) { /* none */ } return best;
@@ -82,6 +89,7 @@ module.exports = function createVm(ctx) {
     r.inputs = [...new Set(r.inputs)]; r.outputs = [...new Set(r.outputs)]; return r;
   }
 
+  // run the PowerShell script that sets Voicemeeter's routing (mic and headphones)
   async function configure(b) {
     const kind = b.kind === 'potato' ? 'potato' : 'banana'; if (!installed(kind)) throw new Error(KINDS[kind].name + ' is not installed yet (install it and restart Windows first)');
     const args = ['-File', path.join(__dirname, 'media', 'vm-config.ps1'), '-Kind', kind, '-Mic', String(b.mic || ''), '-Out', String(b.out || '')]; if (b.hearMic) args.push('-HearMic');
@@ -90,7 +98,9 @@ module.exports = function createVm(ctx) {
   }
 
   // ------------------------------------------------------------------ OBS
+  // OBS audio track map {1..6: bool} with only the listed tracks on
   const TRACKS = (on) => { const t = {}; for (let i = 1; i <= 6; i++) t[String(i)] = on.includes(i); return t; };
+  // OBS sources with their track 2 state, and a guess at which ones should stay out of the VOD (by source kind)
   async function obsInputs() {
     return ctx.obs.raw(async (call) => {
       const list = (await call('GetInputList')).inputs || [], out = [];
@@ -104,11 +114,13 @@ module.exports = function createVm(ctx) {
   /** B1 (game, chat, mic) -> tracks 1+2; B2 (music) and the chosen sources (alerts, music players) -> track 1 only, so the VOD never hears them */
   async function obsApply(b) {
     const exclude = (Array.isArray(b.exclude) ? b.exclude : []).map(String), muteOld = b.muteOld !== false, steps = [];
+    // run one setup action and record how it went; a failure is reported but does not stop the rest
     const step = async (label, fn) => { try { const d = await fn(); steps.push({ ok: true, label, detail: d || '' }); return true; } catch (e) { steps.push({ ok: false, label, detail: e.message }); return false; } };
     await ctx.obs.raw(async (call) => {
       const NAMES = { b1: 'Voicemeeter B1 (game + mic)', b2: 'Voicemeeter B2 (music)' };
       const have = new Set(((await call('GetInputList')).inputs || []).map((i) => i.inputName));
       const scenes = ((await call('GetSceneList')).scenes || []).map((s) => s.sceneName);
+      // [id, Voicemeeter device name to find in OBS, audio tracks]
       for (const [key, want, tracks] of [['b1', 'Voicemeeter Out B1', [1, 2]], ['b2', 'Voicemeeter Out B2', [1]]]) {
         const name = NAMES[key];
         await step('Add ' + name, async () => {
@@ -125,18 +137,23 @@ module.exports = function createVm(ctx) {
       }
       for (const n of exclude) await step('Keep "' + n + '" out of the VOD', async () => { await call('SetInputAudioTracks', { inputName: n, inputAudioTracks: TRACKS([1]) }); return 'track 1 only'; });
       if (muteOld && steps.filter((s) => s.ok && /^Add/.test(s.label)).length === 2) {
+        // mute OBS's own desktop and mic inputs so nothing is heard twice
         const sp = await call('GetSpecialInputs').catch(() => ({}));
         for (const n of [sp.desktop1, sp.desktop2, sp.mic1].filter(Boolean)) await step('Mute the old "' + n + '" (Voicemeeter replaces it)', async () => { await call('SetInputMute', { inputName: n, inputMuted: true }); return 'muted'; });
       }
+      // per-source audio tracks only exist in OBS's Advanced output mode
       await step('Switch OBS to Advanced output mode', async () => { await call('SetProfileParameter', { parameterCategory: 'Output', parameterName: 'Mode', parameterValue: 'Advanced' }); return 'takes effect after OBS restarts'; });
     });
     return { steps };
   }
 
   // ------------------------------------------------------------------ live volumes (Voicemeeter bus gains), through one long-running helper
+  // the bridge: one long-running PowerShell helper that talks to Voicemeeter; waiters are answered in order
   let br = null, brBuf = '', brWait = [], brIdle = null, chain = Promise.resolve();
   const spawnFn = ctx.spawn || spawn;
+  // kill the helper and fail anything still waiting
   function bridgeStop() { const c = br; br = null; clearTimeout(brIdle); if (c) { try { c.stdin.end(); c.kill(); } catch (e) { /* gone */ } } for (const w of brWait.splice(0)) w.rej(new Error('Voicemeeter helper stopped')); }
+  // start the helper if it is not running; it answers with one JSON line per request
   function bridgeStart() {
     if (br) return; brBuf = '';
     const c = spawnFn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'media', 'vm-bridge.ps1')], { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] }); br = c;
@@ -153,6 +170,7 @@ module.exports = function createVm(ctx) {
   }
   /** { ok, kind, local, b1, b2 } in dB, or { ok: false, error } when Voicemeeter is not installed or not running */
   async function volumes() { if (!installed('banana') && !installed('potato') && !ctx.spawn) return { ok: false, error: 'Voicemeeter is not installed' }; try { return await ask({ op: 'get' }); } catch (e) { return { ok: false, error: e.message }; } }
+  // set a bus gain in dB; which = local | b1 | b2
   async function setVolume(which, db) { if (!['local', 'b1', 'b2'].includes(which)) throw new Error('Unknown volume'); const r = await ask({ op: 'set', which, db: Number(db) }); if (!r.ok) throw new Error(r.error || 'Could not set the volume'); return r; }
 
   return { volumes, setVolume, stop: bridgeStop, status, download, install, devices, configure, obsInputs, obsApply, resolveUrl };

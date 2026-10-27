@@ -7,7 +7,9 @@
 const crypto = require('node:crypto');
 
 module.exports = function createWheel(ctx) {
+  // pick/rand use crypto for fair results; both (and the timers) can be swapped out by the tests
   const pick = ctx.pick || ((n) => crypto.randomInt(n)), rand = ctx.rand || (() => crypto.randomInt(1e6) / 1e6), setT = ctx.setTimeout || setTimeout, clearT = ctx.clearTimeout || clearTimeout;
+  // how long the overlay spins, how long it then shows the result, and the most options allowed
   const SPIN_MS = 7000, HOLD_MS = 5200, MAX = 16;
   let running = null;   // { timer }
 
@@ -19,6 +21,7 @@ module.exports = function createWheel(ctx) {
     raw.forEach((x, i) => { const text = textOf(x), w = Number(Array.isArray(pct) ? pct[i] : x && typeof x === 'object' ? x.pct : NaN); if (text) out.push({ text, w: Number.isFinite(w) && w >= 0 ? w : NaN }); });
     return out.slice(0, MAX);
   }
+  // just the cleaned-up option texts
   const clean = (v) => entries(v).map((e) => e.text);
   /** the percentages as fractions that add up to 1: entries without one share what is left of 100%; with none given everything is equal. An option at 0% is left off the wheel */
   function shares(list) {
@@ -33,7 +36,9 @@ module.exports = function createWheel(ctx) {
     const all = entries(opts && opts.options, opts && opts.pct), f = shares(all), list = all.filter((_, i) => f[i] > 0), fr = f.filter((x) => x > 0);
     if (list.length < 2) return { error: 'The wheel needs at least 2 options.' };
     const options = list.map((e) => e.text), pcts = fr.map((x) => Math.round(x * 1e4) / 1e4);
+    // weighted pick: walk along the slices until the random point falls inside one
     let u = rand() * fr.reduce((a, b) => a + b, 0), index = 0; while (index < fr.length - 1 && u >= fr[index]) { u -= fr[index]; index++; }
+    // jitter only moves where inside the slice the pointer stops; turns is how many full rotations the overlay shows
     const title = String((opts && opts.title) || '').trim().slice(0, 40), jitter = (rand() - 0.5) * 0.7, turns = 5 + pick(3);
     ctx.broadcast('arena', { type: 'wheel:spin', title, options, pcts, index, jitter, turns, spinMs: SPIN_MS, holdMs: HOLD_MS });
     const slot = { timer: null }; running = slot;
@@ -44,6 +49,7 @@ module.exports = function createWheel(ctx) {
     const free = setT(() => { if (running === slot) running = null; }, SPIN_MS + HOLD_MS + 600); if (free && free.unref) free.unref();
     return { ok: true, winner: options[index], index, options, pcts };
   }
+  // stop a running spin: the overlay is told to clear and the wheel is free again
   function cancel() { if (!running) return { error: 'The wheel is not spinning.' }; clearT(running.timer); running = null; ctx.broadcast('arena', { type: 'stop' }); return { ok: true }; }
   return { spin, cancel, clean, entries, shares, active: () => !!running, MAX };
 };

@@ -12,6 +12,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// 7TV addresses: v3 GraphQL (add / remove emotes), v4 GraphQL (paints and badges), v3 REST (reads)
 const GQL = 'https://7tv.io/v3/gql', GQL4 = 'https://7tv.io/v4/gql', REST = 'https://7tv.io/v3';
 const FLAG_PRIVATE = 1, FLAG_SEXUAL = 1 << 16, FLAG_EPILEPSY = 1 << 17, FLAG_EDGY = 1 << 18, FLAG_TWITCH_DISALLOWED = 1 << 24;   // 7TV's emote flag bits (zero width is 256 and is fine)
 const DAY = 86400000;
@@ -21,20 +22,26 @@ function parseEmoteId(text) {
   const m = String(text || '').match(/(?:7tv\.app\/emotes|cdn\.7tv\.app\/emote)\/([0-9A-Za-z]{24,26})\b/i);
   return m ? m[1] : '';
 }
+// BetterTTV links are only recognised so they can be turned away with a clear message
 const isBttv = (text) => /betterttv\.com\/emotes\//i.test(String(text || ''));
 
 module.exports = function createSevenTV(ctx) {
   const now = ctx.now || Date.now, log = ctx.log || (() => {}), doFetch = ctx.fetch || ((...a) => fetch(...a)), FILE = ctx.file;
+  // S: saved settings (data/emotes7tv.json) with the 7TV token and the list of borrowed emotes (active)
   let S = { token: '', days: 30, max: 20, blockEdgy: true, rewardId: '', active: [], paints: true, badges: true };
   try { S = Object.assign(S, JSON.parse(fs.readFileSync(FILE, 'utf8'))); } catch (e) { /* first run */ }
+  // write the settings; the token only ever lives in this file
   const save = () => { try { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(S, null, 2)); } catch (e) { log('7tv save failed:', e.message); } };
+  // a whole number clamped into lo..hi, or d when it is not a number
   const num = (v, d, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : d; };
 
+  // public 7TV read
   async function rest(p) {
     const r = await doFetch(REST + p, { headers: { Accept: 'application/json' } });
     if (!r.ok) { const e = new Error(r.status === 404 ? 'not found' : '7TV answered HTTP ' + r.status); e.status = r.status; throw e; }
     return r.json();
   }
+  // GraphQL call; auth adds the streamer's token. 7TV can report errors in the body, so those are checked before the HTTP status
   async function gql(query, variables, auth) {
     const headers = { 'Content-Type': 'application/json' }; if (auth) headers.Authorization = 'Bearer ' + S.token;
     const r = await doFetch(GQL, { method: 'POST', headers, body: JSON.stringify({ query, variables }) });
@@ -59,6 +66,7 @@ module.exports = function createSevenTV(ctx) {
     const set = u.emote_set || {}; return { id: u.emote_set_id, name: set.name || '', capacity: set.capacity || 0, emotes: (set.emotes || []).map((x) => ({ id: x.id, name: x.name })) };
   }
 
+  // 7TV emote names must be unique in a set and use few characters: clean it and add a number when taken
   const freeName = (name, taken) => {
     let n = String(name).replace(/[^-_A-Za-z():0-9]/g, '').slice(0, 90) || 'emote', k = 1, out = n;
     while (taken.has(out.toLowerCase())) out = n + (++k); return out;
@@ -81,6 +89,7 @@ module.exports = function createSevenTV(ctx) {
     if (days > 0) await expireDue().catch(() => {});
     if (days > 0 && S.active.length >= S.max) throw new Error('there are already ' + S.max + ' borrowed emotes: try again when one expires');
     if (S.active.some((a) => a.emoteId === id)) throw new Error('that emote is already added');
+    // all checks happen before anything is changed on 7TV
     const emote = await lookup(id), set = await channelSet();
     if (set.emotes.some((x) => x.id === id)) throw new Error('that emote is already in the channel');
     if (set.capacity && set.emotes.length >= set.capacity) throw new Error('the 7TV emote set is full');
@@ -122,6 +131,7 @@ module.exports = function createSevenTV(ctx) {
     S.active = S.active.filter((a) => a.emoteId !== emoteId); save(); return { ok: true };
   }
 
+  // take one borrowed emote out of the 7TV set and off our list
   async function removeRecord(rec) {
     await gql('mutation($set: ObjectID!, $id: ObjectID!) { emoteSet(id: $set) { emotes(id: $id, action: REMOVE) { id } } }', { set: rec.setId, id: rec.emoteId }, true);
     S.active = S.active.filter((a) => a !== rec); save(); log('7tv: removed ' + rec.name);
@@ -134,6 +144,7 @@ module.exports = function createSevenTV(ctx) {
     }
     return n;
   }
+  // remove a borrowed emote right now instead of waiting for its time
   async function removeNow(emoteId) {
     const rec = S.active.find((a) => a.emoteId === emoteId); if (!rec) throw new Error('that emote is not on the list');
     if (!S.token) throw new Error('the 7TV login is not set up yet'); await removeRecord(rec); return { ok: true };
@@ -147,6 +158,7 @@ module.exports = function createSevenTV(ctx) {
     return { user: d.actor.username, set: set.name, emotes: set.emotes.length, capacity: set.capacity };
   }
 
+  // settings from the Setup page, clamped to sane ranges; the token is cleaned of 'Bearer' and quotes
   function configure(b) {
     b = b || {};
     if (typeof b.token === 'string' && b.token.trim()) S.token = b.token.trim().replace(/^Bearer\s+/i, '').replace(/^"|"$/g, '').slice(0, 4000);
@@ -157,6 +169,7 @@ module.exports = function createSevenTV(ctx) {
     if (b.badges !== undefined) { S.badges = !!b.badges; PAINTS.clear(); }
     save(); return view();
   }
+  // what the page may see: never the token
   const view = () => ({ paints: S.paints !== false, badges: S.badges !== false, hasToken: !!S.token, days: S.days, max: S.max, blockEdgy: S.blockEdgy, rewardId: S.rewardId,
     active: S.active.map((a) => ({ emoteId: a.emoteId, name: a.name, by: a.by, animated: !!a.animated, addedAt: a.addedAt, expiresAt: a.expiresAt, daysLeft: Math.max(0, Math.ceil((a.expiresAt - now()) / DAY)) })).sort((x, y) => x.expiresAt - y.expiresAt) });
 
@@ -164,9 +177,13 @@ module.exports = function createSevenTV(ctx) {
   // A 7TV "paint" is the colour, gradient, picture and glow a 7TV user has on their name. The chat overlay and the mod dock ask for the paint of every chatter
   // (cached for half an hour) and draw it the way 7TV's own extension does: the layers are CSS backgrounds clipped to the text, the shadows are drop shadows.
   const PAINTS = new Map(), PAINT_TTL = 30 * 60000, NO_PAINT_TTL = 10 * 60000;
+  // '#rrggbb' or '#rrggbbaa' -> css rgba(), or null when it is not a colour
   const rgba = (hex) => { const m = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(String(hex || '')); if (!m) return null; const n = parseInt(m[1], 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + (m[2] ? Math.round(parseInt(m[2], 16) / 2.55) / 100 : 1) + ')'; };
+  // a number rounded to 3 places for CSS, or d when it is not a number
   const fx = (v, d) => (Number.isFinite(Number(v)) ? Math.round(Number(v) * 1000) / 1000 : d);
+  // gradient colour stops as 'colour position%'; a single colour is doubled because a CSS gradient needs two
   function stopsCss(stops) { const out = (stops || []).map((p) => { const c = rgba(p.color && p.color.hex); return c ? c + ' ' + Math.round(fx(p.at, 0) * 10000) / 100 + '%' : ''; }).filter(Boolean); return out.length >= 2 ? out.join(', ') : out.length === 1 ? out[0] + ', ' + out[0] : ''; }
+  // only 7TV's own image server is allowed in paint pictures
   const cdnUrl = (u) => (/^https:\/\/cdn\.7tv\.app\/[A-Za-z0-9_\/.\-]+$/.test(String(u || '')) ? String(u) : '');
   /** 7TV paint data -> one CSS string (only values we validated ourselves ever end up in it), or '' for a paint we cannot draw */
   function paintCss(p) {
@@ -182,10 +199,12 @@ module.exports = function createSevenTV(ctx) {
     const shadows = ((p.data && p.data.shadows) || []).map((s) => { const c = rgba(s.color && s.color.hex); return c ? 'drop-shadow(' + fx(s.offsetX, 0) + 'px ' + fx(s.offsetY, 0) + 'px ' + Math.max(0, fx(s.blur, 0)) + 'px ' + c + ')' : ''; }).filter(Boolean);
     return 'background-image:' + layers.join(', ') + ';background-size:100% 100%;background-repeat:no-repeat;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent' + (shadows.length ? ';filter:' + shadows.join(' ') : '');
   }
+  // the 7TV v4 query for a Twitch user's active paint and badge
   const PAINT_QUERY = 'query($id: String!) { users { userByConnection(platform: TWITCH, platformId: $id) { style { activeBadge { name description images { url mime scale frameCount } } activePaint { id name data { layers { opacity ty { __typename ... on PaintLayerTypeSingleColor { color { hex } } ... on PaintLayerTypeLinearGradient { angle repeating stops { at color { hex } } } ... on PaintLayerTypeRadialGradient { repeating shape stops { at color { hex } } } ... on PaintLayerTypeImage { images { url mime scale frameCount } } } } shadows { color { hex } offsetX offsetY blur } } } } } } }';
   /** the paint of a Twitch user: { name, style } or null (no 7TV account, no paint, or paints switched off) */
   function paintFor(twitchId) {
     const id = String(twitchId || ''); if ((!S.paints && !S.badges) || !/^\d{1,12}$/.test(id)) return Promise.resolve(null);
+    // answers are cached; hit.ttl is shortened below for 'no paint' (10 min) and errors (1 min), so a failing lookup is not repeated every message
     const hit = PAINTS.get(id); if (hit && now() - hit.t < hit.ttl) return hit.p;
     const p = (async () => {
       try {

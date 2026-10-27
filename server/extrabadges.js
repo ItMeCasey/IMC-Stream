@@ -6,14 +6,18 @@
  * services' own image servers are ever passed on.
  */
 const BTTV_URL = 'https://api.betterttv.net/3/cached/badges', FFZ_URL = 'https://api.frankerfacez.com/v1/badges', DAY = 86400000;
+// only badge pictures from the services' own image servers are accepted (the lists come from outside, so they are checked)
 const okBttv = (u) => /^https:\/\/cdn\.betterttv\.net\/[A-Za-z0-9_\/.\-]+$/.test(String(u || ''));
 const okFfz = (u) => /^https:\/\/cdn\.frankerfacez\.com\/badge\/\d+\/[124]$/.test(String(u || ''));
 
 module.exports = function createExtraBadges(ctx) {
   const now = ctx.now || Date.now, log = ctx.log || (() => {}), doFetch = ctx.fetch || ((...a) => fetch(...a));
+  // bttv: Twitch user id -> badges; ffzDefs: badge id -> badge; ffz: login -> badge ids
   let bttv = new Map(), ffzDefs = new Map(), ffz = new Map(), loadedAt = 0, loading = null;
 
+  // GET a JSON list; anything but HTTP 200 throws
   async function getJson(url) { const r = await doFetch(url, { headers: { Accept: 'application/json' } }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
+  // download both lists; if one service is down the other still works and its old list is kept
   async function load() {
     const [b, f] = await Promise.allSettled([getJson(BTTV_URL), getJson(FFZ_URL)]);
     if (b.status === 'fulfilled' && Array.isArray(b.value)) {
@@ -24,6 +28,7 @@ module.exports = function createExtraBadges(ctx) {
     if (f.status === 'fulfilled' && f.value && Array.isArray(f.value.badges)) {
       const defs = new Map(), users = new Map();
       for (const x of f.value.badges) { const u = x.urls && x.urls['2'] || x.image; if (okFfz(u)) defs.set(String(x.id), { provider: 'FrankerFaceZ', title: String(x.title || x.name || 'FrankerFaceZ badge').slice(0, 80), url: u, bg: /^#[0-9a-f]{3,8}$/i.test(String(x.color || '')) ? x.color : '' }); }
+      // FFZ lists the chatters per badge id; flip that into login -> badge ids
       for (const [id, names] of Object.entries(f.value.users || {})) if (defs.has(id) && Array.isArray(names)) for (const n of names) { const k = String(n).toLowerCase(); if (!users.has(k)) users.set(k, []); users.get(k).push(id); }
       ffzDefs = defs; ffz = users;
     } else log('FFZ badges not loaded:', f.reason && f.reason.message);
